@@ -65,21 +65,27 @@ namespace Streams
 
 	#ifndef WIN32
 	
-	//! Stream with a file descriptor
-	class FileDescriptorStream: public Stream
+	//! Stream with a file descriptor that is selectable
+	class SelectableStream: public Stream
 	{
 	public:
 		int fd; //!< associated file descriptor
 		string targetName; //!< name of the target
 		
-		FileDescriptorStream() : fd(-1) { }
+		//! Constructor. The file descriptor is initially invalid and will be set by caller
+		SelectableStream() : fd(-1) { }
+		
+		~SelectableStream()
+		{
+			if (fd)
+				close(fd);
+		}
+		
 		virtual std::string getTargetName()	{ return targetName; }
 	};
 	
-	
-	
 	//! Socket, uses send/recv for read/write
-	class SocketStream: public FileDescriptorStream
+	class SocketStream: public SelectableStream
 	{
 	protected:
 		#ifndef TCP_CORK
@@ -107,11 +113,8 @@ namespace Streams
 		
 		virtual ~SocketStream()
 		{
-			if (fd < 0)
-				throw ConnectionClosed(this);
-			
-			shutdown(fd, SHUT_RDWR);
-			close(fd);
+			if (fd)
+				shutdown(fd, SHUT_RDWR);
 			
 			#ifndef TCP_CORK
 			free(buffer);
@@ -206,6 +209,83 @@ namespace Streams
 			while (left)
 			{
 				ssize_t len = recv(fd, ptr, left, 0);
+				
+				if (len < 0)
+				{
+					close(fd);
+					fd = -1;
+					throw InputOutputError(this);
+				}
+				else if (len == 0)
+				{
+					close(fd);
+					fd = -1;
+					throw ConnectionClosed(this);
+				}
+				else
+				{
+					ptr += len;
+					left -= len;
+				}
+			}
+		}
+	};
+	
+	//! File descriptor, uses send/recv for read/write
+	class FileDescriptorStream: public SelectableStream
+	{
+	public:
+		virtual void write(const void *data, const size_t size)
+		{
+			if (fd < 0)
+				throw ConnectionClosed(this);
+			
+			const char *ptr = (const char *)data;
+			size_t left = size;
+			
+			while (left)
+			{
+				ssize_t len = ::write(fd, ptr, left);
+				
+				if (len < 0)
+				{
+					close(fd);
+					fd = -1;
+					throw InputOutputError(this);
+				}
+				else if (len == 0)
+				{
+					close(fd);
+					fd = -1;
+					throw ConnectionClosed(this);
+				}
+				else
+				{
+					ptr += len;
+					left -= len;
+				}
+			}
+		}
+		
+		virtual void flush()
+		{
+			if (fd < 0)
+				throw ConnectionClosed(this);
+			
+			fdatasync(fd);
+		}
+		
+		virtual void read(void *data, size_t size)
+		{
+			if (fd < 0)
+				throw ConnectionClosed(this);
+		
+			char *ptr = (char *)data;
+			size_t left = size;
+			
+			while (left)
+			{
+				ssize_t len = ::read(fd, ptr, left);
 				
 				if (len < 0)
 				{
