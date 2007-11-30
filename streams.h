@@ -45,7 +45,7 @@
 #include <list>
 
 /*!	\file streams.h
-	\brief Public interface of Streams, a cross-platform stream abstraction library
+	\brief Public interface of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
 */
 
 /**
@@ -144,16 +144,38 @@ namespace Streams
 		virtual std::string getTargetName() = 0;
 	};
 	
-	//! An exception during a stream input/output operation
-	struct InputOutputError
+	//! An exception related to a stream
+	struct StreamException
 	{
 		/**
 			Constructor.
 			
 			\param stream faulty stream
 		*/
-		InputOutputError(Stream *stream) : stream(stream) { }
+		StreamException(Stream *stream) : stream(stream) { }
 		Stream *stream; //!< faulty stream
+	};
+	
+	//! An input/output operation was attempted on a closed stream
+	struct ConnectionClosed: StreamException
+	{
+		/**
+			Constructor.
+			
+			\param stream faulty stream
+		*/
+		ConnectionClosed(Stream *stream): StreamException(stream) { }
+	};
+	
+	//! An input/output operation on a stream produced an error
+	struct InputOutputError: StreamException
+	{
+		/**
+			Constructor.
+			
+			\param stream faulty stream
+		*/
+		InputOutputError(Stream *stream): StreamException(stream) { }
 	};
 	
 	//! An exception during a stream creation (connection to target)
