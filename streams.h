@@ -152,7 +152,7 @@ namespace Streams
 			
 			\param stream faulty stream
 		*/
-		StreamErrorException(Stream *stream) : stream(stream) { }
+		InputOutputError(Stream *stream) : stream(stream) { }
 		Stream *stream; //!< faulty stream
 	};
 	
@@ -246,7 +246,7 @@ namespace Streams
 	
 	public:
 		//! Destructor, closes all connections.
-		virtual ~Client();
+		virtual ~Server();
 		
 		/**
 			Listens for incoming connections on a target.
