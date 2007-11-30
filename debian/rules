@@ -5,7 +5,7 @@ build:
 
 clean:
 	$(MAKE) distclean
-	rm -rf debian/tmp
+	rm -rf debian/files debian/substvars debian/tmp
 
 binary: binary-arch binary-indep
 
@@ -18,6 +18,7 @@ binary-arch: build
 	install -d debian/tmp/usr/lib
 	install -d debian/tmp/usr/share/doc/libdashel
 	strip --strip-unneeded -R .note -R .comment libdashel.a
+	cp changelog debian/tmp/usr/share/doc/libdashel/changelog
 	cp debian/changelog debian/tmp/usr/share/doc/libdashel/changelog.debian
 	cp debian/copyright debian/tmp/usr/share/doc/libdashel
 	cp streams.h debian/tmp/usr/include/dashel
