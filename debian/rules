@@ -1,0 +1,29 @@
+#!/usr/bin/make -f
+
+build:
+	$(MAKE)
+
+clean:
+	$(MAKE) distclean
+	rm -rf debian/tmp
+
+binary: binary-arch binary-indep
+
+binary-indep:
+
+binary-arch: build
+	rm -rf debian/tmp
+	install -d debian/tmp/DEBIAN
+	install -d debian/tmp/usr/include/dashel
+	install -d debian/tmp/usr/lib
+	install -d debian/tmp/usr/share/doc/libdashel
+	strip --strip-unneeded -R .note -R .comment libdashel.a
+	cp debian/changelog debian/tmp/usr/share/doc/libdashel/changelog.debian
+	cp debian/copyright debian/tmp/usr/share/doc/libdashel
+	cp streams.h debian/tmp/usr/include/dashel
+	cp libdashel.a debian/tmp/usr/lib
+	cp libdasheld.a debian/tmp/usr/lib
+	chown -R root.root debian/tmp
+	chmod -R o-s,go=u,go-ws debian/tmp
+	dpkg-gencontrol
+	dpkg --build debian/tmp ..

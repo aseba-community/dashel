@@ -59,7 +59,7 @@
 	\section IntroSec Introduction
 	
 	DaSHEL is a cross-platform DAta Stream Helper Encapsulation Library.
-	It provides a unified access to TCP/IP,	serial port, and files streams.
+	It provides a unified access to TCP/IP, serial port, and files streams.
 	It also allows a server application to wait for any activity
 	on any combination of those streams.
 	
