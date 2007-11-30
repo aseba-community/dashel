@@ -55,6 +55,7 @@
 	#include <winsock2.h>
 #endif
 
+
 /*!	\file streams.cpp
 	\brief Implementation of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
 */
@@ -62,6 +63,15 @@
 namespace Streams
 {
 	using namespace std;
+	
+	//! Asserts a dynamic cast.	Similar to the one in boost/cast.hpp
+	template<typename Derived, typename Base>
+	inline Derived polymorphic_downcast(Base *base)
+	{
+		Derived derived = dynamic_cast<Derived>(base);
+		assert(derived);
+		return derived;
+	}
 
 	#ifndef WIN32
 	
@@ -83,6 +93,7 @@ namespace Streams
 		
 		virtual std::string getTargetName()	{ return targetName; }
 	};
+	
 	
 	//! Socket, uses send/recv for read/write
 	class SocketStream: public SelectableStream
@@ -231,6 +242,7 @@ namespace Streams
 		}
 	};
 	
+	
 	//! File descriptor, uses send/recv for read/write
 	class FileDescriptorStream: public SelectableStream
 	{
@@ -307,6 +319,118 @@ namespace Streams
 			}
 		}
 	};
+	
+	//! Global variables to signal SIGTERM.
+	bool sigTermReceived = false;
+	
+	//! Called when SIGTERM arrives, halts all running clients or servers in all threads
+	void termHandler(int t)
+	{
+		sigTermReceived = true;
+	}
+	
+	//! Class to setup SIGTERM handler
+	class SigTermHandlerSetuper
+	{
+	public:
+		//! Private constructor that redirects SIGTERM
+		SigTermHandlerSetuper()
+		{
+			signal(SIGTERM, termHandler);
+		}
+	} staticSigTermHandlerSetuper;
+	// TODO: check if this works in real life
+	
+	
+	Client::Client(const std::string &target) :
+		stream(0),
+		isRunning(false)
+	{
+		// TODO: construct client
+	}
+	
+	Client::~Client()
+	{
+		delete stream;
+	}
+	
+	void Client::run()
+	{
+		sigTermReceived = false;
+		isRunning = true;
+		while (!sigTermReceived && isRunning)
+			step(-1);
+	}
+	
+	bool Client::step(int timeout)
+	{
+		// locally overload the object by a pointer to its physical class instead of its interface
+		SelectableStream* stream = polymorphic_downcast<SelectableStream*>(stream);
+		if (stream->fd < 0)
+			return false;
+		
+		// setup file descriptor sets
+		fd_set rfds;
+		int nfds = stream->fd;
+		FD_ZERO(&rfds);
+		FD_SET(stream->fd, &rfds);
+		
+		// do select
+		int ret;
+		if (timeout < 0)
+		{
+			ret = select(nfds+1, &rfds, NULL, NULL, NULL);
+		}
+		else
+		{
+			struct timeval t;
+			t.tv_sec = 0;
+			t.tv_usec = timeout;
+			ret = select(nfds+1, &rfds, NULL, NULL, &t);
+		}
+		
+		// check for error
+		if (ret < 0)
+			throw SynchronizationError();
+		
+		// check if data is available. If so, get it
+		if (FD_ISSET(stream->fd, &rfds))
+		{
+			try
+			{
+				incomingData(stream);
+			}
+			catch (StreamException e)
+			{
+				connectionClosed(stream);
+				isRunning = false;
+			}
+			return true;
+		}
+		else
+			return false;
+	}
+	
+	
+	Server::~Server()
+	{
+		// TODO
+	}
+	
+	void Server::listen(const std::string &target)
+	{
+		// TODO
+	}
+	
+	void Server::run(void)
+	{
+		// TODO
+	}
+	
+	bool Server::step(int timeout)
+	{
+		// TODO
+	}
 	
 	#else
 	

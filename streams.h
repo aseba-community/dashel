@@ -190,6 +190,11 @@ namespace Streams
 		std::string target; //!< faulty target
 	};
 	
+	//! The system-specific synchronization primitive produced an error
+	struct SynchronizationError
+	{
+	};
+	
 	/**
 		A client that connects to a target.
 		To create a client connection, users of the library have to subclass Client
@@ -199,6 +204,7 @@ namespace Streams
 	{
 	protected:
 		Stream *stream; //!< stream to the target
+		bool isRunning; //!< true while inside run()
 		
 	public:
 		/**
