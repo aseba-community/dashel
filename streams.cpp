@@ -81,189 +81,8 @@ namespace Streams
 		return derived;
 	}
 	
-	//! Parse target names.
-	//! Instanciate an object of this class with the target description to get its type and parameters
-	class TargetNameParser
-	{
-	protected:
-		//! An interface for a target parameter
-		struct TargetParameter
-		{
-			string name; //!< name of the parameter
-			string value; //!< name of the parameter
-			bool mandatory; //!< is it mandatory to be filled
-			bool filled; //!< was the parameter filled by the target description
-			
-			//! Virtual destructor, call child destructors
-			virtual ~TargetParameter() { }
-			
-			//! Return the value is a specific type
-			template<typename V>
-			V getValue()
-			{
-				istringstream iss(value);
-				V v;
-				iss >> v;
-				return v;
-			}
-			
-			//! Constructor, with no default value
-			TargetParameter(string name) :
-				name(name),
-				mandatory(true),
-				filled(false)
-			{ }
-			
-			//! Constructor, with a default value
-			template<typename T>
-			TargetParameter(string name, T defaultValue) :
-				name(name),
-				mandatory(false),
-				filled(false)
-			{
-				ostringstream oss;
-				oss << defaultValue;
-				value = oss.str();
-			}
-			
-			//! Set a value
-			void setValue(const string& value)
-			{
-				this->value = value;
-				filled = true;
-			}
-		};
-		
-		//! A vector of parameters. Ordered so that the parser can fill anonymous ones
-		struct TargetParameters:public vector<TargetParameter *>
-		{
-			//! Returns a parameter of a specific name. Returns 0 if unknown
-			TargetParameter* getParameter(const string& name)
-			{
-				for (size_t parameter = 0; parameter < size(); ++parameter)
-					if ((*this)[parameter]->name == name)
-						return (*this)[parameter];
-				return 0;
-			}
-			
-			//! Returns a parameter of a specific name. Abort if unknown
-			TargetParameter* getParameterForced(const string& name)
-			{
-				TargetParameter* parameters = getParameter(name);
-				if (parameters)
-					return parameters;
-				else
-					abort();
-			}
-			
-			//! Set a specific parameter
-			void setParameter(const string& name, const string& value, const string& target)
-			{
-				for (size_t parameter = 0; parameter < size(); ++parameter)
-					if ((*this)[parameter]->name == name)
-					{
-						(*this)[parameter]->setValue(value);
-						return;
-					}
-				throw InvalidTargetDescription(target);
-			}
-			
-			//! Runs through parameters, and throw InvalidTarget if a mandatory one is not filled
-			void checkMandatoryParameters(const string& target)
-			{
-				for (size_t parameter = 0; parameter < size(); ++parameter)
-					if ((*this)[parameter]->mandatory && !(*this)[parameter]->filled)
-						throw InvalidTargetDescription(target);
-			}
-		};
-	
-	public:
-		//! A map of type to parameters
-		typedef map<string, TargetParameters> TargetsTypes;
-		
-		TargetsTypes targetsTypes; //!< known target types and parameter
-		string type; //!< actual target type
-		TargetParameters* parameters; //!< actual target parameters
-		
-	public:
-		//! Constructor, fills parameters and parse target description. Throws an InvalidTarget on parse error
-		TargetNameParser(const string &target)
-		{
-			targetsTypes["file"].push_back(new TargetParameter("name"));
-			targetsTypes["file"].push_back(new TargetParameter("mode", "read"));
-			
-			targetsTypes["tcp"].push_back(new TargetParameter("address"));
-			targetsTypes["tcp"].push_back(new TargetParameter("port"));
-			
-			targetsTypes["ser"].push_back(new TargetParameter("port", 1));
-			targetsTypes["ser"].push_back(new TargetParameter("baud", 115200));
-			targetsTypes["ser"].push_back(new TargetParameter("stop", 1));
-			targetsTypes["ser"].push_back(new TargetParameter("parity", "none"));
-			targetsTypes["ser"].push_back(new TargetParameter("fc", "none"));
-		}
-		
-		//! Destructor, deletes all parameters
-		~TargetNameParser()
-		{
-			for (TargetsTypes::iterator targetType = targetsTypes.begin(); targetType != targetsTypes.end(); ++targetType)
-			{
-				for (size_t parameter = 0; parameter < targetType->second.size(); ++parameter)
-					delete targetType->second[parameter];
-			}
-		}
-		
-		//! Parse target description. Throws an InvalidTarget on parse error
-		void parse(const string &target)
-		{
-			string::size_type colonPos;
-			
-			// get type
-			colonPos = target.find_first_of(':');
-			type = target.substr(0, colonPos);
-			
-			// check if it exists, get parameters
-			TargetsTypes::iterator typeIt = targetsTypes.find(type);
-			if (typeIt == targetsTypes.end()) throw InvalidTargetDescription(target);
-			parameters = &typeIt->second;
-			
-			// iterate on all parameters
-			int implicitParamPos = 0; // position in array when using implicit parameters, as soon as we see an explicit one, this is set to -1 and implicit parameters must not be used anymore
-			while (colonPos != string::npos)
-			{
-				string::size_type nextColon = target.find_first_of(':', colonPos);
-				string::size_type equalPos = target.find_first_of('=', colonPos);
-				
-				if (equalPos == string::npos)
-				{
-					string::size_type valueLength = nextColon == string::npos ? string::npos : nextColon - colonPos - 1;
-					
-					// implicit parameter
-					if ((implicitParamPos < 0) || (implicitParamPos >= parameters->size()))
-						throw InvalidTargetDescription(target);
-					(*parameters)[implicitParamPos++]->setValue(target.substr(colonPos+1, valueLength));
-				}
-				else
-				{
-					string::size_type nameLength = equalPos - colonPos - 1;
-					string::size_type valueLength = nextColon == string::npos ? string::npos : nextColon - equalPos - 1;
-					
-					// explicit parameter, extract
-					parameters->setParameter(
-						target.substr(colonPos+1, nameLength),
-						target.substr(equalPos+1, valueLength),
-						target
-					);
-					
-					// we cannot use implicit parameters any more
-					implicitParamPos = -1;
-				}
-				colonPos = nextColon;
-			}
-			
-			// make sure that everything that must be filled is filled
-			parameters->checkMandatoryParameters(target);
-		}
-	};
+	//! Global variables to signal the continuous run must terminates.
+	bool runTerminationReceived = false;
 
 	#ifndef WIN32
 	
@@ -516,13 +335,12 @@ namespace Streams
 		}
 	};
 	
-	//! Global variables to signal SIGTERM.
-	bool sigTermReceived = false;
+	
 	
 	//! Called when SIGTERM arrives, halts all running clients or servers in all threads
 	void termHandler(int t)
 	{
-		sigTermReceived = true;
+		runTerminationReceived = true;
 	}
 	
 	//! Class to setup SIGTERM handler
@@ -537,44 +355,247 @@ namespace Streams
 	} staticSigTermHandlerSetuper;
 	// TODO: check if this works in real life
 	
+	//! Parse target names.
+	//! Instanciate an object of this class with the target description to get its type and parameters
+	class TargetNameParser
+	{
+	protected:
+		//! An interface for a target parameter
+		struct TargetParameter
+		{
+			string name; //!< name of the parameter
+			string value; //!< name of the parameter
+			bool mandatory; //!< is it mandatory to be filled
+			bool filled; //!< was the parameter filled by the target description
+			
+			//! Virtual destructor, call child destructors
+			virtual ~TargetParameter() { }
+			
+			//! Return the value is a specific type
+			template<typename V>
+			V getValue()
+			{
+				istringstream iss(value);
+				V v;
+				iss >> v;
+				return v;
+			}
+			
+			//! Constructor, with no default value
+			TargetParameter(string name) :
+				name(name),
+				mandatory(true),
+				filled(false)
+			{ }
+			
+			//! Constructor, with a default value
+			template<typename T>
+			TargetParameter(string name, T defaultValue) :
+				name(name),
+				mandatory(false),
+				filled(false)
+			{
+				ostringstream oss;
+				oss << defaultValue;
+				value = oss.str();
+			}
+			
+			//! Set a value
+			void setValue(const string& value)
+			{
+				this->value = value;
+				filled = true;
+			}
+		};
+		
+		//! A vector of parameters. Ordered so that the parser can fill anonymous ones
+		struct TargetParameters:public vector<TargetParameter *>
+		{
+			//! Returns a parameter of a specific name. Returns 0 if unknown
+			TargetParameter* getParameter(const string& name)
+			{
+				for (size_t parameter = 0; parameter < size(); ++parameter)
+					if ((*this)[parameter]->name == name)
+						return (*this)[parameter];
+				return 0;
+			}
+			
+			//! Returns a parameter of a specific name. Abort if unknown
+			TargetParameter* getParameterForced(const string& name)
+			{
+				TargetParameter* parameters = getParameter(name);
+				if (parameters)
+					return parameters;
+				else
+					abort();
+			}
+			
+			//! Set a specific parameter
+			void setParameter(const string& name, const string& value, const string& target)
+			{
+				for (size_t parameter = 0; parameter < size(); ++parameter)
+					if ((*this)[parameter]->name == name)
+					{
+						(*this)[parameter]->setValue(value);
+						return;
+					}
+				throw InvalidTargetDescription(target);
+			}
+			
+			//! Runs through parameters, and throw InvalidTarget if a mandatory one is not filled
+			void checkMandatoryParameters(const string& target)
+			{
+				for (size_t parameter = 0; parameter < size(); ++parameter)
+					if ((*this)[parameter]->mandatory && !(*this)[parameter]->filled)
+						throw InvalidTargetDescription(target);
+			}
+		};
+	
+	public:
+		//! A map of type to parameters
+		typedef map<string, TargetParameters> TargetsTypes;
+		
+		TargetsTypes targetsTypes; //!< known target types and parameter
+		string type; //!< actual target type
+		TargetParameters* parameters; //!< actual target parameters
+		
+	public:
+		//! Constructor, fills parameters and parse target description. Throws an InvalidTarget on parse error
+		TargetNameParser(const string &target)
+		{
+			targetsTypes["file"].push_back(new TargetParameter("name"));
+			targetsTypes["file"].push_back(new TargetParameter("mode", "read"));
+			
+			targetsTypes["tcp"].push_back(new TargetParameter("address"));
+			targetsTypes["tcp"].push_back(new TargetParameter("port"));
+			
+			targetsTypes["ser"].push_back(new TargetParameter("port", 1));
+			targetsTypes["ser"].push_back(new TargetParameter("baud", 115200));
+			targetsTypes["ser"].push_back(new TargetParameter("stop", 1));
+			targetsTypes["ser"].push_back(new TargetParameter("parity", "none"));
+			targetsTypes["ser"].push_back(new TargetParameter("fc", "none"));
+			
+			parse(target);
+		}
+		
+		//! Destructor, deletes all parameters
+		~TargetNameParser()
+		{
+			for (TargetsTypes::iterator targetType = targetsTypes.begin(); targetType != targetsTypes.end(); ++targetType)
+			{
+				for (size_t parameter = 0; parameter < targetType->second.size(); ++parameter)
+					delete targetType->second[parameter];
+			}
+		}
+		
+		//! Parse target description. Throws an InvalidTarget on parse error
+		void parse(const string &target)
+		{
+			string::size_type colonPos;
+			
+			// get type
+			colonPos = target.find_first_of(':');
+			type = target.substr(0, colonPos);
+			
+			// check if it exists, get parameters
+			TargetsTypes::iterator typeIt = targetsTypes.find(type);
+			if (typeIt == targetsTypes.end()) throw InvalidTargetDescription(target);
+			parameters = &typeIt->second;
+			
+			// iterate on all parameters
+			int implicitParamPos = 0; // position in array when using implicit parameters, as soon as we see an explicit one, this is set to -1 and implicit parameters must not be used anymore
+			while (colonPos != string::npos)
+			{
+				string::size_type nextColon = target.find_first_of(':', colonPos);
+				string::size_type equalPos = target.find_first_of('=', colonPos);
+				
+				if (equalPos == string::npos)
+				{
+					string::size_type valueLength = nextColon == string::npos ? string::npos : nextColon - colonPos - 1;
+					
+					// implicit parameter
+					if ((implicitParamPos < 0) || (implicitParamPos >= parameters->size()))
+						throw InvalidTargetDescription(target);
+					(*parameters)[implicitParamPos++]->setValue(target.substr(colonPos+1, valueLength));
+				}
+				else
+				{
+					string::size_type nameLength = equalPos - colonPos - 1;
+					string::size_type valueLength = nextColon == string::npos ? string::npos : nextColon - equalPos - 1;
+					
+					// explicit parameter, extract
+					parameters->setParameter(
+						target.substr(colonPos+1, nameLength),
+						target.substr(equalPos+1, valueLength),
+						target
+					);
+					
+					// we cannot use implicit parameters any more
+					implicitParamPos = -1;
+				}
+				colonPos = nextColon;
+			}
+			
+			// make sure that everything that must be filled is filled
+			parameters->checkMandatoryParameters(target);
+		}
+		
+		Stream* createStream(const string& target)
+		{
+			if (type == "file")
+			{
+				// get parameters
+				const string& name = parameters->getParameterForced("name")->value;
+				const string& mode = parameters->getParameterForced("mode")->value;
+				
+				#ifndef WIN32
+				int fd;
+				
+				// open file
+				if (mode == "read")
+					fd = open(name.c_str(), O_RDONLY);
+				else if (mode == "write")
+					fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+				// as we currently have no seek, read/write is useless
+				/*else if (mode == "readwrite") 
+					fd = open(name.c_str(), O_RDONLY);*/
+				else
+					throw InvalidTargetDescription(target);
+				
+				// create stream and associate fd
+				return new FileDescriptorStream(fd);
+				
+				#else
+				
+				// TODO: add Win32 implementation
+				
+				#endif
+			}
+			else if (type == "tcp")
+			{
+				// TODO: construct client
+			}
+			else if (type == "ser")
+			{
+				// TODO: construct client
+			}
+			else
+				throw InvalidTargetDescription(target);
+		}
+	};
+	
+	#else
+	
+	// TODO: add Win32 implementation
+	
+	#endif
 	
 	Client::Client(const std::string &target) :
 		stream(0),
 		isRunning(false)
 	{
 		TargetNameParser parser(target);
-		
-		if (parser.type == "file")
-		{
-			// get parameters
-			const string& name = parser.parameters->getParameterForced("name")->value;
-			const string& mode = parser.parameters->getParameterForced("mode")->value;
-			int fd;
-			
-			// open file
-			if (mode == "read")
-				fd = open(name.c_str(), O_RDONLY);
-			else if (mode == "write")
-				fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-			// as we currently have no seek, read/write is useless
-			/*else if (mode == "readwrite") 
-				fd = open(name.c_str(), O_RDONLY);*/
-			else
-				throw InvalidTargetDescription(target);
-			
-			// create stream and associate fd
-			stream = new FileDescriptorStream(fd);
-		}
-		else if (parser.type == "tcp")
-		{
-			// TODO: construct client
-		}
-		else if (parser.type == "ser")
-		{
-			// TODO: construct client
-		}
-		else
-			throw InvalidTargetDescription(target);
+		stream = parser.createStream(target);
 	}
 	
 	Client::~Client()
@@ -584,14 +605,16 @@ namespace Streams
 	
 	void Client::run()
 	{
-		sigTermReceived = false;
+		runTerminationReceived = false;
 		isRunning = true;
-		while (!sigTermReceived && isRunning)
+		while (!runTerminationReceived && isRunning)
 			step(-1);
 	}
 	
 	bool Client::step(int timeout)
 	{
+		#ifndef WIN32
+		
 		// locally overload the object by a pointer to its physical class instead of its interface
 		SelectableStream* stream = polymorphic_downcast<SelectableStream*>(stream);
 		if (stream->fd < 0)
@@ -637,6 +660,12 @@ namespace Streams
 		}
 		else
 			return false;
+		
+		#else
+		
+		// TODO: add Win32 implementation
+		
+		#endif
 	}
 	
 	
@@ -652,7 +681,9 @@ namespace Streams
 	
 	void Server::run(void)
 	{
-		// TODO
+		runTerminationReceived = false;
+		while (!runTerminationReceived)
+			step(-1);
 	}
 	
 	bool Server::step(int timeout)
@@ -660,11 +691,7 @@ namespace Streams
 		// TODO
 	}
 	
-	#else
 	
-	// TODO: add implementation
-	
-	#endif
 	
 	
 }
