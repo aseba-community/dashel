@@ -81,6 +81,7 @@
 	
 	The file protocol accepts only one key:
 	\li \c name : name of the file, including the path
+	\li \c mode : mode (read, write)
 	
 	The tcp protocol accepts the following keys, in this implicit order:
 	\li \c address : IPV4 address

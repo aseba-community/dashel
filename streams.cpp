@@ -49,13 +49,16 @@
 #include <sstream>
 
 #ifndef WIN32
+	#include <unistd.h>
+	#include <fcntl.h>
 	#include <netdb.h>
 	#include <signal.h>
 	#include <arpa/inet.h>
 	#include <sys/select.h>
 	#include <sys/time.h>
 	#include <sys/types.h>
-	#include <unistd.h>
+	#include <sys/types.h>
+	#include <sys/stat.h>
 #else
 	#include <winsock2.h>
 #endif
@@ -173,7 +176,8 @@ namespace Streams
 						throw InvalidTargetDescription(target);
 			}
 		};
-		
+	
+	public:
 		//! A map of type to parameters
 		typedef map<string, TargetParameters> TargetsTypes;
 		
@@ -186,6 +190,7 @@ namespace Streams
 		TargetNameParser(const string &target)
 		{
 			targetsTypes["file"].push_back(new TargetParameter("name"));
+			targetsTypes["file"].push_back(new TargetParameter("mode", "read"));
 			
 			targetsTypes["tcp"].push_back(new TargetParameter("address"));
 			targetsTypes["tcp"].push_back(new TargetParameter("port"));
@@ -193,8 +198,8 @@ namespace Streams
 			targetsTypes["ser"].push_back(new TargetParameter("port", 1));
 			targetsTypes["ser"].push_back(new TargetParameter("baud", 115200));
 			targetsTypes["ser"].push_back(new TargetParameter("stop", 1));
-			// TODO: special case for parity and fc
-			//targetsTypes["ser"].push_back(new TargetParameter<unsigned>("parity", 1));
+			targetsTypes["ser"].push_back(new TargetParameter("parity", "none"));
+			targetsTypes["ser"].push_back(new TargetParameter("fc", "none"));
 		}
 		
 		//! Destructor, deletes all parameters
@@ -269,8 +274,8 @@ namespace Streams
 		int fd; //!< associated file descriptor
 		string targetName; //!< name of the target
 		
-		//! Constructor. The file descriptor is initially invalid and will be set by caller
-		SelectableStream() : fd(-1) { }
+		//! Create the stream and associates a file descriptor
+		SelectableStream(int fd): fd(fd) { }
 		
 		~SelectableStream()
 		{
@@ -300,7 +305,8 @@ namespace Streams
 		#endif
 		
 	public:
-		SocketStream()
+		SocketStream(int fd) :
+			SelectableStream(fd)
 		{
 			#ifndef TCP_CORK
 			bufferSize = SEND_BUFFER_SIZE_INITIAL;
@@ -434,6 +440,9 @@ namespace Streams
 	class FileDescriptorStream: public SelectableStream
 	{
 	public:
+		//! Create the stream and associates a file descriptor
+		FileDescriptorStream(int fd) : SelectableStream(fd) { }
+		
 		virtual void write(const void *data, const size_t size)
 		{
 			if (fd < 0)
@@ -533,7 +542,39 @@ namespace Streams
 		stream(0),
 		isRunning(false)
 	{
-		// TODO: construct client
+		TargetNameParser parser(target);
+		
+		if (parser.type == "file")
+		{
+			// get parameters
+			const string& name = parser.parameters->getParameterForced("name")->value;
+			const string& mode = parser.parameters->getParameterForced("mode")->value;
+			int fd;
+			
+			// open file
+			if (mode == "read")
+				fd = open(name.c_str(), O_RDONLY);
+			else if (mode == "write")
+				fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+			// as we currently have no seek, read/write is useless
+			/*else if (mode == "readwrite") 
+				fd = open(name.c_str(), O_RDONLY);*/
+			else
+				throw InvalidTargetDescription(target);
+			
+			// create stream and associate fd
+			stream = new FileDescriptorStream(fd);
+		}
+		else if (parser.type == "tcp")
+		{
+			// TODO: construct client
+		}
+		else if (parser.type == "ser")
+		{
+			// TODO: construct client
+		}
+		else
+			throw InvalidTargetDescription(target);
 	}
 	
 	Client::~Client()
