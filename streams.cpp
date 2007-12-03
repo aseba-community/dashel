@@ -122,6 +122,13 @@ namespace Streams
 				oss << defaultValue;
 				value = oss.str();
 			}
+			
+			//! Set a value
+			void setValue(const string& value)
+			{
+				this->value = value;
+				filled = true;
+			}
 		};
 		
 		//! A vector of parameters. Ordered so that the parser can fill anonymous ones
@@ -146,12 +153,24 @@ namespace Streams
 					abort();
 			}
 			
+			//! Set a specific parameter
+			void setParameter(const string& name, const string& value, const string& target)
+			{
+				for (size_t parameter = 0; parameter < size(); ++parameter)
+					if ((*this)[parameter]->name == name)
+					{
+						(*this)[parameter]->setValue(value);
+						return;
+					}
+				throw InvalidTargetDescription(target);
+			}
+			
 			//! Runs through parameters, and throw InvalidTarget if a mandatory one is not filled
 			void checkMandatoryParameters(const string& target)
 			{
 				for (size_t parameter = 0; parameter < size(); ++parameter)
 					if ((*this)[parameter]->mandatory && !(*this)[parameter]->filled)
-						throw InvalidTarget(target);
+						throw InvalidTargetDescription(target);
 			}
 		};
 		
@@ -191,19 +210,53 @@ namespace Streams
 		//! Parse target description. Throws an InvalidTarget on parse error
 		void parse(const string &target)
 		{
-			string::size_type i;
+			string::size_type colonPos;
 			
 			// get type
-			i = target.find_first_of(':');
-			if (i == string::npos) throw InvalidTarget(target);
-			type = target.substr(i);
+			colonPos = target.find_first_of(':');
+			type = target.substr(0, colonPos);
 			
 			// check if it exists, get parameters
 			TargetsTypes::iterator typeIt = targetsTypes.find(type);
-			if (typeIt == targetsTypes.end()) throw InvalidTarget(target);
+			if (typeIt == targetsTypes.end()) throw InvalidTargetDescription(target);
 			parameters = &typeIt->second;
 			
+			// iterate on all parameters
+			int implicitParamPos = 0; // position in array when using implicit parameters, as soon as we see an explicit one, this is set to -1 and implicit parameters must not be used anymore
+			while (colonPos != string::npos)
+			{
+				string::size_type nextColon = target.find_first_of(':', colonPos);
+				string::size_type equalPos = target.find_first_of('=', colonPos);
+				
+				if (equalPos == string::npos)
+				{
+					string::size_type valueLength = nextColon == string::npos ? string::npos : nextColon - colonPos - 1;
+					
+					// implicit parameter
+					if ((implicitParamPos < 0) || (implicitParamPos >= parameters->size()))
+						throw InvalidTargetDescription(target);
+					(*parameters)[implicitParamPos++]->setValue(target.substr(colonPos+1, valueLength));
+				}
+				else
+				{
+					string::size_type nameLength = equalPos - colonPos - 1;
+					string::size_type valueLength = nextColon == string::npos ? string::npos : nextColon - equalPos - 1;
+					
+					// explicit parameter, extract
+					parameters->setParameter(
+						target.substr(colonPos+1, nameLength),
+						target.substr(equalPos+1, valueLength),
+						target
+					);
+					
+					// we cannot use implicit parameters any more
+					implicitParamPos = -1;
+				}
+				colonPos = nextColon;
+			}
 			
+			// make sure that everything that must be filled is filled
+			parameters->checkMandatoryParameters(target);
 		}
 	};
 

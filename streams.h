@@ -191,14 +191,14 @@ namespace Streams
 	};
 	
 	//! The specified target is invalid
-	struct InvalidTarget: ConnectionError
+	struct InvalidTargetDescription: ConnectionError
 	{
 		/**
 			Constructor.
 			
 			\param target invalid target description
 		*/
-		InvalidTarget(const std::string &target) : ConnectionError(target) { }
+		InvalidTargetDescription(const std::string &target) : ConnectionError(target) { }
 	};
 	
 	//! The system-specific synchronization primitive produced an error
