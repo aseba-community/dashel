@@ -41,7 +41,12 @@
 #include "streams.h"
 
 #include <cassert>
+#include <cstdlib>
+#include <map>
+#include <vector>
 #include <algorithm>
+#include <iostream>
+#include <sstream>
 
 #ifndef WIN32
 	#include <netdb.h>
@@ -72,6 +77,135 @@ namespace Streams
 		assert(derived);
 		return derived;
 	}
+	
+	//! Parse target names.
+	//! Instanciate an object of this class with the target description to get its type and parameters
+	class TargetNameParser
+	{
+	protected:
+		//! An interface for a target parameter
+		struct TargetParameter
+		{
+			string name; //!< name of the parameter
+			string value; //!< name of the parameter
+			bool mandatory; //!< is it mandatory to be filled
+			bool filled; //!< was the parameter filled by the target description
+			
+			//! Virtual destructor, call child destructors
+			virtual ~TargetParameter() { }
+			
+			//! Return the value is a specific type
+			template<typename V>
+			V getValue()
+			{
+				istringstream iss(value);
+				V v;
+				iss >> v;
+				return v;
+			}
+			
+			//! Constructor, with no default value
+			TargetParameter(string name) :
+				name(name),
+				mandatory(true),
+				filled(false)
+			{ }
+			
+			//! Constructor, with a default value
+			template<typename T>
+			TargetParameter(string name, T defaultValue) :
+				name(name),
+				mandatory(false),
+				filled(false)
+			{
+				ostringstream oss;
+				oss << defaultValue;
+				value = oss.str();
+			}
+		};
+		
+		//! A vector of parameters. Ordered so that the parser can fill anonymous ones
+		struct TargetParameters:public vector<TargetParameter *>
+		{
+			//! Returns a parameter of a specific name. Returns 0 if unknown
+			TargetParameter* getParameter(const string& name)
+			{
+				for (size_t parameter = 0; parameter < size(); ++parameter)
+					if ((*this)[parameter]->name == name)
+						return (*this)[parameter];
+				return 0;
+			}
+			
+			//! Returns a parameter of a specific name. Abort if unknown
+			TargetParameter* getParameterForced(const string& name)
+			{
+				TargetParameter* parameters = getParameter(name);
+				if (parameters)
+					return parameters;
+				else
+					abort();
+			}
+			
+			//! Runs through parameters, and throw InvalidTarget if a mandatory one is not filled
+			void checkMandatoryParameters(const string& target)
+			{
+				for (size_t parameter = 0; parameter < size(); ++parameter)
+					if ((*this)[parameter]->mandatory && !(*this)[parameter]->filled)
+						throw InvalidTarget(target);
+			}
+		};
+		
+		//! A map of type to parameters
+		typedef map<string, TargetParameters> TargetsTypes;
+		
+		TargetsTypes targetsTypes; //!< known target types and parameter
+		string type; //!< actual target type
+		TargetParameters* parameters; //!< actual target parameters
+		
+	public:
+		//! Constructor, fills parameters and parse target description. Throws an InvalidTarget on parse error
+		TargetNameParser(const string &target)
+		{
+			targetsTypes["file"].push_back(new TargetParameter("name"));
+			
+			targetsTypes["tcp"].push_back(new TargetParameter("address"));
+			targetsTypes["tcp"].push_back(new TargetParameter("port"));
+			
+			targetsTypes["ser"].push_back(new TargetParameter("port", 1));
+			targetsTypes["ser"].push_back(new TargetParameter("baud", 115200));
+			targetsTypes["ser"].push_back(new TargetParameter("stop", 1));
+			// TODO: special case for parity and fc
+			//targetsTypes["ser"].push_back(new TargetParameter<unsigned>("parity", 1));
+		}
+		
+		//! Destructor, deletes all parameters
+		~TargetNameParser()
+		{
+			for (TargetsTypes::iterator targetType = targetsTypes.begin(); targetType != targetsTypes.end(); ++targetType)
+			{
+				for (size_t parameter = 0; parameter < targetType->second.size(); ++parameter)
+					delete targetType->second[parameter];
+			}
+		}
+		
+		//! Parse target description. Throws an InvalidTarget on parse error
+		void parse(const string &target)
+		{
+			string::size_type i;
+			
+			// get type
+			i = target.find_first_of(':');
+			if (i == string::npos) throw InvalidTarget(target);
+			type = target.substr(i);
+			
+			// check if it exists, get parameters
+			TargetsTypes::iterator typeIt = targetsTypes.find(type);
+			if (typeIt == targetsTypes.end()) throw InvalidTarget(target);
+			parameters = &typeIt->second;
+			
+			
+		}
+	};
 
 	#ifndef WIN32
 	

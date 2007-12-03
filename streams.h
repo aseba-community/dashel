@@ -190,6 +190,17 @@ namespace Streams
 		std::string target; //!< faulty target
 	};
 	
+	//! The specified target is invalid
+	struct InvalidTarget: ConnectionError
+	{
+		/**
+			Constructor.
+			
+			\param target invalid target description
+		*/
+		InvalidTarget(const std::string &target) : ConnectionError(target) { }
+	};
+	
 	//! The system-specific synchronization primitive produced an error
 	struct SynchronizationError
 	{
