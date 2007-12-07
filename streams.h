@@ -240,26 +240,29 @@ namespace Streams
 			\return true if there was activity on the stream, false otherwise
 		*/
 		bool step(int timeout = 0);
+		
+		//! Returns the stream this client contains
+		Stream* getStream() { return stream; }
 
 	protected:
 		/**
 			Called when data is available for reading on the stream.
 			If the stream is closed during this method, an exception occurs: Client stops the execution of this
 			method and calls connectionClosed().
-			Subclass must implement this method.
+			Subclass can implement this method to react on incoming data on step
 			
 			\param stream stream to the target
 		*/
-		virtual void incomingData(Stream *stream) = 0;
+		virtual void incomingData(Stream *stream) { }
 		
 		/**
 			Called when target closes connection.
 			The only valid method to call on the stream is getTargetName(), input/output operations are forbidden.
-			Subclass must implement this method.
+			Subclass can implement this method to react on closing connections on step
 			
 			\param stream stream to the target
 		*/
-		virtual void connectionClosed(Stream *stream) = 0;
+		virtual void connectionClosed(Stream *stream) { }
 	};
 	
 	/**
