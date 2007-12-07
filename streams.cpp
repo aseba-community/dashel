@@ -98,7 +98,7 @@ namespace Streams
 		
 		~SelectableStream()
 		{
-			if (fd)
+			if (fd >= 0)
 				close(fd);
 		}
 		
@@ -139,7 +139,7 @@ namespace Streams
 		
 		virtual ~SocketStream()
 		{
-			if (fd)
+			if (fd >= 0)
 				shutdown(fd, SHUT_RDWR);
 			
 			#ifndef TCP_CORK
