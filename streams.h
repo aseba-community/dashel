@@ -253,7 +253,7 @@ namespace Streams
 		virtual void incomingData(Stream *stream) = 0;
 		
 		/**
-			Called when connection is closed on socket.
+			Called when target closes connection.
 			The only valid method to call on the stream is getTargetName(), input/output operations are forbidden.
 			Subclass must implement this method.
 			
@@ -322,7 +322,7 @@ namespace Streams
 		virtual void incomingData(Stream *stream) = 0;
 		
 		/**
-			Called when connection is closed on socket.
+			Called when target closes connection.
 			The only valid method to call on the stream is getTargetName(), input/output operations are forbidden.
 			Subclass must implement this method.
 			
