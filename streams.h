@@ -84,7 +84,7 @@
 	\li \c mode : mode (read, write)
 	
 	The tcp protocol accepts the following keys, in this implicit order:
-	\li \c address : IPV4 address
+	\li \c host : host
 	\li \c port : port
 	
 	The ser protocol accepts the following keys, in this implicit order:
@@ -242,6 +242,8 @@ namespace Streams
 		bool step(int timeout = 0);
 
 	protected:
+		/*
+		// FIXME: bad point for C++ standard, can't call abstract methods from within the constructor. This method is not strictly usefull, because either connections succeed, otherwise an exception is thrown
 		/**
 			Called when connect succeeds.
 			If the stream is closed during this method, an exception occurs: Client stops the execution of this
@@ -250,7 +252,7 @@ namespace Streams
 			
 			\param stream stream to the target
 		*/
-		virtual void connectionEstablished(Stream *stream) = 0;
+		//virtual void connectionEstablished(Stream *stream) = 0;
 		
 		/**
 			Called when data is available for reading on the stream.

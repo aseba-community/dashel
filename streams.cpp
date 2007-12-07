@@ -131,6 +131,9 @@ namespace Streams
 			bufferSize = SEND_BUFFER_SIZE_INITIAL;
 			buffer = (unsigned char*)malloc(bufferSize);
 			bufferPos = 0;
+			#else
+			int flag = 1;
+			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
 			#endif
 		}
 		
@@ -335,8 +338,6 @@ namespace Streams
 		}
 	};
 	
-	
-	
 	//! Called when SIGTERM arrives, halts all running clients or servers in all threads
 	void termHandler(int t)
 	{
@@ -354,6 +355,96 @@ namespace Streams
 		}
 	} staticSigTermHandlerSetuper;
 	// TODO: check if this works in real life
+	
+	#else // WIN32
+	
+	// TODO: add Win32 implementation
+	
+	#endif // WIN32
+	
+	
+	//! A TCP/IP version 4 address
+	class TCPIPV4Address
+	{
+	public:
+		unsigned address; //!< IP host address. Stored in local byte order.
+		unsigned short port; //!< IP port. Stored in local byte order.
+	
+	public:
+		//! Constructor. Numeric argument
+		TCPIPV4Address(unsigned addr = INADDR_ANY, unsigned short prt = 0)
+		{
+			address = addr;
+			port = prt;
+		}
+		
+		//! Constructor. String address, do resolution
+		TCPIPV4Address(const std::string& name, unsigned short port) :
+			port(port)
+		{
+			hostent *he = gethostbyname(name.c_str());
+			
+			if (he == NULL)
+			{
+				#ifndef WIN32
+				struct in_addr addr;
+				if (inet_aton(name.c_str(), &addr))
+				{
+					address = ntohl(addr.s_addr);
+				}
+				else
+				{
+					address = INADDR_ANY;
+				}
+				#else // WIN32
+				address = INADDR_ANY;
+				#endif // WIN32
+			}
+			else
+			{
+				address = ntohl(*((unsigned *)he->h_addr));
+			}
+		}
+	
+		//! Equality operator
+		bool operator==(const TCPIPV4Address& o) const
+		{
+			return address==o.address && port==o.port;
+		}
+		
+		//! Less than operator
+		bool operator<(const TCPIPV4Address& o) const
+		{
+			return address<o.address || (address==o.address && port<o.port);
+		}
+		
+		//! Return string form
+		std::string format() const
+		{
+			std::stringstream buf;
+			unsigned a2 = htonl(address);
+			struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
+			
+			if (he == NULL)
+			{
+				struct in_addr addr;
+				addr.s_addr = a2;
+				buf << inet_ntoa(addr) << ":" << port;
+			}
+			else
+			{
+				buf << he->h_name << ":" << port;
+			}
+			
+			return buf.str();
+		}
+		
+		//! Is the address valid?
+		bool valid() const
+		{
+			return address != INADDR_ANY && port != 0;
+		}
+	};
 	
 	//! Parse target names.
 	//! Instanciate an object of this class with the target description to get its type and parameters
@@ -451,22 +542,23 @@ namespace Streams
 			}
 		};
 	
-	public:
 		//! A map of type to parameters
 		typedef map<string, TargetParameters> TargetsTypes;
 		
+		string target; //!< name of the target
 		TargetsTypes targetsTypes; //!< known target types and parameter
 		string type; //!< actual target type
 		TargetParameters* parameters; //!< actual target parameters
 		
 	public:
 		//! Constructor, fills parameters and parse target description. Throws an InvalidTarget on parse error
-		TargetNameParser(const string &target)
+		TargetNameParser(const string &target) :
+			target(target)
 		{
 			targetsTypes["file"].push_back(new TargetParameter("name"));
 			targetsTypes["file"].push_back(new TargetParameter("mode", "read"));
 			
-			targetsTypes["tcp"].push_back(new TargetParameter("address"));
+			targetsTypes["tcp"].push_back(new TargetParameter("host", getHostName()));
 			targetsTypes["tcp"].push_back(new TargetParameter("port"));
 			
 			targetsTypes["ser"].push_back(new TargetParameter("port", 1));
@@ -475,7 +567,7 @@ namespace Streams
 			targetsTypes["ser"].push_back(new TargetParameter("parity", "none"));
 			targetsTypes["ser"].push_back(new TargetParameter("fc", "none"));
 			
-			parse(target);
+			parse();
 		}
 		
 		//! Destructor, deletes all parameters
@@ -488,8 +580,152 @@ namespace Streams
 			}
 		}
 		
+		/**
+			Requests the creation of a stream for a target
+			
+			\param target destination of connection (see Section \ref TargetNamingSec)
+			\param isListen if pointed value is true, try to create a listen stream. Change the value to false if the listen stream creation was not possible and a normal data stream was returned instead. If 0, creates a data stream
+		*/
+		Stream* createStream(bool* isListen = 0)
+		{
+			if (type == "file")
+			{
+				// get parameters
+				const string& name = parameters->getParameterForced("name")->value;
+				const string& mode = parameters->getParameterForced("mode")->value;
+				
+				#ifndef WIN32
+				int fd;
+				
+				// open file
+				if (mode == "read")
+					fd = open(name.c_str(), O_RDONLY);
+				else if (mode == "write")
+					fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+				// as we currently have no seek, read/write is useless
+				/*else if (mode == "readwrite") 
+					fd = open(name.c_str(), O_RDONLY);*/
+				else
+					throw InvalidTargetDescription(target);
+				
+				// create stream and associate fd
+				if (isListen)
+					*isListen = false;
+				return new FileDescriptorStream(fd);
+				
+				#else // WIN32
+				
+				// TODO: add Win32 implementation
+				
+				#endif // WIN32
+			}
+			else if (type == "tcp")
+			{
+				// get parameters
+				const string& host = parameters->getParameterForced("host")->value;
+				unsigned short port = atoi(parameters->getParameterForced("port")->value.c_str());
+				
+				// create stream
+				if (!isListen || (*isListen == false))
+					return createTCPDataStream(host, port);
+				else
+					return createTCPListenStream(host, port);
+			}
+			else if (type == "ser")
+			{
+				// TODO: construct client
+				*isListen = false;
+			}
+			else
+				throw InvalidTargetDescription(target);
+		}
+		
+	protected:
+		//! Returns the name of this host
+		string getHostName()
+		{
+			char hostName[256];
+			gethostname(hostName, 256);
+			return string(hostName);
+		}
+		
+		/**
+			Creates a listen stream for incoming connections.
+			
+			\param host target host name
+			\param port target port
+		*/
+		Stream* createTCPListenStream(const std::string& host, unsigned short port)
+		{
+			TCPIPV4Address bindAddress(host, port);
+			
+			#ifndef WIN32
+			
+			// create socket
+			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (fd < 0)
+				throw ConnectionError(target);
+			
+			// reuse address
+			int flag = 1;
+			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof (flag)) < 0)
+				throw ConnectionError(target);
+			
+			// bind
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(bindAddress.port);
+			addr.sin_addr.s_addr = htonl(bindAddress.address);
+			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				throw ConnectionError(target);
+			
+			// listen
+			listen(fd, 16); // backlog of 16 is a pure blind guess
+			return new SocketStream(fd);
+			
+			#else // WIN32
+			
+			// TODO: add Win32 implementation
+			
+			#endif // WIN32
+		}
+		
+		/**
+			Creates a data stream.
+			
+			\param host target host name
+			\param port target port
+		*/
+		Stream* createTCPDataStream(const std::string& host, unsigned short port)
+		{
+			TCPIPV4Address remoteAddress(host, port);
+			
+			#ifndef WIN32
+			
+			// create socket
+			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (fd < 0)
+				throw ConnectionError(target);
+			
+			// connect
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(remoteAddress.port);
+			addr.sin_addr.s_addr = htonl(remoteAddress.address);
+			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				throw ConnectionError(target);
+			
+			return new SocketStream(fd);
+			
+			#else // WIN32
+			
+			// TODO: add Win32 implementation
+			
+			#endif // WIN32
+		}
+		
 		//! Parse target description. Throws an InvalidTarget on parse error
-		void parse(const string &target)
+		void parse()
 		{
 			string::size_type colonPos;
 			
@@ -539,63 +775,14 @@ namespace Streams
 			// make sure that everything that must be filled is filled
 			parameters->checkMandatoryParameters(target);
 		}
-		
-		Stream* createStream(const string& target)
-		{
-			if (type == "file")
-			{
-				// get parameters
-				const string& name = parameters->getParameterForced("name")->value;
-				const string& mode = parameters->getParameterForced("mode")->value;
-				
-				#ifndef WIN32
-				int fd;
-				
-				// open file
-				if (mode == "read")
-					fd = open(name.c_str(), O_RDONLY);
-				else if (mode == "write")
-					fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-				// as we currently have no seek, read/write is useless
-				/*else if (mode == "readwrite") 
-					fd = open(name.c_str(), O_RDONLY);*/
-				else
-					throw InvalidTargetDescription(target);
-				
-				// create stream and associate fd
-				return new FileDescriptorStream(fd);
-				
-				#else
-				
-				// TODO: add Win32 implementation
-				
-				#endif
-			}
-			else if (type == "tcp")
-			{
-				// TODO: construct client
-			}
-			else if (type == "ser")
-			{
-				// TODO: construct client
-			}
-			else
-				throw InvalidTargetDescription(target);
-		}
 	};
 	
-	#else
-	
-	// TODO: add Win32 implementation
-	
-	#endif
-	
 	Client::Client(const std::string &target) :
-		stream(0),
+		stream(TargetNameParser(target).createStream()),
 		isRunning(false)
 	{
-		TargetNameParser parser(target);
-		stream = parser.createStream(target);
+		// FIXME: bad point for C++ standard, can't call abstract methods from within the constructor
+		// connectionEstablished(stream);
 	}
 	
 	Client::~Client()
@@ -671,12 +858,20 @@ namespace Streams
 	
 	Server::~Server()
 	{
-		// TODO
+		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end(); ++it)
+			delete *it;
+		for (list<Stream*>::iterator it = transferStreams.begin(); it != transferStreams.end(); ++it)
+			delete *it;
 	}
 	
 	void Server::listen(const std::string &target)
 	{
-		// TODO
+		bool isListen = true;
+		Stream* stream = TargetNameParser(target).createStream(&isListen);
+		if (isListen)
+			listenStreams.push_back(stream);
+		else
+			transferStreams.push_back(stream);
 	}
 	
 	void Server::run(void)
@@ -688,7 +883,15 @@ namespace Streams
 	
 	bool Server::step(int timeout)
 	{
+		#ifndef WIN32
+		
 		// TODO
+		
+		#else
+		
+		// TODO: add Win32 implementation
+		
+		#endif
 	}
 	
 	
