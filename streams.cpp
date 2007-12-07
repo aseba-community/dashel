@@ -90,11 +90,11 @@ namespace Streams
 	class SelectableStream: public Stream
 	{
 	public:
-		int fd; //!< associated file descriptor
 		string targetName; //!< name of the target
+		int fd; //!< associated file descriptor
 		
 		//! Create the stream and associates a file descriptor
-		SelectableStream(int fd): fd(fd) { }
+		SelectableStream(const string& targetName, int fd): targetName(targetName), fd(fd) { }
 		
 		~SelectableStream()
 		{
@@ -102,7 +102,7 @@ namespace Streams
 				close(fd);
 		}
 		
-		virtual std::string getTargetName()	{ return targetName; }
+		virtual std::string getTargetName() const { return targetName; }
 	};
 	
 	
@@ -124,8 +124,8 @@ namespace Streams
 		#endif
 		
 	public:
-		SocketStream(int fd) :
-			SelectableStream(fd)
+		SocketStream(const string& targetName, int fd) :
+			SelectableStream(targetName, fd)
 		{
 			#ifndef TCP_CORK
 			bufferSize = SEND_BUFFER_SIZE_INITIAL;
@@ -263,7 +263,9 @@ namespace Streams
 	{
 	public:
 		//! Create the stream and associates a file descriptor
-		FileDescriptorStream(int fd) : SelectableStream(fd) { }
+		FileDescriptorStream(const string& targetName, int fd) :
+			SelectableStream(targetName, fd)
+		{ }
 		
 		virtual void write(const void *data, const size_t size)
 		{
@@ -429,11 +431,11 @@ namespace Streams
 			{
 				struct in_addr addr;
 				addr.s_addr = a2;
-				buf << inet_ntoa(addr) << ":" << port;
+				buf << "tcp:" << inet_ntoa(addr) << ":" << port;
 			}
 			else
 			{
-				buf << he->h_name << ":" << port;
+				buf << "tcp:" << he->h_name << ":" << port;
 			}
 			
 			return buf.str();
@@ -611,7 +613,7 @@ namespace Streams
 				// create stream and associate fd
 				if (isListen)
 					*isListen = false;
-				return new FileDescriptorStream(fd);
+				return new FileDescriptorStream(target, fd);
 				
 				#else // WIN32
 				
@@ -681,7 +683,7 @@ namespace Streams
 			
 			// listen
 			listen(fd, 16); // backlog of 16 is a pure blind guess
-			return new SocketStream(fd);
+			return new SocketStream(target, fd);
 			
 			#else // WIN32
 			
@@ -715,7 +717,7 @@ namespace Streams
 			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw ConnectionError(target);
 			
-			return new SocketStream(fd);
+			return new SocketStream(target, fd);
 			
 			#else // WIN32
 			
@@ -869,9 +871,14 @@ namespace Streams
 		bool isListen = true;
 		Stream* stream = TargetNameParser(target).createStream(&isListen);
 		if (isListen)
+		{
 			listenStreams.push_back(stream);
+		}
 		else
+		{
 			transferStreams.push_back(stream);
+			incomingConnection(stream);
+		}
 	}
 	
 	void Server::run(void)
@@ -885,7 +892,96 @@ namespace Streams
 	{
 		#ifndef WIN32
 		
-		// TODO
+		fd_set rfds;
+		int nfds = 0;
+		FD_ZERO(&rfds);
+	
+		// add listen streams
+		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end(); ++it)
+		{
+			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
+			FD_SET(stream->fd, &rfds);
+			nfds = max(stream->fd, nfds);
+		}
+		
+		// add transfer streams
+		for (list<Stream*>::iterator it = transferStreams.begin(); it != transferStreams.end(); ++it)
+		{
+			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
+			FD_SET(stream->fd, &rfds);
+			nfds = max(stream->fd, nfds);
+		}
+	
+		// do select
+		int ret;
+		if (timeout < 0)
+		{
+			ret = select(nfds+1, &rfds, NULL, NULL, NULL);
+		}
+		else
+		{
+			struct timeval t;
+			t.tv_sec = 0;
+			t.tv_usec = timeout;
+			ret = select(nfds+1, &rfds, NULL, NULL, &t);
+		}
+		
+		// check for error
+		if (ret < 0)
+			throw SynchronizationError();
+		
+		// check transfer streams
+		for (list<Stream*>::iterator it = transferStreams.begin(); it != transferStreams.end();)
+		{
+			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
+			++it;
+			
+			if (FD_ISSET(stream->fd, &rfds))
+			{
+				try
+				{
+					incomingData(stream);
+				}
+				catch (StreamException e)
+				{
+					connectionClosed(e.stream);
+					transferStreams.remove(e.stream);
+					delete e.stream;
+				}
+			}
+		}
+		
+		// check listen streams
+		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end(); ++it)
+		{
+			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
+			if (FD_ISSET(stream->fd, &rfds))
+			{
+				// accept connection
+				struct sockaddr_in targetAddr;
+				socklen_t l = sizeof (targetAddr);
+				int targetFD = accept (stream->fd, (struct sockaddr *)&targetAddr, &l);
+				if (targetFD < 0)
+					throw SynchronizationError();
+				
+				// create stream
+				const string& targetName = TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
+				SocketStream* socketStream = new SocketStream(targetName, targetFD);
+				transferStreams.push_back(socketStream);
+				
+				// notify application
+				try
+				{
+					incomingConnection(socketStream);
+				}
+				catch (StreamException e)
+				{
+					connectionClosed(e.stream);
+					transferStreams.remove(e.stream);
+					delete e.stream;
+				}
+			}
+		}
 		
 		#else
 		

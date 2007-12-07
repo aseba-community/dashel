@@ -142,7 +142,7 @@ namespace Streams
 			
 			\return name of the target
 		*/
-		virtual std::string getTargetName() = 0;
+		virtual std::string getTargetName() const = 0;
 	};
 	
 	//! An exception related to a stream
