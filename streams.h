@@ -242,18 +242,6 @@ namespace Streams
 		bool step(int timeout = 0);
 
 	protected:
-		/*
-		// FIXME: bad point for C++ standard, can't call abstract methods from within the constructor. This method is not strictly usefull, because either connections succeed, otherwise an exception is thrown
-		/**
-			Called when connect succeeds.
-			If the stream is closed during this method, an exception occurs: Client stops the execution of this
-			method and calls connectionClosed().
-			Subclass must implement this method.
-			
-			\param stream stream to the target
-		*/
-		//virtual void connectionEstablished(Stream *stream) = 0;
-		
 		/**
 			Called when data is available for reading on the stream.
 			If the stream is closed during this method, an exception occurs: Client stops the execution of this

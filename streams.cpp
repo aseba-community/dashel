@@ -74,7 +74,7 @@ namespace Streams
 	
 	//! Asserts a dynamic cast.	Similar to the one in boost/cast.hpp
 	template<typename Derived, typename Base>
-	inline Derived polymorphic_downcast(Base *base)
+	inline Derived polymorphic_downcast(Base base)
 	{
 		Derived derived = dynamic_cast<Derived>(base);
 		assert(derived);
@@ -499,6 +499,19 @@ namespace Streams
 				this->value = value;
 				filled = true;
 			}
+			
+			//! Dump the content
+			void dump(ostream& dump)
+			{
+				if (filled)
+				{
+					dump << name << " (filled) = " << value << ", mandatory: " << mandatory;
+				}
+				else
+				{
+					dump << name << " (unfilled), default = " << value << ", mandatory: " << mandatory;
+				}
+			}
 		};
 		
 		//! A vector of parameters. Ordered so that the parser can fill anonymous ones
@@ -542,6 +555,16 @@ namespace Streams
 					if ((*this)[parameter]->mandatory && !(*this)[parameter]->filled)
 						throw InvalidTargetDescription(target);
 			}
+			
+			//! Dump the content
+			void dump(ostream& dump)
+			{
+				for (size_t parameter = 0; parameter < size(); ++parameter)
+				{
+					(*this)[parameter]->dump(dump);
+					dump << "\n";
+				}
+			}
 		};
 	
 		//! A map of type to parameters
@@ -570,6 +593,7 @@ namespace Streams
 			targetsTypes["ser"].push_back(new TargetParameter("fc", "none"));
 			
 			parse();
+			dump(cerr);
 		}
 		
 		//! Destructor, deletes all parameters
@@ -579,6 +603,17 @@ namespace Streams
 			{
 				for (size_t parameter = 0; parameter < targetType->second.size(); ++parameter)
 					delete targetType->second[parameter];
+			}
+		}
+		
+		//! Dump the content
+		void dump(ostream& dump)
+		{
+			for (TargetsTypes::iterator targetType = targetsTypes.begin(); targetType != targetsTypes.end(); ++targetType)
+			{
+				dump << targetType->first << ":\n";
+				targetType->second.dump(dump);
+				dump << "\n";
 			}
 		}
 		
@@ -744,8 +779,8 @@ namespace Streams
 			int implicitParamPos = 0; // position in array when using implicit parameters, as soon as we see an explicit one, this is set to -1 and implicit parameters must not be used anymore
 			while (colonPos != string::npos)
 			{
-				string::size_type nextColon = target.find_first_of(':', colonPos);
-				string::size_type equalPos = target.find_first_of('=', colonPos);
+				string::size_type nextColon = target.find_first_of(':', colonPos+1);
+				string::size_type equalPos = target.find_first_of('=', colonPos+1);
 				
 				if (equalPos == string::npos)
 				{
@@ -783,8 +818,7 @@ namespace Streams
 		stream(TargetNameParser(target).createStream()),
 		isRunning(false)
 	{
-		// FIXME: bad point for C++ standard, can't call abstract methods from within the constructor
-		// connectionEstablished(stream);
+		
 	}
 	
 	Client::~Client()
@@ -805,7 +839,7 @@ namespace Streams
 		#ifndef WIN32
 		
 		// locally overload the object by a pointer to its physical class instead of its interface
-		SelectableStream* stream = polymorphic_downcast<SelectableStream*>(stream);
+		SelectableStream* stream = polymorphic_downcast<SelectableStream*>(this->stream);
 		if (stream->fd < 0)
 			return false;
 		
@@ -989,8 +1023,4 @@ namespace Streams
 		
 		#endif
 	}
-	
-	
-	
-	
 }
