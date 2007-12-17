@@ -583,7 +583,7 @@ namespace Streams
 			targetsTypes["file"].push_back(new TargetParameter("name"));
 			targetsTypes["file"].push_back(new TargetParameter("mode", "read"));
 			
-			targetsTypes["tcp"].push_back(new TargetParameter("host", getHostName()));
+			targetsTypes["tcp"].push_back(new TargetParameter("host", "0.0.0.0"));
 			targetsTypes["tcp"].push_back(new TargetParameter("port"));
 			
 			targetsTypes["ser"].push_back(new TargetParameter("port", 1));
