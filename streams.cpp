@@ -844,23 +844,25 @@ namespace Streams
 			return false;
 		
 		// setup file descriptor sets
-		fd_set rfds;
+		fd_set rfds, efds;
 		int nfds = stream->fd;
 		FD_ZERO(&rfds);
+		FD_ZERO(&efds);
 		FD_SET(stream->fd, &rfds);
+		FD_SET(stream->fd, &efds);
 		
 		// do select
 		int ret;
 		if (timeout < 0)
 		{
-			ret = select(nfds+1, &rfds, NULL, NULL, NULL);
+			ret = select(nfds+1, &rfds, NULL, &efds, NULL);
 		}
 		else
 		{
 			struct timeval t;
 			t.tv_sec = 0;
 			t.tv_usec = timeout;
-			ret = select(nfds+1, &rfds, NULL, NULL, &t);
+			ret = select(nfds+1, &rfds, NULL, &efds, &t);
 		}
 		
 		// check for error
@@ -868,7 +870,12 @@ namespace Streams
 			throw SynchronizationError();
 		
 		// check if data is available. If so, get it
-		if (FD_ISSET(stream->fd, &rfds))
+		if (FD_ISSET(stream->fd, &efds))
+		{
+			connectionClosed(stream);
+			isRunning = false;
+		}
+		else if (FD_ISSET(stream->fd, &rfds))
 		{
 			try
 			{
@@ -926,15 +933,17 @@ namespace Streams
 	{
 		#ifndef WIN32
 		
-		fd_set rfds;
+		fd_set rfds, efds;
 		int nfds = 0;
 		FD_ZERO(&rfds);
+		FD_ZERO(&efds);
 	
 		// add listen streams
 		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end(); ++it)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 			FD_SET(stream->fd, &rfds);
+			FD_SET(stream->fd, &efds);
 			nfds = max(stream->fd, nfds);
 		}
 		
@@ -943,21 +952,22 @@ namespace Streams
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 			FD_SET(stream->fd, &rfds);
+			FD_SET(stream->fd, &efds);
 			nfds = max(stream->fd, nfds);
 		}
-	
+		
 		// do select
 		int ret;
 		if (timeout < 0)
 		{
-			ret = select(nfds+1, &rfds, NULL, NULL, NULL);
+			ret = select(nfds+1, &rfds, NULL, &efds, NULL);
 		}
 		else
 		{
 			struct timeval t;
 			t.tv_sec = 0;
 			t.tv_usec = timeout;
-			ret = select(nfds+1, &rfds, NULL, NULL, &t);
+			ret = select(nfds+1, &rfds, NULL, &efds, &t);
 		}
 		
 		// check for error
@@ -970,7 +980,13 @@ namespace Streams
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 			++it;
 			
-			if (FD_ISSET(stream->fd, &rfds))
+			if (FD_ISSET(stream->fd, &efds))
+			{
+				connectionClosed(stream);
+				transferStreams.remove(stream);
+				delete stream;
+			}
+			else if (FD_ISSET(stream->fd, &rfds))
 			{
 				try
 				{
@@ -978,6 +994,9 @@ namespace Streams
 				}
 				catch (StreamException e)
 				{
+					// make sure we do not handle a stream which has produced an exception
+					if ((it != transferStreams.end()) && (*it == e.stream))
+						++it;
 					connectionClosed(e.stream);
 					transferStreams.remove(e.stream);
 					delete e.stream;
@@ -986,10 +1005,17 @@ namespace Streams
 		}
 		
 		// check listen streams
-		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end(); ++it)
+		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end();)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
-			if (FD_ISSET(stream->fd, &rfds))
+			++it;
+			
+			if (FD_ISSET(stream->fd, &efds))
+			{
+				listenStreams.remove(stream);
+				delete stream;
+			}
+			else if (FD_ISSET(stream->fd, &rfds))
 			{
 				// accept connection
 				struct sockaddr_in targetAddr;

@@ -274,8 +274,9 @@ namespace Streams
 	class Server
 	{
 	protected:
-		std::list<Stream*> listenStreams; //!< streams listening for incoming connections.
-		std::list<Stream*> transferStreams; //!< streams for transfering data with targets.
+		typedef std::list<Stream*> StreamsList;
+		StreamsList listenStreams; //!< streams listening for incoming connections.
+		StreamsList transferStreams; //!< streams for transfering data with targets.
 	
 	public:
 		//! Destructor, closes all connections.
