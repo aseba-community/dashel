@@ -645,6 +645,9 @@ namespace Streams
 				else
 					throw InvalidTargetDescription(target);
 				
+				if (fd == -1)
+					throw ConnectionError(targe);
+				
 				// create stream and associate fd
 				if (isListen)
 					*isListen = false;
@@ -672,6 +675,7 @@ namespace Streams
 			{
 				// TODO: construct client
 				*isListen = false;
+				throw ConnectionError(targe);
 			}
 			else
 				throw InvalidTargetDescription(target);
