@@ -708,7 +708,7 @@ namespace Streams
 				throw InvalidTargetDescription(target);
 			
 			if (fd == -1)
-				throw ConnectionError(target, "cannot open file");
+				throw ConnectionError(target, "Cannot open file");
 			
 			// create stream and associate fd
 			return new FileDescriptorStream(target, fd);
@@ -735,7 +735,7 @@ namespace Streams
 			// create socket
 			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (fd < 0)
-				throw ConnectionError(target, "cannot create socket");
+				throw ConnectionError(target, "Cannot create socket");
 			
 			// reuse address
 			int flag = 1;
@@ -748,7 +748,7 @@ namespace Streams
 			addr.sin_port = htons(bindAddress.port);
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw ConnectionError(target, "cannot bind target");
+				throw ConnectionError(target, "Cannot bind target");
 			
 			// listen
 			listen(fd, 16); // backlog of 16 is a pure blind guess
@@ -776,7 +776,7 @@ namespace Streams
 			// create socket
 			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (fd < 0)
-				throw ConnectionError(target, "cannot create socket");
+				throw ConnectionError(target, "Cannot create socket");
 			
 			// connect
 			sockaddr_in addr;
@@ -784,7 +784,7 @@ namespace Streams
 			addr.sin_port = htons(remoteAddress.port);
 			addr.sin_addr.s_addr = htonl(remoteAddress.address);
 			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw ConnectionError(target, "cannot connect to target");
+				throw ConnectionError(target, "Cannot connect to target");
 			
 			return new SocketStream(target, fd);
 			
