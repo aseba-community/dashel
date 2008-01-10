@@ -50,6 +50,7 @@
 
 #ifndef WIN32
 	#include <unistd.h>
+	#include <termios.h>
 	#include <fcntl.h>
 	#include <netdb.h>
 	#include <signal.h>
@@ -96,7 +97,7 @@ namespace Streams
 		//! Create the stream and associates a file descriptor
 		SelectableStream(const string& targetName, int fd): targetName(targetName), fd(fd) { }
 		
-		~SelectableStream()
+		virtual ~SelectableStream()
 		{
 			if (fd >= 0)
 				close(fd);
@@ -340,6 +341,28 @@ namespace Streams
 		}
 	};
 	
+	//! Stream for serial port, in addition to FileDescriptorStream, save old state of serial port
+	class SerialStream: public FileDescriptorStream
+	{
+	protected:
+		struct termios oldtio;	//!< old serial port state
+		
+	public:
+		//! Create the stream and associates a file descriptor
+		SerialStream(const string& targetName, int fd, const struct termios* oldtio) :
+			FileDescriptorStream(targetName, fd)
+		{
+			memcpy(&this->oldtio, oldtio, sizeof(struct termios));
+		}
+		
+		//! Destructor, restore old serial port state
+		virtual ~SerialStream()
+		{
+			 tcsetattr(fd, TCSANOW, &oldtio);
+		}
+	};
+	
+	
 	//! Called when SIGTERM arrives, halts all running clients or servers in all threads
 	void termHandler(int t)
 	{
@@ -580,6 +603,7 @@ namespace Streams
 		TargetNameParser(const string &target) :
 			target(target)
 		{
+			// TODO: add option to restrict strings possible values
 			targetsTypes["file"].push_back(new TargetParameter("name"));
 			targetsTypes["file"].push_back(new TargetParameter("mode", "read"));
 			
@@ -620,44 +644,15 @@ namespace Streams
 		/**
 			Requests the creation of a stream for a target
 			
-			\param target destination of connection (see Section \ref TargetNamingSec)
 			\param isListen if pointed value is true, try to create a listen stream. Change the value to false if the listen stream creation was not possible and a normal data stream was returned instead. If 0, creates a data stream
 		*/
 		Stream* createStream(bool* isListen = 0)
 		{
 			if (type == "file")
 			{
-				// get parameters
-				const string& name = parameters->getParameterForced("name")->value;
-				const string& mode = parameters->getParameterForced("mode")->value;
-				
-				#ifndef WIN32
-				int fd;
-				
-				// open file
-				if (mode == "read")
-					fd = open(name.c_str(), O_RDONLY);
-				else if (mode == "write")
-					fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-				// as we currently have no seek, read/write is useless
-				/*else if (mode == "readwrite") 
-					fd = open(name.c_str(), O_RDONLY);*/
-				else
-					throw InvalidTargetDescription(target);
-				
-				if (fd == -1)
-					throw ConnectionError(target);
-				
-				// create stream and associate fd
 				if (isListen)
 					*isListen = false;
-				return new FileDescriptorStream(target, fd);
-				
-				#else // WIN32
-				
-				// TODO: add Win32 implementation
-				
-				#endif // WIN32
+				return createFileStream();
 			}
 			else if (type == "tcp")
 			{
@@ -673,9 +668,9 @@ namespace Streams
 			}
 			else if (type == "ser")
 			{
-				// TODO: construct client
-				*isListen = false;
-				throw ConnectionError(target);
+				if (isListen)
+					*isListen = false;
+				return createSerialStream();
 			}
 			else
 				throw InvalidTargetDescription(target);
@@ -687,7 +682,42 @@ namespace Streams
 		{
 			char hostName[256];
 			gethostname(hostName, 256);
+			hostName[255] = 0;
 			return string(hostName);
+		}
+		
+		//! Creates a file stream
+		Stream* createFileStream()
+		{
+			// get parameters
+			const string& name = parameters->getParameterForced("name")->value;
+			const string& mode = parameters->getParameterForced("mode")->value;
+			
+			#ifndef WIN32
+			int fd;
+			
+			// open file
+			if (mode == "read")
+				fd = open(name.c_str(), O_RDONLY);
+			else if (mode == "write")
+				fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+			// as we currently have no seek, read/write is useless
+			/*else if (mode == "readwrite") 
+				fd = open(name.c_str(), O_RDONLY);*/
+			else
+				throw InvalidTargetDescription(target);
+			
+			if (fd == -1)
+				throw ConnectionError(target);
+			
+			// create stream and associate fd
+			return new FileDescriptorStream(target, fd);
+			
+			#else // WIN32
+			
+			// TODO: add Win32 implementation
+			
+			#endif // WIN32
 		}
 		
 		/**
@@ -763,6 +793,54 @@ namespace Streams
 			// TODO: add Win32 implementation
 			
 			#endif // WIN32
+		}
+		
+		//! Creates a serial port stream.
+		Stream* createSerialStream()
+		{
+			// TODO: implement this
+			throw ConnectionError(target);
+			
+			#ifndef WIN32
+			
+			// TODO: open device
+			int fd = 0;
+			
+			struct termios newtio, oldtio;
+			
+			// save old serial port state and clear new one
+			tcgetattr(fd, &oldtio);
+			memset(&newtio, 0, sizeof(newtio));
+			
+			// TODO: set generic baud rate
+			newtio.c_cflag |= CS8;				// 8 bits characters
+			newtio.c_cflag |= CLOCAL;			// ignore modem control lines.
+			newtio.c_cflag |= CREAD;			// enable receiver.
+			if (parameters->getParameterForced("fc")->value == "hard")
+				newtio.c_cflag |= CRTSCTS;		// enable hardware flow control
+			if (parameters->getParameterForced("parity")->value != "none")
+			{
+				newtio.c_cflag |= PARENB;		// enable parity generation on output and parity checking for input.
+				if (parameters->getParameterForced("parity")->value == "odd")
+					newtio.c_cflag |= PARODD;	// parity for input and output is odd.
+			}
+			
+			newtio.c_iflag = IGNPAR;			// ignore parity on input
+			
+			newtio.c_oflag = 0;
+			
+			newtio.c_lflag = 0;
+			
+			newtio.c_cc[VTIME] = 0;			// block forever if no byte
+			newtio.c_cc[VMIN] = 1;				// one byte is sufficient to return
+			
+			// set attributes
+			if ((tcflush(fd, TCIFLUSH) < 0) || (tcsetattr(fd, TCSANOW, &newtio) < 0))
+				throw ConnectionError(target);
+			
+			return new SerialStream(target, fd, &oldtio);
+			
+			#endif
 		}
 		
 		//! Parse target description. Throws an InvalidTarget on parse error

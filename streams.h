@@ -91,8 +91,8 @@
 	\li \c port : serial port number, starting from 1, default 1
 	\li \c baud : baud rate, default 115200
 	\li \c stop : stop bits count (1 or 2), default 1
-	\li \c parity : parity type (none, even, odd, mark, space), default none
-	\li \c fc : flow control type, (none, soft, hard), default none
+	\li \c parity : parity type (none, even, odd), default none
+	\li \c fc : flow control type, (none, hard), default none
 	
 	The serial port is always configured for 8 bits transfers
 	
