@@ -187,8 +187,9 @@ namespace Streams
 			
 			\param target faulty target
 		*/
-		ConnectionError(const std::string &target) : target(target) { }
+		ConnectionError(const std::string &target, const std::string &reason) : target(target), reason(reason) { }
 		std::string target; //!< faulty target
+		std::string reason; //!< reason of fault
 	};
 	
 	//! The specified target is invalid
@@ -199,7 +200,7 @@ namespace Streams
 			
 			\param target invalid target description
 		*/
-		InvalidTargetDescription(const std::string &target) : ConnectionError(target) { }
+		InvalidTargetDescription(const std::string &target) : ConnectionError(target, "Invalid target description") { }
 	};
 	
 	//! The system-specific synchronization primitive produced an error

@@ -708,7 +708,7 @@ namespace Streams
 				throw InvalidTargetDescription(target);
 			
 			if (fd == -1)
-				throw ConnectionError(target);
+				throw ConnectionError(target, "cannot open file");
 			
 			// create stream and associate fd
 			return new FileDescriptorStream(target, fd);
@@ -735,12 +735,12 @@ namespace Streams
 			// create socket
 			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (fd < 0)
-				throw ConnectionError(target);
+				throw ConnectionError(target, "cannot create socket");
 			
 			// reuse address
 			int flag = 1;
 			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof (flag)) < 0)
-				throw ConnectionError(target);
+				throw ConnectionError(target, "target already in use");
 			
 			// bind
 			sockaddr_in addr;
@@ -748,7 +748,7 @@ namespace Streams
 			addr.sin_port = htons(bindAddress.port);
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw ConnectionError(target);
+				throw ConnectionError(target, "cannot bind target");
 			
 			// listen
 			listen(fd, 16); // backlog of 16 is a pure blind guess
@@ -776,7 +776,7 @@ namespace Streams
 			// create socket
 			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (fd < 0)
-				throw ConnectionError(target);
+				throw ConnectionError(target, "cannot create socket");
 			
 			// connect
 			sockaddr_in addr;
@@ -784,7 +784,7 @@ namespace Streams
 			addr.sin_port = htons(remoteAddress.port);
 			addr.sin_addr.s_addr = htonl(remoteAddress.address);
 			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw ConnectionError(target);
+				throw ConnectionError(target, "cannot connect to target");
 			
 			return new SocketStream(target, fd);
 			
@@ -799,7 +799,7 @@ namespace Streams
 		Stream* createSerialStream()
 		{
 			// TODO: implement this
-			throw ConnectionError(target);
+			throw ConnectionError(target, "not implemented");
 			
 			#ifndef WIN32
 			
@@ -812,7 +812,6 @@ namespace Streams
 			tcgetattr(fd, &oldtio);
 			memset(&newtio, 0, sizeof(newtio));
 			
-			// TODO: set generic baud rate
 			newtio.c_cflag |= CS8;				// 8 bits characters
 			newtio.c_cflag |= CLOCAL;			// ignore modem control lines.
 			newtio.c_cflag |= CREAD;			// enable receiver.
@@ -823,6 +822,40 @@ namespace Streams
 				newtio.c_cflag |= PARENB;		// enable parity generation on output and parity checking for input.
 				if (parameters->getParameterForced("parity")->value == "odd")
 					newtio.c_cflag |= PARODD;	// parity for input and output is odd.
+			}
+			switch (parameters->getParameterForced("baud")->getValue<int>())
+			{
+				case 50: newtio.c_cflag |= B50; break;
+				case 75: newtio.c_cflag |= B75; break;
+				case 110: newtio.c_cflag |= B110; break;
+				case 134: newtio.c_cflag |= B134; break;
+				case 150: newtio.c_cflag |= B150; break;
+				case 200: newtio.c_cflag |= B200; break;
+				case 300: newtio.c_cflag |= B300; break;
+				case 600: newtio.c_cflag |= B600; break;
+				case 1200: newtio.c_cflag |= B1200; break;
+				case 1800: newtio.c_cflag |= B1800; break;
+				case 2400: newtio.c_cflag |= B2400; break;
+				case 4800: newtio.c_cflag |= B4800; break;
+				case 9600: newtio.c_cflag |= B9600; break;
+				case 19200: newtio.c_cflag |= B19200; break;
+				case 38400: newtio.c_cflag |= B38400; break;
+				case 57600: newtio.c_cflag |= B57600; break;
+				case 115200: newtio.c_cflag |= B115200; break;
+				case 230400: newtio.c_cflag |= B230400; break;
+				case 460800: newtio.c_cflag |= B460800; break;
+				case 500000: newtio.c_cflag |= B500000; break;
+				case 576000: newtio.c_cflag |= B576000; break;
+				case 921600: newtio.c_cflag |= B921600; break;
+				case 1000000: newtio.c_cflag |= B1000000; break;
+				case 1152000: newtio.c_cflag |= B1152000; break;
+				case 1500000: newtio.c_cflag |= B1500000; break;
+				case 2000000: newtio.c_cflag |= B2000000; break;
+				case 2500000: newtio.c_cflag |= B2500000; break;
+				case 3000000: newtio.c_cflag |= B3000000; break;
+				case 3500000: newtio.c_cflag |= B3500000; break;
+				case 4000000: newtio.c_cflag |= B4000000; break;
+				default: throw ConnectionError(target, "invalid baud rate");
 			}
 			
 			newtio.c_iflag = IGNPAR;			// ignore parity on input
@@ -836,7 +869,7 @@ namespace Streams
 			
 			// set attributes
 			if ((tcflush(fd, TCIFLUSH) < 0) || (tcsetattr(fd, TCSANOW, &newtio) < 0))
-				throw ConnectionError(target);
+				throw ConnectionError(target, "Cannot setup serial port. The requested baud rate might not be supported.");
 			
 			return new SerialStream(target, fd, &oldtio);
 			
