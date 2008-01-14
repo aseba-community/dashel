@@ -306,6 +306,9 @@ namespace Streams
 		bool step(int timeout = 0);
 
 	protected:
+		//! Stops running, subclasses may call this function.
+		void stop();
+		
 		/**
 			Called when a new connection is established.
 			If the stream is closed during this method, an exception occurs: Server stops the execution of this

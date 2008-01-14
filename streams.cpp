@@ -60,6 +60,8 @@
 	#include <sys/types.h>
 	#include <sys/types.h>
 	#include <sys/stat.h>
+	// TODO: add support for OS X serial port enumeration
+	#include <hal/libhal.h>
 #else
 	#include <winsock2.h>
 #endif
@@ -708,7 +710,7 @@ namespace Streams
 				throw InvalidTargetDescription(target);
 			
 			if (fd == -1)
-				throw ConnectionError(target, "Cannot open file");
+				throw ConnectionError(target, "cannot open file");
 			
 			// create stream and associate fd
 			return new FileDescriptorStream(target, fd);
@@ -735,7 +737,7 @@ namespace Streams
 			// create socket
 			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (fd < 0)
-				throw ConnectionError(target, "Cannot create socket");
+				throw ConnectionError(target, "cannot create socket");
 			
 			// reuse address
 			int flag = 1;
@@ -748,7 +750,7 @@ namespace Streams
 			addr.sin_port = htons(bindAddress.port);
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw ConnectionError(target, "Cannot bind target");
+				throw ConnectionError(target, "cannot bind target");
 			
 			// listen
 			listen(fd, 16); // backlog of 16 is a pure blind guess
@@ -776,7 +778,7 @@ namespace Streams
 			// create socket
 			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (fd < 0)
-				throw ConnectionError(target, "Cannot create socket");
+				throw ConnectionError(target, "cannot create socket");
 			
 			// connect
 			sockaddr_in addr;
@@ -784,7 +786,7 @@ namespace Streams
 			addr.sin_port = htons(remoteAddress.port);
 			addr.sin_addr.s_addr = htonl(remoteAddress.address);
 			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw ConnectionError(target, "Cannot connect to target");
+				throw ConnectionError(target, "cannot connect to target");
 			
 			return new SocketStream(target, fd);
 			
@@ -798,13 +800,42 @@ namespace Streams
 		//! Creates a serial port stream.
 		Stream* createSerialStream()
 		{
-			// TODO: implement this
-			throw ConnectionError(target, "not implemented");
-			
 			#ifndef WIN32
 			
-			// TODO: open device
-			int fd = 0;
+			// use HAL to enumerates devices
+			DBusConnection* dbusConnection = dbus_bus_get(DBUS_BUS_SYSTEM, 0);
+			if (!dbusConnection)
+				throw ConnectionError(target, "cannot connect to D-BUS.");
+			
+			LibHalContext* halContext = libhal_ctx_new();
+			if (!halContext)
+				throw ConnectionError(target, "cannot create HAL context: cannot create context");
+			if (!libhal_ctx_set_dbus_connection(halContext, dbusConnection))
+				throw ConnectionError(target, "cannot create HAL context: cannot connect to D-BUS");
+			if (!libhal_ctx_init(halContext, 0))
+				throw ConnectionError(target, "cannot create HAL context: cannot init context");
+			
+			int devicesCount;
+			char** devices = libhal_find_device_by_capability(halContext, "serial", &devicesCount, 0);
+			for (int i = 0; i < devicesCount; i++)
+				cout << devices[i] << endl;
+			
+			int port = parameters->getParameterForced("port")->getValue<int>();
+			if (port < 1 || port > devicesCount)
+				throw ConnectionError(target, "serial port not available");
+			char* devFileName = libhal_device_get_property_string(halContext, devices[devicesCount - port], "serial.device", 0);
+			assert(devFileName);
+			
+			libhal_ctx_shutdown(halContext, 0);
+			libhal_ctx_free(halContext);
+			
+			int fd = open(devFileName, O_RDWR);
+			
+			libhal_free_string(devFileName);
+			libhal_free_string_array(devices);
+			
+			if (fd == -1)
+				throw ConnectionError(target, "cannot open device");
 			
 			struct termios newtio, oldtio;
 			
@@ -864,7 +895,7 @@ namespace Streams
 			
 			newtio.c_lflag = 0;
 			
-			newtio.c_cc[VTIME] = 0;			// block forever if no byte
+			newtio.c_cc[VTIME] = 0;				// block forever if no byte
 			newtio.c_cc[VMIN] = 1;				// one byte is sufficient to return
 			
 			// set attributes
@@ -873,6 +904,9 @@ namespace Streams
 			
 			return new SerialStream(target, fd, &oldtio);
 			
+			#else
+			// TODO: implement this
+			throw ConnectionError(target, "not implemented");
 			#endif
 		}
 		
@@ -1163,5 +1197,10 @@ namespace Streams
 		// TODO: add Win32 implementation
 		
 		#endif
+	}
+	
+	void Server::stop()
+	{
+		runTerminationReceived = true;
 	}
 }
