@@ -619,7 +619,9 @@ namespace Streams
 			targetsTypes["ser"].push_back(new TargetParameter("fc", "none"));
 			
 			parse();
+			/* uncomment to list parameters
 			dump(cerr);
+			*/
 		}
 		
 		//! Destructor, deletes all parameters
@@ -817,8 +819,11 @@ namespace Streams
 			
 			int devicesCount;
 			char** devices = libhal_find_device_by_capability(halContext, "serial", &devicesCount, 0);
+			
+			/* uncomment to list devices
 			for (int i = 0; i < devicesCount; i++)
 				cout << devices[i] << endl;
+			*/
 			
 			int port = parameters->getParameterForced("port")->getValue<int>();
 			if (port < 1 || port > devicesCount)

@@ -1,4 +1,4 @@
-all: release debug
+all: release debug microterm microtermd
 
 release: streams.h streams.cpp
 	g++ -O3 `pkg-config --cflags hal` -c streams.cpp -o streams.o
