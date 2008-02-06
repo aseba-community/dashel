@@ -43,6 +43,7 @@
 
 #include <string>
 #include <list>
+#include <map>
 
 /*!	\file streams.h
 	\brief Public interface of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
@@ -78,31 +79,30 @@
 	\li \c file : local files
 	\li \c tcp : TCP/IP
 	\li \c ser : serial port
+	\li \c stdin : standard input
+	\li \c stdout : standard output
 	
-	The file protocol accepts only one key:
+	The file protocol accepts the following parameters, in this implicit order:
 	\li \c name : name of the file, including the path
 	\li \c mode : mode (read, write)
 	
-	The tcp protocol accepts the following keys, in this implicit order:
+	The tcp protocol accepts the following parameters, in this implicit order:
 	\li \c host : host
 	\li \c port : port
 	
-	The ser protocol accepts the following keys, in this implicit order:
+	The ser protocol accepts the following parameters, in this implicit order:
 	\li \c port : serial port number, starting from 1, default 1
 	\li \c baud : baud rate, default 115200
 	\li \c stop : stop bits count (1 or 2), default 1
 	\li \c parity : parity type (none, even, odd), default none
 	\li \c fc : flow control type, (none, hard), default none
 	
-	The serial port is always configured for 8 bits transfers
-	
-	\section UsageSec Usage
-	
-	Streams is very easy to use. Just add streams.h and streams.cpp to your project and enjoy.
+	The serial port is always configured for 8 bits transfers.
+	Protocols \c stdin and \c stdout do not take any key.
 */
 
-//! Streams, a cross-platform stream abstraction library
-namespace Streams
+//! DaSHEL, a cross-platform stream abstraction library
+namespace Dashel
 {
 	class Stream;
 
@@ -228,17 +228,9 @@ namespace Streams
 	{
 	private:
 		typedef std::list<Stream*> StreamsList;
-
-#ifdef WIN32
-		//! Set when this thing goes down.
-		void *hTerminate;
-		//! All our streams.
-		StreamsList streams; 
-#else
-#endif
-	protected:
-		StreamsList listenStreams; //!< streams listening for incoming connections.
-		StreamsList transferStreams; //!< streams for transfering data with targets.
+		
+		void *hTerminate;			//!< Set when this thing goes down.
+		StreamsList streams; 		//!< All our streams.
 	
 	public:
 		//! Constructor.

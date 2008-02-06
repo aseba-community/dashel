@@ -3,15 +3,9 @@
 #include <cassert>
 
 using namespace std;
-using namespace Streams;
+using namespace Dashel;
 
-#ifndef WIN32
-const char* stdinTarget = "file:/dev/stdin";
-#else
-const char* stdinTarget = "stdin:";
-#endif
-
-class MicroTerm: public Server
+class MicroTerm: public Hub
 {
 public:
 	MicroTerm() : s0(0), s1(0) { }
@@ -23,7 +17,7 @@ protected:
 	void incomingConnection(Stream *stream)
 	{
 		cout << "Incoming connection " << stream->getTargetName() << " (" << stream << ")" << endl;
-		if(s0 == NULL)
+		if (s0 == 0)
 			s0 = stream;
 		else
 			s1 = stream;
@@ -68,7 +62,7 @@ int main(int argc, char* argv[])
 {
 	if (argc != 3)
 	{
-		cerr << "Usage: " << argv[0] << " target" << endl;
+		cerr << "Usage: " << argv[0] << " inputTarget destTarget" << endl;
 		return 1;
 	}
 	

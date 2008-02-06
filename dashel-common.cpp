@@ -44,7 +44,7 @@
 	\brief Implementation of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
 */
 
-namespace Streams
+namespace Dashel
 {
 	
 }

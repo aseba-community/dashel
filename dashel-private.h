@@ -43,7 +43,21 @@
 #ifndef INCLUDED_DASHEL_PRIVATE_H
 #define INCLUDED_DASHEL_PRIVATE_H
 
-namespace Streams
+#include "dashel.h"
+
+#include <sstream>
+#include <vector>
+#include <cassert>
+
+#ifndef WIN32
+	#include <netdb.h>
+	#include <sys/socket.h>
+	#include <arpa/inet.h>
+#else
+	#include <winsock2.h>
+#endif
+
+namespace Dashel
 {
 	//! A TCP/IP version 4 address
 	class TCPIPV4Address
@@ -111,7 +125,7 @@ namespace Streams
 		//! Return string form
 		std::string format() const
 		{
-			std::stringstream buf;
+			std::ostringstream buf;
 			unsigned a2 = htonl(address);
 			struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
 			
@@ -135,19 +149,6 @@ namespace Streams
 			return address != INADDR_ANY && port != 0;
 		}
 	};
-	
-	bool issTok(std::istringstream& iss, char* tokenName, size_t tokenMaxLen, const char* seps)
-	{
-		std::istringstream::streampos pos = iss.tellg();
-		size_t len = iss.str().length();
-		while (pos < len)
-		{
-		
-			pos++;
-		}
-	}
-	
-	
 
 	//! Parameter set.
 	class ParameterSet
@@ -171,7 +172,7 @@ namespace Streams
 			
 			while((param = strtok(NULL, ";")) != NULL)
 			{
-				char *sep = strchr(param, "=");
+				char *sep = strchr(param, '=');
 				if(sep)
 				{
 					*sep++ = 0;
@@ -197,7 +198,7 @@ namespace Streams
 			if(it == values.end())
 			{
 				std::string r = std::string("Parameter missing: ").append(key);
-				throw StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
+				throw Dashel::StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
 			}
 			std::istringstream iss(it->second);
 			iss >> t;
