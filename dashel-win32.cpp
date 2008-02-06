@@ -140,10 +140,10 @@ namespace Streams
 		}
 		
 		//! Callback when an event is notified, allowing the stream to rearm it.
-		/*! \param srv Server instance that has generated the notification.
+		/*! \param srv Hub instance that has generated the notification.
 			\param t Type of event.
 		*/
-		virtual void notifyEvent(Server *srv, EvType t) { }
+		virtual void notifyEvent(Hub *srv, EvType t) { }
 	};
 
 	//! Socket server stream.
@@ -207,10 +207,10 @@ namespace Streams
 		}
 
 		//! Callback when an event is notified, allowing the stream to rearm it.
-		/*! \param srv Server instance.
+		/*! \param srv Hub instance.
 			\param t Type of event.
 		*/
-		virtual void notifyEvent(Server *srv, EvType t) 
+		virtual void notifyEvent(Hub *srv, EvType t) 
 		{ 
 			if(t == EvConnect)
 			{
@@ -285,7 +285,7 @@ namespace Streams
 		//! Callback when an event is notified, allowing the stream to rearm it.
 		/*! \param t Type of event.
 		*/
-		virtual void notifyEvent(Server *srv, EvType t) 
+		virtual void notifyEvent(Hub *srv, EvType t) 
 		{ 
 			DWORD n = 0;
 			if(GetNumberOfConsoleInputEvents(hf, &n))
@@ -701,7 +701,7 @@ namespace Streams
 		//! Callback when an event is notified, allowing the stream to rearm it.
 		/*! \param t Type of event.
 		*/
-		virtual void notifyEvent(Server *srv, EvType t) 
+		virtual void notifyEvent(Hub *srv, EvType t) 
 		{ 
 			if(t == EvPotentialData)
 			{
@@ -777,7 +777,7 @@ namespace Streams
 		//! Callback when an event is notified, allowing the stream to rearm it.
 		/*! \param t Type of event.
 		*/
-		virtual void notifyEvent(Server *srv, EvType t) 
+		virtual void notifyEvent(Hub *srv, EvType t) 
 		{ 
 			if(t == EvPotentialData)
 			{
@@ -840,16 +840,16 @@ namespace Streams
 		}
 	};
 
-	Server::Server()
+	Hub::Hub()
 	{
 		hTerminate = CreateEvent(NULL, TRUE, FALSE, NULL);
 	}
 	
-	Server::~Server()
+	Hub::~Hub()
 	{
 	}
 	
-	void Server::connect(const std::string &target)
+	void Hub::connect(const std::string &target)
 	{
 		std::string proto, params;
 		size_t c = target.find_first_of(':');
@@ -884,12 +884,12 @@ namespace Streams
 		streams.push_back(s);
 	}
 	
-	void Server::run(void)
+	void Hub::run(void)
 	{
 		while(step(-1));
 	}
 	
-	bool Server::step(int timeout)
+	bool Hub::step(int timeout)
 	{
 		HANDLE hEvs[64] = { hTerminate };
 		WaitableStream *strs[64] = { NULL };
@@ -972,7 +972,7 @@ namespace Streams
 		while(true);
 	}
 
-	void Server::stop()
+	void Hub::stop()
 	{
 		SetEvent(hTerminate);
 	}

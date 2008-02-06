@@ -119,11 +119,11 @@ namespace Streams
 			{
 				struct in_addr addr;
 				addr.s_addr = a2;
-				buf << "tcp:" << inet_ntoa(addr) << ":" << port;
+				buf << "tcp:host=" << inet_ntoa(addr) << ";port=" << port;
 			}
 			else
 			{
-				buf << "tcp:" << he->h_name << ":" << port;
+				buf << "tcp:host=" << he->h_name << ";port=" << port;
 			}
 			
 			return buf.str();
@@ -135,33 +135,58 @@ namespace Streams
 			return address != INADDR_ANY && port != 0;
 		}
 	};
+	
+	bool issTok(std::istringstream& iss, char* tokenName, size_t tokenMaxLen, const char* seps)
+	{
+		std::istringstream::streampos pos = iss.tellg();
+		size_t len = iss.str().length();
+		while (pos < len)
+		{
+		
+			pos++;
+		}
+	}
+	
+	
 
 	//! Parameter set.
 	class ParameterSet
 	{
 	private:
 		std::map<std::string, std::string> values;
+		std::vector<std::string> params;
 
 	public:
 		//! Add values to set.
 		void add(const char *line)
 		{
-			// Skip protocol name.
-			while(*line!=':' && *line) ++line;
-			if(!*line)
-				return;
-			++line;
-
-			// Parse options.
-			char k[32], v[1024];
-			std::istringstream iss(line);
-			while(!iss.fail())
+			char *lc = strdup(line);
+			int spc = 0;
+			char *param;
+			bool storeParams = (params.size() == 0);
+			char *protocolName = strtok(lc, ":");
+			
+			// Do nothing with this.
+			assert(protocolName);
+			
+			while((param = strtok(NULL, ";")) != NULL)
 			{
-				iss.getline(k,32,'=');
-				iss.getline(v,1024,';');
-				if(!iss.fail())
-					values[k] = v;
-			}
+				char *sep = strchr(param, "=");
+				if(sep)
+				{
+					*sep++ = 0;
+					values[param] = sep;
+				}
+				else
+				{
+					values[params[spc]] = param;
+				}
+				if(storeParams)
+					params[spc] = param;
+				++spc;
+			}			
+			
+			free(lc);
 		}
 
 		//! Get a parameter value
@@ -199,8 +224,6 @@ namespace Streams
 		EvClosed,			//!< Closed by remote.
 		EvConnect,			//!< Incoming connection detected.
 	} EvType;
-
-
 }
 
 #endif

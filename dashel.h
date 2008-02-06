@@ -68,11 +68,11 @@
 	
 	\section TargetNamingSec Targets Naming
 	
-	To construct a new Client, or to listen connections in a Server, you have to specify a target.
+	To construct a new Client, or to listen connections in a Hub, you have to specify a target.
 	A target is a string which describes a file, a TCP/IP address/port, or a serial port.
 	This string consists of the type of the target followed by a comma separated list of parameters.
 	This list is contains key-values pair, with a predifined order such that keys can be omitted (but if a key is present, all subsequent entries must have an explicit key).
-	Its general syntax is thus \c "protocol:[param1key=]param1value:...:[paramNkey=]paramNvalue".
+	Its general syntax is thus \c "protocol:[param1key=]param1value;...;[paramNkey=]paramNvalue".
 	
 	The following protocols are available:
 	\li \c file : local files
@@ -112,12 +112,12 @@ namespace Streams
 	public:
 		//! The different exception causes.
 		typedef enum {
-			Unknown,		//!< Well, hopefully never used.
-			SyncError,		//!< Some synchronisation error.
-			InvalidTarget,	//!< The target string was bad.
+			Unknown,			//!< Well, hopefully never used.
+			SyncError,			//!< Some synchronisation error.
+			InvalidTarget,		//!< The target string was bad.
 			InvalidOperation,	//!< The operation is not valid on this stream.
-			ConnectionLost,	//!< The connection was lost.
-			IOError,		//!< Some I/O error.
+			ConnectionLost,		//!< The connection was lost.
+			IOError,			//!< Some I/O error.
 			ConnectionFailed	//!< The connection could not be established.
 		} Source;
 
@@ -141,7 +141,20 @@ namespace Streams
 			\param reason The reason as a human readable string.
 		*/
 		StreamException(Source s = Unknown, int se = 0, Stream *stream = NULL, const char *reason = NULL);
-
+	};
+	
+	//! Serial port enumerator class.
+	/*! This class is just a package for one static method.
+	*/
+	class SerialPortEnumerator
+	{
+	public:
+		//! Retrieve list of all serial ports available on system.
+		/*! This function queries the Operating System for all available serial ports.
+			\return A map where the key is the port name as passed to the ser: protocol, and
+			the value is a human readable that may be displayed in a user interface.
+		*/
+		static std::map<std::string, std::string> getPorts();
 	};
 
 	//! A data stream, with low-level (not-endian safe) read/write functions
@@ -208,10 +221,10 @@ namespace Streams
 	/**
 		A server that listens for incoming connections and maintains a list of
 		targets.
-		To create a client connection, users of the library have to subclass Server
+		To create a client connection, users of the library have to subclass Hub
 		and implement incomingConnection(), incomingData(), and connectionClosed().
 	*/
-	class Server
+	class Hub
 	{
 	private:
 		typedef std::list<Stream*> StreamsList;
@@ -229,10 +242,10 @@ namespace Streams
 	
 	public:
 		//! Constructor.
-		Server();
+		Hub();
 
 		//! Destructor, closes all connections.
-		virtual ~Server();
+		virtual ~Hub();
 		
 		/**
 			Listens for incoming connections on a target.
@@ -262,7 +275,7 @@ namespace Streams
 		
 		/**
 			Called when a new connection is established.
-			If the stream is closed during this method, an exception occurs: Server stops the execution of this
+			If the stream is closed during this method, an exception occurs: Hub stops the execution of this
 			method and calls connectionClosed().
 			Subclass must implement this method.
 			
@@ -272,7 +285,7 @@ namespace Streams
 		
 		/**
 			Called when data is available for reading on the stream.
-			If the stream is closed during this method, an exception occurs: Server stops the execution of this
+			If the stream is closed during this method, an exception occurs: Hub stops the execution of this
 			method and calls connectionClosed().
 			Subclass must implement this method.
 			
