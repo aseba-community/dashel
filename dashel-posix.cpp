@@ -271,15 +271,11 @@ namespace Dashel
 				
 				if (len < 0)
 				{
-					close(fd);
-					fd = -1;
 					fail();
 					throw StreamException(StreamException::IOError, errno, this, "Socket write I/O error.");
 				}
 				else if (len == 0)
 				{
-					close(fd);
-					fd = -1;
 					fail();
 					throw StreamException(StreamException::ConnectionLost, 0, this, "Connection lost.");
 				}
@@ -319,15 +315,11 @@ namespace Dashel
 				
 				if (len < 0)
 				{
-					close(fd);
-					fd = -1;
 					fail();
 					throw StreamException(StreamException::IOError, errno, this, "Socket read I/O error.");
 				}
 				else if (len == 0)
 				{
-					close(fd);
-					fd = -1;
 					fail();
 					throw StreamException(StreamException::ConnectionLost, 0, this, "Connection lost.");
 				}
@@ -408,15 +400,11 @@ namespace Dashel
 				
 				if (len < 0)
 				{
-					close(fd);
-					fd = -1;
 					fail();
 					throw StreamException(StreamException::IOError, errno, this, "File write I/O error.");
 				}
 				else if (len == 0)
 				{
-					close(fd);
-					fd = -1;
 					fail();
 					throw StreamException(StreamException::ConnectionLost, 0, this, "File full.");
 				}
@@ -432,7 +420,11 @@ namespace Dashel
 		{
 			assert(fd >= 0);
 			
-			fdatasync(fd);
+			if (fdatasync(fd) < 0)
+			{
+				fail();
+				throw StreamException(StreamException::IOError, errno, this, "File flush error.");
+			}
 		}
 		
 		virtual void read(void *data, size_t size)
@@ -448,15 +440,11 @@ namespace Dashel
 				
 				if (len < 0)
 				{
-					close(fd);
-					fd = -1;
 					fail();
 					throw StreamException(StreamException::IOError, errno, this, "File read I/O error.");
 				}
 				else if (len == 0)
 				{
-					close(fd);
-					fd = -1;
 					fail();
 					throw StreamException(StreamException::ConnectionLost, 0, this, "Reached end of file.");
 				}
