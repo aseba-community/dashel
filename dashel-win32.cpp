@@ -739,7 +739,7 @@ namespace Dashel
 		SocketStream(const std::string& params) : WaitableStream(params)
 		{ 
 			ParameterSet ps;
-			ps.add("tcp:sock=0;port=5000;");
+			ps.add("tcp:address;port;sock=0");
 			ps.add(params.c_str());
 
 			sock = ps.get<SOCKET>("sock");

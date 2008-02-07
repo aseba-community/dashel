@@ -157,9 +157,34 @@ namespace Dashel
 		#endif
 		
 	public:
+		//! Create a socket stream to the following destination
 		SocketStream(const string& targetName) :
 			SelectableStream(targetName)
 		{
+			ParameterSet ps;
+			ps.add("tcp:address;port;sock=-1");
+			ps.add(targetName.c_str());
+
+			fd = ps.get<int>("sock");
+			if (fd < 0)
+			{
+				// create socket
+				fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+				if (fd < 0)
+					throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot create socket.");
+				
+				TCPIPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
+				
+				// connect
+				sockaddr_in addr;
+				addr.sin_family = AF_INET;
+				addr.sin_port = htons(remoteAddress.port);
+				addr.sin_addr.s_addr = htonl(remoteAddress.address);
+				if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+					throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot connect to remote host.");
+			}
+			
+			// setup TCP Cork or create buffer for delayed sending
 			#ifndef TCP_CORK
 			bufferSize = SEND_BUFFER_SIZE_INITIAL;
 			buffer = (unsigned char*)malloc(bufferSize);
@@ -182,8 +207,7 @@ namespace Dashel
 		
 		virtual void write(const void *data, const size_t size)
 		{
-			if (fd < 0)
-				throw StreamException(StreamException::ConnectionLost, 0, this, "Invalid file descriptor.");
+			assert(fd >= 0);
 			
 			#ifdef TCP_CORK
 			send(data, size);
@@ -243,8 +267,7 @@ namespace Dashel
 		
 		virtual void flush()
 		{
-			if (fd < 0)
-				throw StreamException(StreamException::ConnectionLost, 0, this, "Invalid file descriptor.");
+			assert(fd >= 0);
 			
 			#ifdef TCP_CORK
 			int flag = 0;
@@ -259,8 +282,7 @@ namespace Dashel
 		
 		virtual void read(void *data, size_t size)
 		{
-			if (fd < 0)
-				throw StreamException(StreamException::ConnectionLost, 0, this, "Invalid file descriptor.");
+			assert(fd >= 0);
 			
 			unsigned char *ptr = (unsigned char *)data;
 			size_t left = size;
@@ -290,6 +312,46 @@ namespace Dashel
 		}
 	};
 	
+	//! Socket server stream.
+	/*! This stream is used for listening for incoming connections. It cannot be used for transfering
+		data.
+	*/
+	class SocketServerStream : public SelectableStream
+	{
+		//! Create the stream and associates a file descriptor
+		SocketServerStream(const std::string& targetName) :
+			SelectableStream(targetName)
+		{
+			ParameterSet ps;
+			ps.add("tcpin:host=0.0.0.0;port");
+			ps.add(targetName.c_str());
+			
+			TCPIPV4Address bindAddress(ps.get("host"), ps.get<int>("port"));
+			
+			// create socket
+			fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (fd < 0)
+				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot create socket.");
+			
+			// reuse address
+			int flag = 1;
+			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof (flag)) < 0)
+				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot set address reuse flag on socket, probably the port is already in use.");
+			
+			// bind
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(bindAddress.port);
+			addr.sin_addr.s_addr = htonl(bindAddress.address);
+			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot bind socket to port, probably the port is already in use.");
+			
+			// Listen on socket, backlog is sort of arbitrary.
+			if(listen(fd, 16) < 0)
+				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot listen on socket.");
+		}
+	};
+	
 	
 	//! File descriptor, uses send/recv for read/write
 	class FileDescriptorStream: public SelectableStream
@@ -302,8 +364,7 @@ namespace Dashel
 		
 		virtual void write(const void *data, const size_t size)
 		{
-			if (fd < 0)
-				throw StreamException(StreamException::ConnectionLost, 0, this, "Invalid file descriptor.");
+			assert(fd >= 0);
 			
 			const char *ptr = (const char *)data;
 			size_t left = size;
@@ -334,17 +395,15 @@ namespace Dashel
 		
 		virtual void flush()
 		{
-			if (fd < 0)
-				throw StreamException(StreamException::ConnectionLost, 0, this, "Invalid file descriptor.");
+			assert(fd >= 0);
 			
 			fdatasync(fd);
 		}
 		
 		virtual void read(void *data, size_t size)
 		{
-			if (fd < 0)
-				throw StreamException(StreamException::ConnectionLost, 0, this, "Invalid file descriptor.");
-		
+			assert(fd >= 0);
+			
 			char *ptr = (char *)data;
 			size_t left = size;
 			
@@ -382,7 +441,7 @@ namespace Dashel
 			FileDescriptorStream(targetName)
 		{
 			ParameterSet ps;
-			ps.add("file:mode=read");
+			ps.add("file:name;mode=read");
 			ps.add(targetName.c_str());
 			std::string name = ps.get("name");
 			std::string mode = ps.get("mode");
@@ -542,198 +601,7 @@ namespace Dashel
 	// TODO: check if this works in real life
 	
 	
-	// TODO: do this
-	{
-		
-		/**
-			Requests the creation of a stream for a target
-			
-			\param isListen if pointed value is true, try to create a listen stream. Change the value to false if the listen stream creation was not possible and a normal data stream was returned instead. If 0, creates a data stream
-		*/
-		Stream* createStream(bool* isListen = 0)
-		{
-			if (type == "file")
-			{
-				if (isListen)
-					*isListen = false;
-				return createFileStream();
-			}
-			else if (type == "tcp")
-			{
-				// get parameters
-				const string& host = parameters->getParameterForced("host")->value;
-				unsigned short port = atoi(parameters->getParameterForced("port")->value.c_str());
-				
-				// create stream
-				if (!isListen || (*isListen == false))
-					return createTCPDataStream(host, port);
-				else
-					return createTCPListenStream(host, port);
-			}
-			else if (type == "ser")
-			{
-				if (isListen)
-					*isListen = false;
-				return createSerialStream();
-			}
-			else
-				throw InvalidTargetDescription(target);
-		}
-		
-	protected:
-		//! Returns the name of this host
-		string getHostName()
-		{
-			char hostName[256];
-			gethostname(hostName, 256);
-			hostName[255] = 0;
-			return string(hostName);
-		}
-		
-		/**
-			Creates a listen stream for incoming connections.
-			
-			\param host target host name
-			\param port target port
-		*/
-		Stream* createTCPListenStream(const std::string& host, unsigned short port)
-		{
-			TCPIPV4Address bindAddress(host, port);
-			
-			// create socket
-			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-			if (fd < 0)
-				throw ConnectionError(target, "cannot create socket");
-			
-			// reuse address
-			int flag = 1;
-			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof (flag)) < 0)
-				throw ConnectionError(target, "target already in use");
-			
-			// bind
-			sockaddr_in addr;
-			addr.sin_family = AF_INET;
-			addr.sin_port = htons(bindAddress.port);
-			addr.sin_addr.s_addr = htonl(bindAddress.address);
-			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw ConnectionError(target, "cannot bind target");
-			
-			// listen
-			listen(fd, 16); // backlog of 16 is a pure blind guess
-			return new SocketStream(target, fd);
-		}
-		
-		/**
-			Creates a data stream.
-			
-			\param host target host name
-			\param port target port
-		*/
-		Stream* createTCPDataStream(const std::string& host, unsigned short port)
-		{
-			TCPIPV4Address remoteAddress(host, port);
-			
-			// create socket
-			int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-			if (fd < 0)
-				throw ConnectionError(target, "cannot create socket");
-			
-			// connect
-			sockaddr_in addr;
-			addr.sin_family = AF_INET;
-			addr.sin_port = htons(remoteAddress.port);
-			addr.sin_addr.s_addr = htonl(remoteAddress.address);
-			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw ConnectionError(target, "cannot connect to target");
-			
-			return new SocketStream(target, fd);
-		}
-		
-		//! Creates a serial port stream.
-		Stream* createSerialStream()
-		{
-			
-		}
-		
-	
-	Client::Client(const std::string &target) :
-		stream(TargetNameParser(target).createStream()),
-		isRunning(false)
-	{
-		
-	}
-	
-	Client::~Client()
-	{
-		delete stream;
-	}
-	
-	void Client::run()
-	{
-		runTerminationReceived = false;
-		isRunning = true;
-		while (!runTerminationReceived && isRunning)
-			step(-1);
-	}
-	
-	bool Client::step(int timeout)
-	{
-		// locally overload the object by a pointer to its physical class instead of its interface
-		SelectableStream* stream = polymorphic_downcast<SelectableStream*>(this->stream);
-		if (stream->fd < 0)
-			return false;
-		
-		// setup file descriptor sets
-		fd_set rfds, efds;
-		int nfds = stream->fd;
-		FD_ZERO(&rfds);
-		FD_ZERO(&efds);
-		FD_SET(stream->fd, &rfds);
-		FD_SET(stream->fd, &efds);
-		
-		// do select
-		int ret;
-		if (timeout < 0)
-		{
-			ret = select(nfds+1, &rfds, NULL, &efds, NULL);
-		}
-		else
-		{
-			struct timeval t;
-			t.tv_sec = 0;
-			t.tv_usec = timeout;
-			ret = select(nfds+1, &rfds, NULL, &efds, &t);
-		}
-		
-		// check for error
-		if (ret < 0)
-			throw SynchronizationError();
-		
-		// check if data is available. If so, get it
-		if (FD_ISSET(stream->fd, &efds))
-		{
-			connectionClosed(stream);
-			isRunning = false;
-		}
-		else if (FD_ISSET(stream->fd, &rfds))
-		{
-			try
-			{
-				incomingData(stream);
-			}
-			catch (StreamException e)
-			{
-				connectionClosed(stream);
-				isRunning = false;
-			}
-			return true;
-		}
-		else
-			return false;
-	}
-	
-	
-	Server::~Server()
+	Hub::~Hub()
 	{
 		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end(); ++it)
 			delete *it;
@@ -741,7 +609,7 @@ namespace Dashel
 			delete *it;
 	}
 	
-	void Server::listen(const std::string &target)
+	void Hub::listen(const std::string &target)
 	{
 		bool isListen = true;
 		Stream* stream = TargetNameParser(target).createStream(&isListen);
@@ -756,14 +624,14 @@ namespace Dashel
 		}
 	}
 	
-	void Server::run(void)
+	void Hub::run(void)
 	{
 		runTerminationReceived = false;
 		while (!runTerminationReceived)
 			step(-1);
 	}
 	
-	bool Server::step(int timeout)
+	bool Hub::step(int timeout)
 	{
 		fd_set rfds, efds;
 		int nfds = 0;
@@ -876,7 +744,7 @@ namespace Dashel
 		}
 	}
 	
-	void Server::stop()
+	void Hub::stop()
 	{
 		runTerminationReceived = true;
 	}
