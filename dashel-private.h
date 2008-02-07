@@ -177,13 +177,15 @@ namespace Dashel
 				{
 					*sep++ = 0;
 					values[param] = sep;
+					if (storeParams)
+						params.push_back(param);
 				}
 				else
 				{
+					if (storeParams)
+						params.push_back(param);
 					values[params[spc]] = param;
 				}
-				if(storeParams)
-					params[spc] = param;
 				++spc;
 			}
 			

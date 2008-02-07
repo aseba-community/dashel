@@ -38,7 +38,6 @@
 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define _XOPEN_SOURCE 600
 #include <string.h>
 #include <cassert>
 #include <cstdlib>
@@ -80,11 +79,7 @@ namespace Dashel
 		stream(stream)
 	{
 		if (se)
-		{
-			char buf[1024];
-			strerror_r(se, buf, 1024);
-			this->sysMessage = buf;
-		}
+			this->sysMessage = strerror(errno);
 	}
 	
 	// Serial port enumerator
@@ -499,7 +494,10 @@ namespace Dashel
  				throw StreamException(StreamException::InvalidTarget, 0, NULL, "Invalid file mode.");
 			
 			if (fd == -1)
-				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot open file.");
+			{
+				string errorMessage = "Cannot open file " + name + " for " + mode + ".";
+				throw StreamException(StreamException::ConnectionFailed, errno, NULL, errorMessage.c_str());
+			}
 		}
 	};
 	
@@ -671,9 +669,9 @@ namespace Dashel
 		if(proto == "file")
 			s = new FileStream(target);
 		if(proto == "stdin")
-			s = new FileStream("file:/dev/stdin:read");
+			s = new FileStream("file:/dev/stdin;read");
 		if(proto == "stdout")
-			s = new FileStream("file:/dev/stdout:write");
+			s = new FileStream("file:/dev/stdout;write");
 		if(proto == "ser")
 			s = new SerialStream(target);
 		if(proto == "tcpin")
