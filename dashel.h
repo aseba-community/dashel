@@ -244,11 +244,12 @@ namespace Dashel
 	*/
 	class Hub
 	{
-	private:
+	protected:
 		typedef std::list<Stream*> StreamsList;
-		
-		void *hTerminate;			//!< Set when this thing goes down.
 		StreamsList streams; 		//!< All our streams.
+	
+	private:
+		void *hTerminate;			//!< Set when this thing goes down.
 	
 	public:
 		//! Constructor.

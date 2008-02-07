@@ -767,7 +767,11 @@ namespace Dashel
 						incomingData(stream);
 					}
 					catch (StreamException e) { }
-					// TODO: do not loose cause of disconnection
+					// TODO: do not loose cause of disconnection, direct delete ?
+					/*// make sure we do not handle a stream which has produced an exception
+					if ((it != transferStreams.end()) && (*it == e.stream))
+						++it;
+					*/
 				}
 			}
 		}
