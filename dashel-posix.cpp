@@ -580,8 +580,6 @@ namespace Dashel
 		}
 	};
 	
-	// TODO: zzz: continue from here
-	
 	//! Called when SIGTERM arrives, halts all running clients or servers in all threads
 	void termHandler(int t)
 	{
@@ -600,34 +598,57 @@ namespace Dashel
 	} staticSigTermHandlerSetuper;
 	// TODO: check if this works in real life
 	
+	Hub::Hub()
+	{
+		hTerminate = (void*)0;
+	}
 	
 	Hub::~Hub()
 	{
-		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end(); ++it)
-			delete *it;
-		for (list<Stream*>::iterator it = transferStreams.begin(); it != transferStreams.end(); ++it)
+		for (StreamsList::iterator it = streams.begin(); it != streams.end(); ++it)
 			delete *it;
 	}
 	
-	void Hub::listen(const std::string &target)
+	void Hub::connect(const std::string &target)
 	{
-		bool isListen = true;
-		Stream* stream = TargetNameParser(target).createStream(&isListen);
-		if (isListen)
+		std::string proto, params;
+		size_t c = target.find_first_of(':');
+		if(c == std::string::npos)
+			throw StreamException(StreamException::InvalidTarget, NULL, NULL, "No protocol specified in target.");
+		proto = target.substr(0, c);
+		params = target.substr(c+1);
+
+		SelectableStream *s = NULL;
+		if(proto == "file")
+			s = new FileStream(target);
+		if(proto == "stdin")
+			s = new StdinStream("file:/dev/stdin:read");
+		if(proto == "stdout")
+			s = new StdoutStream("file:/dev/stdout:write");
+		if(proto == "ser")
+			s = new SerialStream(target);
+		if(proto == "tcpin")
+			s = new SocketServerStream(target);
+		if(proto == "tcp")
+			s = new SocketStream(target);
+		
+		if(!s)
 		{
-			listenStreams.push_back(stream);
+			std::string r = "Invalid protocol in target: ";
+			r = r.append(proto);
+			throw StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
 		}
-		else
-		{
-			transferStreams.push_back(stream);
-			incomingConnection(stream);
-		}
+		
+		// TODO: should we handle incoming connections on tcpin
+		incomingConnection(s);
+		
+		streams.push_back(s);
 	}
 	
 	void Hub::run(void)
 	{
 		runTerminationReceived = false;
-		while (!runTerminationReceived)
+		while (!runTerminationReceived && (hTerminate == (void*)0))
 			step(-1);
 	}
 	
@@ -638,17 +659,8 @@ namespace Dashel
 		FD_ZERO(&rfds);
 		FD_ZERO(&efds);
 	
-		// add listen streams
-		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end(); ++it)
-		{
-			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
-			FD_SET(stream->fd, &rfds);
-			FD_SET(stream->fd, &efds);
-			nfds = max(stream->fd, nfds);
-		}
-		
-		// add transfer streams
-		for (list<Stream*>::iterator it = transferStreams.begin(); it != transferStreams.end(); ++it)
+		// add streams
+		for (StreamsList::iterator it = streams.begin(); it != streams.end(); ++it)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 			FD_SET(stream->fd, &rfds);
@@ -672,8 +684,9 @@ namespace Dashel
 		
 		// check for error
 		if (ret < 0)
-			throw SynchronizationError();
+			throw StreamException(StreamException::SyncError, 0, NULL);
 		
+		// TODO
 		// check transfer streams
 		for (list<Stream*>::iterator it = transferStreams.begin(); it != transferStreams.end();)
 		{
@@ -746,6 +759,6 @@ namespace Dashel
 	
 	void Hub::stop()
 	{
-		runTerminationReceived = true;
+		hTerminate = (void*)1;
 	}
 }
