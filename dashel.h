@@ -97,6 +97,7 @@
 	\li \c stop : stop bits count (1 or 2), default 1
 	\li \c parity : parity type (none, even, odd), default none
 	\li \c fc : flow control type, (none, hard), default none
+	\li \c bits : number of bits per character, default 8
 	
 	The serial port is always configured for 8 bits transfers.
 	Protocols \c stdin and \c stdout do not take any key.

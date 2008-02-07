@@ -296,7 +296,7 @@ namespace Dashel
 	{
 	public:
 		//! Create the stream and associates a file descriptor
-		FileDescriptorStream(const string& targetName, int fd) :
+		FileDescriptorStream(const string& targetName, int fd = -1) :
 			SelectableStream(targetName, fd)
 		{ }
 		
@@ -387,11 +387,11 @@ namespace Dashel
 			ParameterSet ps;
 			ps.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
 			ps.add(targetName.c_str());
-			string device;
+			string devFileName;
 			
 			if (ps.isSet("device"))
 			{
-				device = ps.get("device");
+				devFileName = ps.get("device");
 			}
 			else
 			{
@@ -399,45 +399,44 @@ namespace Dashel
 				std::map<int, std::pair<std::string, std::string> >::const_iterator it = ports.find(ps.get<int>("port"));
 				if (it != ports.end())
 				{
-					device = it->first;
+					devFileName = it->first;
 				}
 				else
 					throw StreamException(StreamException::ConnectionFailed, 0, NULL, "The specified serial port does not exists.");
 			}
-			
-			// TODO: zzz: continue from here
-			
-			std::string name = std::string("\\\\.\\COM").append(ps.get("port"));
-
-			hf = CreateFile(name.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-			if(hf == INVALID_HANDLE_VALUE)
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), NULL, "Cannot open serial port.");
-
-			buildDCB(hf, ps.get<int>("baud"), ps.get<int>("bits"), ps.get("parity"), ps.get("stop"));
 		
-			int fd = open(devFileName, O_RDWR);
+			fd = open(devFileName.c_str(), O_RDWR);
 			
 			if (fd == -1)
-				throw ConnectionError(target, "cannot open device");
+				throw StreamException(StreamException::ConnectionFailed, 0, NULL, "Cannot open serial port.");
 			
-			struct termios newtio, oldtio;
+			struct termios newtio;
 			
 			// save old serial port state and clear new one
 			tcgetattr(fd, &oldtio);
 			memset(&newtio, 0, sizeof(newtio));
 			
-			newtio.c_cflag |= CS8;				// 8 bits characters
 			newtio.c_cflag |= CLOCAL;			// ignore modem control lines.
 			newtio.c_cflag |= CREAD;			// enable receiver.
-			if (parameters->getParameterForced("fc")->value == "hard")
+			switch (ps.get<int>("bits"))		// Set amount of bits per character
+			{
+				case 5: newtio.c_cflag |= CS5; break;
+				case 6: newtio.c_cflag |= CS6; break;
+				case 7: newtio.c_cflag |= CS7; break;
+				case 8: newtio.c_cflag |= CS8; break;
+				default: throw StreamException(StreamException::InvalidTarget, 0, NULL, "Invalid number of bits per character, must be 5, 6, 7, or 8.");
+			}
+			if (ps.get("stop") == "2")
+				newtio.c_cflag |= CSTOPB;		// Set two stop bits, rather than one.
+			if (ps.get("fc") == "hard")
 				newtio.c_cflag |= CRTSCTS;		// enable hardware flow control
-			if (parameters->getParameterForced("parity")->value != "none")
+			if (ps.get("parity") != "none")
 			{
 				newtio.c_cflag |= PARENB;		// enable parity generation on output and parity checking for input.
-				if (parameters->getParameterForced("parity")->value == "odd")
+				if (ps.get("parity") == "odd")
 					newtio.c_cflag |= PARODD;	// parity for input and output is odd.
 			}
-			switch (parameters->getParameterForced("baud")->getValue<int>())
+			switch (ps.get<int>("baud"))
 			{
 				case 50: newtio.c_cflag |= B50; break;
 				case 75: newtio.c_cflag |= B75; break;
@@ -469,7 +468,7 @@ namespace Dashel
 				case 3000000: newtio.c_cflag |= B3000000; break;
 				case 3500000: newtio.c_cflag |= B3500000; break;
 				case 4000000: newtio.c_cflag |= B4000000; break;
-				default: throw ConnectionError(target, "invalid baud rate");
+				default: throw StreamException(StreamException::ConnectionFailed, 0, NULL, "Invalid baud rate.");
 			}
 			
 			newtio.c_iflag = IGNPAR;			// ignore parity on input
@@ -483,11 +482,7 @@ namespace Dashel
 			
 			// set attributes
 			if ((tcflush(fd, TCIFLUSH) < 0) || (tcsetattr(fd, TCSANOW, &newtio) < 0))
-				throw ConnectionError(target, "Cannot setup serial port. The requested baud rate might not be supported.");
-			
-			return new SerialStream(target, fd, &oldtio);
-			// TODO
-			
+				throw StreamException(StreamException::ConnectionFailed, 0, NULL, "Cannot setup serial port. The requested baud rate might not be supported.");
 		}
 		
 		//! Destructor, restore old serial port state
@@ -497,6 +492,7 @@ namespace Dashel
 		}
 	};
 	
+	// TODO: zzz: continue from here
 	
 	//! Called when SIGTERM arrives, halts all running clients or servers in all threads
 	void termHandler(int t)
