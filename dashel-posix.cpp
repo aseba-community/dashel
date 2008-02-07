@@ -117,15 +117,13 @@ namespace Dashel
 		assert(derived);
 		return derived;
 	}
-	
-	//! Global variables to signal the continuous run must terminates.
-	bool runTerminationReceived = false;
 
 	//! Stream with a file descriptor that is selectable
 	class SelectableStream: public Stream
 	{
 	protected:
 		int fd; //!< associated file descriptor
+		friend class Hub;
 	
 	public:
 		//! Create the stream and associates a file descriptor
@@ -137,7 +135,6 @@ namespace Dashel
 				close(fd);
 		}
 	};
-	
 	
 	//! Socket, uses send/recv for read/write
 	class SocketStream: public SelectableStream
@@ -182,6 +179,14 @@ namespace Dashel
 				addr.sin_addr.s_addr = htonl(remoteAddress.address);
 				if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot connect to remote host.");
+				
+				// overwrite target name with a canonical one
+				this->targetName = remoteAddress.format();
+			}
+			else
+			{
+				// remove file descriptor information from target name
+				this->targetName.erase(this->targetName.rfind(";sock="));
 			}
 			
 			// setup TCP Cork or create buffer for delayed sending
@@ -249,12 +254,14 @@ namespace Dashel
 				{
 					close(fd);
 					fd = -1;
+					fail();
 					throw StreamException(StreamException::IOError, errno, this, "Socket write I/O error.");
 				}
 				else if (len == 0)
 				{
 					close(fd);
 					fd = -1;
+					fail();
 					throw StreamException(StreamException::ConnectionLost, 0, this, "Connection lost.");
 				}
 				else
@@ -295,12 +302,14 @@ namespace Dashel
 				{
 					close(fd);
 					fd = -1;
+					fail();
 					throw StreamException(StreamException::IOError, errno, this, "Socket read I/O error.");
 				}
 				else if (len == 0)
 				{
 					close(fd);
 					fd = -1;
+					fail();
 					throw StreamException(StreamException::ConnectionLost, 0, this, "Connection lost.");
 				}
 				else
@@ -318,6 +327,7 @@ namespace Dashel
 	*/
 	class SocketServerStream : public SelectableStream
 	{
+	public:
 		//! Create the stream and associates a file descriptor
 		SocketServerStream(const std::string& targetName) :
 			SelectableStream(targetName)
@@ -350,6 +360,10 @@ namespace Dashel
 			if(listen(fd, 16) < 0)
 				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot listen on socket.");
 		}
+		
+		virtual void write(const void *data, const size_t size) { }
+		virtual void flush() { }
+		virtual void read(void *data, size_t size) { }
 	};
 	
 	
@@ -377,12 +391,14 @@ namespace Dashel
 				{
 					close(fd);
 					fd = -1;
+					fail();
 					throw StreamException(StreamException::IOError, errno, this, "File write I/O error.");
 				}
 				else if (len == 0)
 				{
 					close(fd);
 					fd = -1;
+					fail();
 					throw StreamException(StreamException::ConnectionLost, 0, this, "File full.");
 				}
 				else
@@ -415,12 +431,14 @@ namespace Dashel
 				{
 					close(fd);
 					fd = -1;
+					fail();
 					throw StreamException(StreamException::IOError, errno, this, "File read I/O error.");
 				}
 				else if (len == 0)
 				{
 					close(fd);
 					fd = -1;
+					fail();
 					throw StreamException(StreamException::ConnectionLost, 0, this, "Reached end of file.");
 				}
 				else
@@ -580,6 +598,9 @@ namespace Dashel
 		}
 	};
 	
+	//! Global variables to signal the continuous run must terminates.
+	bool runTerminationReceived = false;
+	
 	//! Called when SIGTERM arrives, halts all running clients or servers in all threads
 	void termHandler(int t)
 	{
@@ -613,8 +634,8 @@ namespace Dashel
 	{
 		std::string proto, params;
 		size_t c = target.find_first_of(':');
-		if(c == std::string::npos)
-			throw StreamException(StreamException::InvalidTarget, NULL, NULL, "No protocol specified in target.");
+		if (c == std::string::npos)
+			throw StreamException(StreamException::InvalidTarget, 0, NULL, "No protocol specified in target.");
 		proto = target.substr(0, c);
 		params = target.substr(c+1);
 
@@ -622,9 +643,9 @@ namespace Dashel
 		if(proto == "file")
 			s = new FileStream(target);
 		if(proto == "stdin")
-			s = new StdinStream("file:/dev/stdin:read");
+			s = new FileStream("file:/dev/stdin:read");
 		if(proto == "stdout")
-			s = new StdoutStream("file:/dev/stdout:write");
+			s = new FileStream("file:/dev/stdout:write");
 		if(proto == "ser")
 			s = new SerialStream(target);
 		if(proto == "tcpin")
@@ -639,7 +660,6 @@ namespace Dashel
 			throw StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
 		}
 		
-		// TODO: should we handle incoming connections on tcpin
 		incomingConnection(s);
 		
 		streams.push_back(s);
@@ -684,75 +704,68 @@ namespace Dashel
 		
 		// check for error
 		if (ret < 0)
-			throw StreamException(StreamException::SyncError, 0, NULL);
+			throw StreamException(StreamException::SyncError, errno, NULL, "Error during select.");
 		
 		// TODO
 		// check transfer streams
-		for (list<Stream*>::iterator it = transferStreams.begin(); it != transferStreams.end();)
+		for (StreamsList::iterator it = streams.begin(); it != streams.end();)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 			++it;
 			
 			if (FD_ISSET(stream->fd, &efds))
 			{
-				connectionClosed(stream);
-				transferStreams.remove(stream);
+				try
+				{
+					connectionClosed(stream);
+				}
+				catch (StreamException e) { }
+				
+				streams.remove(stream);
 				delete stream;
 			}
 			else if (FD_ISSET(stream->fd, &rfds))
 			{
-				try
+				// test if listen stream
+				SocketServerStream* serverStream = dynamic_cast<SocketServerStream*>(stream);
+				
+				if (serverStream)
 				{
-					incomingData(stream);
+					// accept connection
+					struct sockaddr_in targetAddr;
+					socklen_t l = sizeof (targetAddr);
+					int targetFD = accept (stream->fd, (struct sockaddr *)&targetAddr, &l);
+					if (targetFD < 0)
+						throw StreamException(StreamException::SyncError, errno, NULL, "Cannot accept new stream.");
+					
+					// create a target stream using the new file descriptor from accept
+					ostringstream targetName;
+					targetName << TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
+					targetName << ";sock=";
+					targetName << targetFD;
+					connect(targetName.str());
 				}
-				catch (StreamException e)
+				else
 				{
-					// make sure we do not handle a stream which has produced an exception
-					if ((it != transferStreams.end()) && (*it == e.stream))
-						++it;
-					connectionClosed(e.stream);
-					transferStreams.remove(e.stream);
-					delete e.stream;
+					try
+					{
+						incomingData(stream);
+					}
+					catch (StreamException e) { }
 				}
 			}
 		}
 		
-		// check listen streams
-		for (list<Stream*>::iterator it = listenStreams.begin(); it != listenStreams.end();)
+		// remove all failed streams
+		for (StreamsList::iterator it = streams.begin(); it != streams.end();)
 		{
-			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
+			Stream* stream = *it;
 			++it;
-			
-			if (FD_ISSET(stream->fd, &efds))
+			if (stream->failed())
 			{
-				listenStreams.remove(stream);
+				connectionClosed(stream);
+				streams.remove(stream);
 				delete stream;
-			}
-			else if (FD_ISSET(stream->fd, &rfds))
-			{
-				// accept connection
-				struct sockaddr_in targetAddr;
-				socklen_t l = sizeof (targetAddr);
-				int targetFD = accept (stream->fd, (struct sockaddr *)&targetAddr, &l);
-				if (targetFD < 0)
-					throw SynchronizationError();
-				
-				// create stream
-				const string& targetName = TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
-				SocketStream* socketStream = new SocketStream(targetName, targetFD);
-				transferStreams.push_back(socketStream);
-				
-				// notify application
-				try
-				{
-					incomingConnection(socketStream);
-				}
-				catch (StreamException e)
-				{
-					connectionClosed(e.stream);
-					transferStreams.remove(e.stream);
-					delete e.stream;
-				}
 			}
 		}
 	}

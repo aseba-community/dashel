@@ -181,6 +181,7 @@ namespace Dashel
 		//! A flag indicating that the stream has failed.
 		bool failedFlag;
 
+	protected:
 		//! The target name.
 		std::string targetName;
 
