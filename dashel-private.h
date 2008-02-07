@@ -189,6 +189,12 @@ namespace Dashel
 			
 			free(lc);
 		}
+		
+		//! Return wether a key is set or not
+		bool isSet(const char *key)
+		{
+			return (values.find(key) != values.end());
+		}
 
 		//! Get a parameter value
 		template<typename T> T get(const char *key)

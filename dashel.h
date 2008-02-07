@@ -91,7 +91,8 @@
 	\li \c port : port
 	
 	The ser protocol accepts the following parameters, in this implicit order:
-	\li \c port : serial port number, starting from 1, default 1
+	\li \c device : serial port device name, system specific; either port or device must be given, device has priority if both are given.
+	\li \c port : serial port number, starting from 1, default 1; either port or device must be given, device has priority if both are given.
 	\li \c baud : baud rate, default 115200
 	\li \c stop : stop bits count (1 or 2), default 1
 	\li \c parity : parity type (none, even, odd), default none
@@ -106,7 +107,7 @@ namespace Dashel
 {
 	class Stream;
 
-	//! The one size fits all exception
+	//! The one size fits all exception for streams
 	class StreamException
 	{
 	public:
@@ -133,7 +134,7 @@ namespace Dashel
 		Stream *stream;
 
 	public:
-		//! Construct an exception with everything.
+		//! Construct an stream exception with everything.
 		/*!	\param s Source code.
 			\param se System error code
 			\param reason Reason description.
@@ -141,6 +142,21 @@ namespace Dashel
 			\param reason The reason as a human readable string.
 		*/
 		StreamException(Source s = Unknown, int se = 0, Stream *stream = NULL, const char *reason = NULL);
+	};
+	
+	//! The exception that can occur on enumeration
+	class EnumerationException 
+	{
+	public:
+		//! The reason as a human readable string.
+		std::string reason;
+		
+	public:
+		//! Construct an enumeration exception.
+		/*!
+			\param reason The reason as a human readable string.
+		*/
+		EnumerationException(const char *reason = NULL) : reason(reason) { }
 	};
 	
 	//! Serial port enumerator class.
@@ -151,10 +167,11 @@ namespace Dashel
 	public:
 		//! Retrieve list of all serial ports available on system.
 		/*! This function queries the Operating System for all available serial ports.
-			\return A map where the key is the port name as passed to the ser: protocol, and
-			the value is a human readable that may be displayed in a user interface.
+			\return A map where the key is the port number name as passed to the ser: protocol, and
+			the value is a pair of the system device name and a human readable description
+			that may be displayed in a user interface.
 		*/
-		static std::map<std::string, std::string> getPorts();
+		static std::map<int, std::pair<std::string, std::string> > getPorts();
 	};
 
 	//! A data stream, with low-level (not-endian safe) read/write functions
