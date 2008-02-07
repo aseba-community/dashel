@@ -129,7 +129,7 @@ namespace Dashel
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		SelectableStream(const string& targetName, int fd = -1): Stream(targetName), fd(fd) { }
+		SelectableStream(const string& targetName): Stream(targetName), fd(-1) { }
 		
 		virtual ~SelectableStream()
 		{
@@ -157,8 +157,8 @@ namespace Dashel
 		#endif
 		
 	public:
-		SocketStream(const string& targetName, int fd) :
-			SelectableStream(targetName, fd)
+		SocketStream(const string& targetName) :
+			SelectableStream(targetName)
 		{
 			#ifndef TCP_CORK
 			bufferSize = SEND_BUFFER_SIZE_INITIAL;
@@ -296,8 +296,8 @@ namespace Dashel
 	{
 	public:
 		//! Create the stream and associates a file descriptor
-		FileDescriptorStream(const string& targetName, int fd = -1) :
-			SelectableStream(targetName, fd)
+		FileDescriptorStream(const string& targetName) :
+			SelectableStream(targetName)
 		{ }
 		
 		virtual void write(const void *data, const size_t size)
@@ -373,6 +373,35 @@ namespace Dashel
 		}
 	};
 	
+	//! Stream for file
+	class FileStream: public FileDescriptorStream
+	{
+	public:
+		//! Parse the target name and create the corresponding file stream
+		FileStream(const string& targetName) :
+			FileDescriptorStream(targetName)
+		{
+			ParameterSet ps;
+			ps.add("file:mode=read");
+			ps.add(targetName.c_str());
+			std::string name = ps.get("name");
+			std::string mode = ps.get("mode");
+			
+			// open file
+			if (mode == "read")
+				fd = open(name.c_str(), O_RDONLY);
+			else if (mode == "write")
+				fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+			else if (mode == "readwrite")
+				fd = open(name.c_str(), O_RDWR);
+			else
+ 				throw StreamException(StreamException::InvalidTarget, 0, NULL, "Invalid file mode.");
+			
+			if (fd == -1)
+				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot open file.");
+		}
+	};
+	
 	//! Stream for serial port, in addition to FileDescriptorStream, save old state of serial port
 	class SerialStream: public FileDescriptorStream
 	{
@@ -380,7 +409,7 @@ namespace Dashel
 		struct termios oldtio;	//!< old serial port state
 		
 	public:
-		//! Create the stream and associates a file descriptor
+		//! Parse the target name and create the corresponding serial stream
 		SerialStream(const string& targetName) :
 			FileDescriptorStream(targetName)
 		{
@@ -559,33 +588,6 @@ namespace Dashel
 			gethostname(hostName, 256);
 			hostName[255] = 0;
 			return string(hostName);
-		}
-		
-		//! Creates a file stream
-		Stream* createFileStream()
-		{
-			// get parameters
-			const string& name = parameters->getParameterForced("name")->value;
-			const string& mode = parameters->getParameterForced("mode")->value;
-			
-			int fd;
-			
-			// open file
-			if (mode == "read")
-				fd = open(name.c_str(), O_RDONLY);
-			else if (mode == "write")
-				fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-			// as we currently have no seek, read/write is useless
-			/*else if (mode == "readwrite") 
-				fd = open(name.c_str(), O_RDONLY);*/
-			else
-				throw InvalidTargetDescription(target);
-			
-			if (fd == -1)
-				throw ConnectionError(target, "cannot open file");
-			
-			// create stream and associate fd
-			return new FileDescriptorStream(target, fd);
 		}
 		
 		/**
