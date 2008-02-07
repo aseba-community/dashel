@@ -38,8 +38,8 @@
 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "dashel-private.h"
-
+#define _XOPEN_SOURCE 600
+#include <string.h>
 #include <cassert>
 #include <cstdlib>
 #include <map>
@@ -60,6 +60,8 @@
 // TODO: add support for OS X serial port enumeration
 #include <hal/libhal.h>
 
+#include "dashel-private.h"
+
 
 /*!	\file streams.cpp
 	\brief Implementation of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
@@ -68,6 +70,24 @@
 namespace Dashel
 {
 	using namespace std;
+	
+	// Exceptions
+	
+	StreamException::StreamException(Source s, int se, Stream *stream, const char *reason) :
+		source(s),
+		sysError(se),
+		reason(reason),
+		stream(stream)
+	{
+		if (se)
+		{
+			char buf[1024];
+			strerror_r(se, buf, 1024);
+			this->sysMessage = buf;
+		}
+	}
+	
+	// Serial port enumerator
 	
 	std::map<int, std::pair<std::string, std::string> > SerialPortEnumerator::getPorts()
 	{
@@ -109,6 +129,8 @@ namespace Dashel
 		return ports;
 	};
 	
+	// Asserted dynamic cast
+	
 	//! Asserts a dynamic cast.	Similar to the one in boost/cast.hpp
 	template<typename Derived, typename Base>
 	inline Derived polymorphic_downcast(Base base)
@@ -117,6 +139,8 @@ namespace Dashel
 		assert(derived);
 		return derived;
 	}
+	
+	// Streams
 
 	//! Stream with a file descriptor that is selectable
 	class SelectableStream: public Stream
@@ -598,6 +622,8 @@ namespace Dashel
 		}
 	};
 	
+	// Signal handler for SIGTERM
+	
 	//! Global variables to signal the continuous run must terminates.
 	bool runTerminationReceived = false;
 	
@@ -618,6 +644,8 @@ namespace Dashel
 		}
 	} staticSigTermHandlerSetuper;
 	// TODO: check if this works in real life
+	
+	// Hub
 	
 	Hub::Hub()
 	{
@@ -706,8 +734,7 @@ namespace Dashel
 		if (ret < 0)
 			throw StreamException(StreamException::SyncError, errno, NULL, "Error during select.");
 		
-		// TODO
-		// check transfer streams
+		// check streams for activity
 		for (StreamsList::iterator it = streams.begin(); it != streams.end();)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
