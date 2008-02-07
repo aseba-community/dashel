@@ -34,31 +34,32 @@ protected:
 		stream->read(&c, 1);
 		if (stream == s0)
 		{
-			#ifdef LOCAL_ECHO
+			/*#ifdef LOCAL_ECHO
 			#ifdef WIN32
 			if(c == '\r')
 					cout << std::endl;
 			else
 			#endif
 				cout << c;
-			#endif
+			#endif*/
 			s1->write(&c, 1);
 		}
 		else
 		{
-			#ifdef WIN32
+			/*#ifdef WIN32
 			if(c == '\r')
 				cout << std::endl;
 			else
 			#endif
 				cout << c;
-			cout.flush();
+			cout.flush();*/
 		}
 	}
 	
 	void connectionClosed(Stream *stream)
 	{
 		cout << "Closed connection " << stream->getTargetName() << " (" << stream << ")" << endl;
+		stop();
 	}
 };
 

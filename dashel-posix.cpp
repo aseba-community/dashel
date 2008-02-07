@@ -142,11 +142,12 @@ namespace Dashel
 	{
 	protected:
 		int fd; //!< associated file descriptor
+		bool writeOnly;	//!< true if we can only write on this stream
 		friend class Hub;
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		SelectableStream(const string& targetName): Stream(targetName), fd(-1) { }
+		SelectableStream(const string& targetName): Stream(targetName), fd(-1), writeOnly(false) { }
 		
 		virtual ~SelectableStream()
 		{
@@ -475,7 +476,7 @@ namespace Dashel
 			if (mode == "read")
 				fd = open(name.c_str(), O_RDONLY);
 			else if (mode == "write")
-				fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+				fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP), writeOnly = true;
 			else if (mode == "readwrite")
 				fd = open(name.c_str(), O_RDWR);
 			else
@@ -697,7 +698,8 @@ namespace Dashel
 		for (StreamsList::iterator it = streams.begin(); it != streams.end(); ++it)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
-			FD_SET(stream->fd, &rfds);
+			if (!stream->writeOnly)
+				FD_SET(stream->fd, &rfds);
 			FD_SET(stream->fd, &efds);
 			nfds = max(stream->fd, nfds);
 		}
@@ -765,6 +767,7 @@ namespace Dashel
 						incomingData(stream);
 					}
 					catch (StreamException e) { }
+					// TODO: do not loose cause of disconnection
 				}
 			}
 		}
