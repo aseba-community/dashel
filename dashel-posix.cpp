@@ -188,7 +188,7 @@ namespace Dashel
 			SelectableStream(targetName)
 		{
 			ParameterSet ps;
-			ps.add("tcp:address;port;sock=-1");
+			ps.add("tcp:host;port;sock=-1");
 			ps.add(targetName.c_str());
 
 			fd = ps.get<int>("sock");
