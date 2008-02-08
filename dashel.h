@@ -42,7 +42,7 @@
 #define __DaSHEL_H
 
 #include <string>
-#include <list>
+#include <set>
 #include <map>
 
 /*!	\file streams.h
@@ -244,17 +244,21 @@ namespace Dashel
 	*/
 	class Hub
 	{
-	protected:
-		typedef std::list<Stream*> StreamsList;
-		StreamsList streams; 		//!< All our streams.
-	
+	public:
+		//! A list of streams
+		typedef std::set<Stream*> StreamsSet;
+		
 	private:
 		void *hTerminate;			//!< Set when this thing goes down.
+		StreamsSet streams; 		//!< All our streams.
+	
+	protected:
+		StreamsSet dataStreams;		//!< All our streams that transfer data (in opposition to streams that just listen for data).
 	
 	public:
 		//! Constructor.
 		Hub();
-
+	
 		//! Destructor, closes all connections.
 		virtual ~Hub();
 		
@@ -274,6 +278,10 @@ namespace Dashel
 		
 		/**
 			Waits for data from the transfers streams or connections from the listening streams.
+			
+			First connectionClosed() is called for each stream that was closed during this step.
+			Then incomingData() is called for each stream that received data during this step.
+			Finally connectionClosed() is called for each stream that produced on error related to operations during incomingData().
 		
 			\param timeout if -1, waits until data arrive. If 0, do not wait, just poll for activity. If positive, waits at maximum timeout us.
 			\return true if there was activity on the stream, false otherwise
@@ -309,9 +317,11 @@ namespace Dashel
 			The only valid method to call on the stream is getTargetName(), input/output operations are forbidden.
 			Subclass must implement this method.
 			
-			\param stream stream to the target
+			\param stream stream to the target.
+			\param abnormal whether the connection was closed during step (abnormal == false) or when an operation was performed (abnormal == true)
+			\param reason reason of the abnormal closed.
 		*/
-		virtual void connectionClosed(Stream *stream) = 0;
+		virtual void connectionClosed(Stream *stream, bool abnormal, const std::string &reason) = 0;
 	};
 }
 

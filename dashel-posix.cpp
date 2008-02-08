@@ -641,7 +641,7 @@ namespace Dashel
 	
 	Hub::~Hub()
 	{
-		for (StreamsList::iterator it = streams.begin(); it != streams.end(); ++it)
+		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 			delete *it;
 	}
 	
@@ -677,7 +677,9 @@ namespace Dashel
 		
 		incomingConnection(s);
 		
-		streams.push_back(s);
+		streams.insert(s);
+		if (proto != "tcpin")
+			dataStreams.insert(s);
 	}
 	
 	void Hub::run(void)
@@ -695,7 +697,7 @@ namespace Dashel
 		FD_ZERO(&efds);
 	
 		// add streams
-		for (StreamsList::iterator it = streams.begin(); it != streams.end(); ++it)
+		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 			if (!stream->writeOnly)
@@ -722,8 +724,11 @@ namespace Dashel
 		if (ret < 0)
 			throw StreamException(StreamException::SyncError, errno, NULL, "Error during select.");
 		
-		// check streams for activity
-		for (StreamsList::iterator it = streams.begin(); it != streams.end();)
+		// reasons of abnormal closed
+		map<Stream*,string> abnormalClosedReasons;
+		
+		// check streams for closed connections
+		for (StreamsSet::iterator it = streams.begin(); it != streams.end();)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 			++it;
@@ -732,14 +737,26 @@ namespace Dashel
 			{
 				try
 				{
-					connectionClosed(stream);
+					connectionClosed(stream, false, "Remote target closed connection.");
 				}
-				catch (StreamException e) { }
+				catch (StreamException e)
+				{
+					assert(e.stream);
+					abnormalClosedReasons[e.stream] = e.reason + " " + e.sysMessage;
+				}
 				
-				streams.remove(stream);
+				streams.erase(stream);
+				dataStreams.erase(stream);
 				delete stream;
 			}
-			else if (FD_ISSET(stream->fd, &rfds))
+		}
+		
+		// check streams for received data
+		for (StreamsSet::iterator it = streams.begin(); it != streams.end();)
+		{
+			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
+			++it;
+			if (FD_ISSET(stream->fd, &rfds))
 			{
 				// test if listen stream
 				SocketServerStream* serverStream = dynamic_cast<SocketServerStream*>(stream);
@@ -766,25 +783,27 @@ namespace Dashel
 					{
 						incomingData(stream);
 					}
-					catch (StreamException e) { }
-					// TODO: do not loose cause of disconnection, direct delete ?
-					/*// make sure we do not handle a stream which has produced an exception
-					if ((it != transferStreams.end()) && (*it == e.stream))
-						++it;
-					*/
+					catch (StreamException e)
+					{
+						assert(e.stream);
+						abnormalClosedReasons[e.stream] = e.reason + " " + e.sysMessage;
+					}
 				}
 			}
 		}
 		
 		// remove all failed streams
-		for (StreamsList::iterator it = streams.begin(); it != streams.end();)
+		for (StreamsSet::iterator it = streams.begin(); it != streams.end();)
 		{
 			Stream* stream = *it;
 			++it;
 			if (stream->failed())
 			{
-				connectionClosed(stream);
-				streams.remove(stream);
+				assert(abnormalClosedReasons.find(stream) != abnormalClosedReasons.end());
+				connectionClosed(stream, true, abnormalClosedReasons[stream]);
+				
+				streams.erase(stream);
+				dataStreams.erase(stream);
 				delete stream;
 			}
 		}

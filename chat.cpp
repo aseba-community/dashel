@@ -23,7 +23,7 @@ void sendString(Stream* stream, const string& line)
 	stream->write(line.c_str(), line.length());
 	stream->flush();
 }
-	
+
 
 class ChatServer: public Hub
 {
@@ -51,7 +51,7 @@ protected:
 			string nick = readLine(stream);
 			nick.erase(nick.length() - 1);
 			nicks[stream] = nick;
-			cout << "+ User" << nick << " is connected." << endl;
+			cout << "+ User " << nick << " is connected." << endl;
 		}
 	}
 	
@@ -60,21 +60,21 @@ protected:
 		string line = readLine(stream);
 		const string& nick = nicks[stream];
 		line = nick + " : " + line;
-		cout << "* Message" << line;
+		cout << "* Message from " << line;
 		
-		for (StreamsList::iterator it = streams.begin(); it != streams.end(); ++it)
-		{
-			if ((*it != listenStream) && (!(*it)->failed()))
-				sendString((*it), line);
-		}
+		for (StreamsSet::iterator it = dataStreams.begin(); it != dataStreams.end(); ++it)
+			sendString((*it), line);
 	}
 	
-	void connectionClosed(Stream *stream)
+	void connectionClosed(Stream *stream, bool abnormal, const std::string &reason)
 	{
-		cout << "- Connection closed to " << stream->getTargetName() << " (" << stream << ")" << endl;
+		if (abnormal)
+			cout << "! Connection error to " << stream->getTargetName() << " (" << stream << ") : " << reason << " Connection closed." << endl;
+		else
+			cout << "- Connection closed to " << stream->getTargetName() << " (" << stream << ") : " << reason << endl;
 		string nick = nicks[stream];
 		nicks.erase(stream);
-		cout << "- User" << nick << " is disconnected." << endl;
+		cout << "- User " << nick << " is disconnected." << endl;
 	}
 };
 
@@ -129,9 +129,9 @@ protected:
 		}
 	}
 	
-	void connectionClosed(Stream *stream)
+	void connectionClosed(Stream *stream, bool abnormal, const std::string &reason)
 	{
-		cout << "Closed connection " << stream->getTargetName() << " (" << stream << ")" << endl;
+		cout << "Closed connection " << stream->getTargetName() << " (" << stream << ") : " << reason << endl;
 		stop();
 	}
 };
