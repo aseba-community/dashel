@@ -896,9 +896,7 @@ namespace Dashel
 		EvType ets[64] = { EvClosed };
 		
 		// Wait on all our events.
-		DWORD ms = INFINITE;
-		if(timeout >= 0)
-			ms = timeout / 1000;
+		DWORD ms = timeout >= 0 ? timeout : INFINITE;
 
 		// Loop in order to consume all events.
 		do

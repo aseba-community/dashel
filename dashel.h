@@ -274,12 +274,8 @@ namespace Dashel
 		
 		/**
 			Waits for data from the transfers streams or connections from the listening streams.
-			
-			First connectionClosed() is called for each stream that was closed during this step.
-			Then incomingData() is called for each stream that received data during this step.
-			Finally connectionClosed() is called for each stream that produced on error related to operations during incomingData().
 		
-			\param timeout if -1, waits until data arrive. If 0, do not wait, just poll for activity. If positive, waits at maximum timeout us.
+			\param timeout if -1, waits until data arrive. If 0, do not wait, just poll for activity. If positive, waits at maximum timeout ms.
 			\return true if there was activity on the stream, false otherwise
 		*/
 		bool step(int timeout = 0);

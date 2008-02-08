@@ -43,15 +43,18 @@
 #include <cstdlib>
 #include <map>
 #include <vector>
+#include <valarray>
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <signal.h>
 #include <errno.h>
 #include <unistd.h>
 #include <termios.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <signal.h>
+#include <poll.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -60,6 +63,10 @@
 #include <hal/libhal.h>
 
 #include "dashel-private.h"
+
+#ifndef POLLRDHUP
+#define POLLRDHUP 0
+#endif
 
 
 /*!	\file streams.cpp
@@ -691,50 +698,47 @@ namespace Dashel
 	
 	bool Hub::step(int timeout)
 	{
-		fd_set rfds, efds;
-		int nfds = 0;
-		FD_ZERO(&rfds);
-		FD_ZERO(&efds);
-	
+		size_t streamsCount = streams.size();
+		valarray<struct pollfd> pollFdsArray(streamsCount);
+		valarray<SelectableStream*> streamsArray(streamsCount);
+		
 		// add streams
+		size_t i = 0;
 		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
-			if (!stream->writeOnly)
-				FD_SET(stream->fd, &rfds);
-			FD_SET(stream->fd, &efds);
-			nfds = max(stream->fd, nfds);
-		}
-		
-		// do select
-		int ret;
-		if (timeout < 0)
-		{
-			ret = select(nfds+1, &rfds, NULL, &efds, NULL);
-		}
-		else
-		{
-			struct timeval t;
-			t.tv_sec = 0;
-			t.tv_usec = timeout;
-			ret = select(nfds+1, &rfds, NULL, &efds, &t);
-		}
-		
-		// check for error
-		if (ret < 0)
-			throw DashelException(DashelException::SyncError, errno, "Error during select.");
-		
-		// check streams for closed connections
-		for (StreamsSet::iterator it = streams.begin(); it != streams.end();)
-		{
-			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
-			++it;
 			
-			if (FD_ISSET(stream->fd, &efds))
+			streamsArray[i] = stream;
+			pollFdsArray[i].fd = stream->fd;
+			pollFdsArray[i].events = POLLRDHUP;
+			if (!stream->writeOnly)
+				pollFdsArray[i].events |= POLLIN;
+			i++;
+		}
+		
+		// do poll and check for error
+		int ret = poll(&pollFdsArray[0], streamsCount, timeout);
+		if (ret < 0)
+			throw DashelException(DashelException::SyncError, errno, "Error during poll.");
+		
+		// check streams for errors
+		for (i = 0; i < streamsCount; i++)
+		{
+			SelectableStream* stream = streamsArray[i];
+			
+			assert((pollFdsArray[i].revents & POLLNVAL) == 0);
+			
+			if (pollFdsArray[i].revents & (POLLERR | POLLHUP | POLLRDHUP))
 			{
 				try
 				{
-					connectionClosed(stream, false);
+					if (pollFdsArray[i].revents & POLLERR)
+					{
+						stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
+						connectionClosed(stream, true);
+					}
+					else
+						connectionClosed(stream, false);
 				}
 				catch (DashelException e)
 				{
@@ -745,14 +749,7 @@ namespace Dashel
 				dataStreams.erase(stream);
 				delete stream;
 			}
-		}
-		
-		// check streams for received data
-		for (StreamsSet::iterator it = streams.begin(); it != streams.end();)
-		{
-			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
-			++it;
-			if (FD_ISSET(stream->fd, &rfds))
+			else if (pollFdsArray[i].revents & POLLIN)
 			{
 				// test if listen stream
 				SocketServerStream* serverStream = dynamic_cast<SocketServerStream*>(stream);
