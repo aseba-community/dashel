@@ -277,7 +277,7 @@ namespace Dashel
 			
 			while (left)
 			{
-				ssize_t len = ::send(fd, ptr, left, 0);
+				ssize_t len = ::send(fd, ptr, left, MSG_NOSIGNAL);
 				
 				if (len < 0)
 				{
