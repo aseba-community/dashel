@@ -56,9 +56,12 @@ protected:
 		}
 	}
 	
-	void connectionClosed(Stream *stream, bool abnormal, const std::string &reason)
+	void connectionClosed(Stream *stream, bool abnormal)
 	{
-		cout << "Closed connection " << stream->getTargetName() << " (" << stream << ") : " << reason << endl;
+		cout << "Closed connection " << stream->getTargetName() << " (" << stream << ")";
+		if (abnormal)
+			cout << " : " << stream->getFailReason();
+		cout << endl;
 		stop();
 	}
 };
@@ -80,7 +83,7 @@ int main(int argc, char* argv[])
 		
 		microTerm.run();
 	}
-	catch (StreamException e)
+	catch (DashelException e)
 	{
 		std::cerr << e.reason << " - " << e.sysMessage << " (" << e.sysError << ")" << std::endl;
 	}

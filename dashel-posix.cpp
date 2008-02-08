@@ -70,16 +70,13 @@ namespace Dashel
 {
 	using namespace std;
 	
-	// Exceptions
+	// Exception
 	
-	StreamException::StreamException(Source s, int se, Stream *stream, const char *reason) :
-		source(s),
-		sysError(se),
-		reason(reason),
-		stream(stream)
+	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
+		source(s), sysError(se), reason(reason), stream(stream)
 	{
 		if (se)
-			this->sysMessage = strerror(errno);
+			sysMessage = strerror(se);
 	}
 	
 	// Serial port enumerator
@@ -91,15 +88,15 @@ namespace Dashel
 		// use HAL to enumerates devices
 		DBusConnection* dbusConnection = dbus_bus_get(DBUS_BUS_SYSTEM, 0);
 		if (!dbusConnection)
-			throw EnumerationException("cannot connect to D-BUS.");
+			throw DashelException(DashelException::EnumerationError, 0, "cannot connect to D-BUS.");
 		
 		LibHalContext* halContext = libhal_ctx_new();
 		if (!halContext)
-			throw EnumerationException("cannot create HAL context: cannot create context");
+			throw DashelException(DashelException::EnumerationError, 0, "cannot create HAL context: cannot create context");
 		if (!libhal_ctx_set_dbus_connection(halContext, dbusConnection))
-			throw EnumerationException("cannot create HAL context: cannot connect to D-BUS");
+			throw DashelException(DashelException::EnumerationError, 0, "cannot create HAL context: cannot connect to D-BUS");
 		if (!libhal_ctx_init(halContext, 0))
-			throw EnumerationException("cannot create HAL context: cannot init context");
+			throw DashelException(DashelException::EnumerationError, 0, "cannot create HAL context: cannot init context");
 		
 		int devicesCount;
 		char** devices = libhal_find_device_by_capability(halContext, "serial", &devicesCount, 0);
@@ -136,6 +133,18 @@ namespace Dashel
 	}
 	
 	// Streams
+	
+	void Stream::fail(DashelException::Source s, int se, const char* reason)
+	{
+		string sysMessage;
+		failedFlag = true;
+		if (se)
+			sysMessage = strerror(errno);
+		failReason += reason;
+		failReason += " ";
+		failReason += sysMessage;
+		throw DashelException(s, se, reason, this);
+	}
 
 	//! Stream with a file descriptor that is selectable
 	class SelectableStream: public Stream
@@ -188,7 +197,7 @@ namespace Dashel
 				// create socket
 				fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 				if (fd < 0)
-					throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot create socket.");
+					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
 				
 				TCPIPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
 				
@@ -198,7 +207,7 @@ namespace Dashel
 				addr.sin_port = htons(remoteAddress.port);
 				addr.sin_addr.s_addr = htonl(remoteAddress.address);
 				if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-					throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot connect to remote host.");
+					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot connect to remote host.");
 				
 				// overwrite target name with a canonical one
 				this->targetName = remoteAddress.format();
@@ -272,13 +281,11 @@ namespace Dashel
 				
 				if (len < 0)
 				{
-					fail();
-					throw StreamException(StreamException::IOError, errno, this, "Socket write I/O error.");
+					fail(DashelException::IOError, errno, "Socket write I/O error.");
 				}
 				else if (len == 0)
 				{
-					fail();
-					throw StreamException(StreamException::ConnectionLost, 0, this, "Connection lost.");
+					fail(DashelException::ConnectionLost, 0, "Connection lost.");
 				}
 				else
 				{
@@ -316,13 +323,11 @@ namespace Dashel
 				
 				if (len < 0)
 				{
-					fail();
-					throw StreamException(StreamException::IOError, errno, this, "Socket read I/O error.");
+					fail(DashelException::IOError, errno, "Socket read I/O error.");
 				}
 				else if (len == 0)
 				{
-					fail();
-					throw StreamException(StreamException::ConnectionLost, 0, this, "Connection lost.");
+					fail(DashelException::ConnectionLost, 0, "Connection lost.");
 				}
 				else
 				{
@@ -353,12 +358,12 @@ namespace Dashel
 			// create socket
 			fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (fd < 0)
-				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot create socket.");
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
 			
 			// reuse address
 			int flag = 1;
 			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof (flag)) < 0)
-				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot set address reuse flag on socket, probably the port is already in use.");
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot set address reuse flag on socket, probably the port is already in use.");
 			
 			// bind
 			sockaddr_in addr;
@@ -366,11 +371,11 @@ namespace Dashel
 			addr.sin_port = htons(bindAddress.port);
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot bind socket to port, probably the port is already in use.");
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
 			
 			// Listen on socket, backlog is sort of arbitrary.
 			if(listen(fd, 16) < 0)
-				throw StreamException(StreamException::ConnectionFailed, errno, NULL, "Cannot listen on socket.");
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot listen on socket.");
 		}
 		
 		virtual void write(const void *data, const size_t size) { }
@@ -401,13 +406,11 @@ namespace Dashel
 				
 				if (len < 0)
 				{
-					fail();
-					throw StreamException(StreamException::IOError, errno, this, "File write I/O error.");
+					fail(DashelException::IOError, errno, "File write I/O error.");
 				}
 				else if (len == 0)
 				{
-					fail();
-					throw StreamException(StreamException::ConnectionLost, 0, this, "File full.");
+					fail(DashelException::ConnectionLost, 0, "File full.");
 				}
 				else
 				{
@@ -423,8 +426,7 @@ namespace Dashel
 			
 			if (fdatasync(fd) < 0)
 			{
-				fail();
-				throw StreamException(StreamException::IOError, errno, this, "File flush error.");
+				fail(DashelException::IOError, errno, "File flush error.");
 			}
 		}
 		
@@ -441,13 +443,11 @@ namespace Dashel
 				
 				if (len < 0)
 				{
-					fail();
-					throw StreamException(StreamException::IOError, errno, this, "File read I/O error.");
+					fail(DashelException::IOError, errno, "File read I/O error.");
 				}
 				else if (len == 0)
 				{
-					fail();
-					throw StreamException(StreamException::ConnectionLost, 0, this, "Reached end of file.");
+					fail(DashelException::ConnectionLost, 0, "Reached end of file.");
 				}
 				else
 				{
@@ -480,12 +480,12 @@ namespace Dashel
 			else if (mode == "readwrite")
 				fd = open(name.c_str(), O_RDWR);
 			else
- 				throw StreamException(StreamException::InvalidTarget, 0, NULL, "Invalid file mode.");
+ 				throw DashelException(DashelException::InvalidTarget, 0, "Invalid file mode.");
 			
 			if (fd == -1)
 			{
 				string errorMessage = "Cannot open file " + name + " for " + mode + ".";
-				throw StreamException(StreamException::ConnectionFailed, errno, NULL, errorMessage.c_str());
+				throw DashelException(DashelException::ConnectionFailed, errno, errorMessage.c_str());
 			}
 		}
 	};
@@ -519,13 +519,13 @@ namespace Dashel
 					devFileName = it->first;
 				}
 				else
-					throw StreamException(StreamException::ConnectionFailed, 0, NULL, "The specified serial port does not exists.");
+					throw DashelException(DashelException::ConnectionFailed, 0, "The specified serial port does not exists.");
 			}
 		
 			fd = open(devFileName.c_str(), O_RDWR);
 			
 			if (fd == -1)
-				throw StreamException(StreamException::ConnectionFailed, 0, NULL, "Cannot open serial port.");
+				throw DashelException(DashelException::ConnectionFailed, 0, "Cannot open serial port.");
 			
 			struct termios newtio;
 			
@@ -541,7 +541,7 @@ namespace Dashel
 				case 6: newtio.c_cflag |= CS6; break;
 				case 7: newtio.c_cflag |= CS7; break;
 				case 8: newtio.c_cflag |= CS8; break;
-				default: throw StreamException(StreamException::InvalidTarget, 0, NULL, "Invalid number of bits per character, must be 5, 6, 7, or 8.");
+				default: throw DashelException(DashelException::InvalidTarget, 0, "Invalid number of bits per character, must be 5, 6, 7, or 8.");
 			}
 			if (ps.get("stop") == "2")
 				newtio.c_cflag |= CSTOPB;		// Set two stop bits, rather than one.
@@ -585,7 +585,7 @@ namespace Dashel
 				case 3000000: newtio.c_cflag |= B3000000; break;
 				case 3500000: newtio.c_cflag |= B3500000; break;
 				case 4000000: newtio.c_cflag |= B4000000; break;
-				default: throw StreamException(StreamException::ConnectionFailed, 0, NULL, "Invalid baud rate.");
+				default: throw DashelException(DashelException::ConnectionFailed, 0, "Invalid baud rate.");
 			}
 			
 			newtio.c_iflag = IGNPAR;			// ignore parity on input
@@ -599,7 +599,7 @@ namespace Dashel
 			
 			// set attributes
 			if ((tcflush(fd, TCIFLUSH) < 0) || (tcsetattr(fd, TCSANOW, &newtio) < 0))
-				throw StreamException(StreamException::ConnectionFailed, 0, NULL, "Cannot setup serial port. The requested baud rate might not be supported.");
+				throw DashelException(DashelException::ConnectionFailed, 0, "Cannot setup serial port. The requested baud rate might not be supported.");
 		}
 		
 		//! Destructor, restore old serial port state
@@ -650,7 +650,7 @@ namespace Dashel
 		std::string proto, params;
 		size_t c = target.find_first_of(':');
 		if (c == std::string::npos)
-			throw StreamException(StreamException::InvalidTarget, 0, NULL, "No protocol specified in target.");
+			throw DashelException(DashelException::InvalidTarget, 0, "No protocol specified in target.");
 		proto = target.substr(0, c);
 		params = target.substr(c+1);
 
@@ -672,7 +672,7 @@ namespace Dashel
 		{
 			std::string r = "Invalid protocol in target: ";
 			r = r.append(proto);
-			throw StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
+			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
 		
 		incomingConnection(s);
@@ -722,10 +722,7 @@ namespace Dashel
 		
 		// check for error
 		if (ret < 0)
-			throw StreamException(StreamException::SyncError, errno, NULL, "Error during select.");
-		
-		// reasons of abnormal closed
-		map<Stream*,string> abnormalClosedReasons;
+			throw DashelException(DashelException::SyncError, errno, "Error during select.");
 		
 		// check streams for closed connections
 		for (StreamsSet::iterator it = streams.begin(); it != streams.end();)
@@ -737,12 +734,11 @@ namespace Dashel
 			{
 				try
 				{
-					connectionClosed(stream, false, "Remote target closed connection.");
+					connectionClosed(stream, false);
 				}
-				catch (StreamException e)
+				catch (DashelException e)
 				{
 					assert(e.stream);
-					abnormalClosedReasons[e.stream] = e.reason + " " + e.sysMessage;
 				}
 				
 				streams.erase(stream);
@@ -768,7 +764,7 @@ namespace Dashel
 					socklen_t l = sizeof (targetAddr);
 					int targetFD = accept (stream->fd, (struct sockaddr *)&targetAddr, &l);
 					if (targetFD < 0)
-						throw StreamException(StreamException::SyncError, errno, NULL, "Cannot accept new stream.");
+						throw DashelException(DashelException::SyncError, errno, "Cannot accept new stream.");
 					
 					// create a target stream using the new file descriptor from accept
 					ostringstream targetName;
@@ -783,10 +779,9 @@ namespace Dashel
 					{
 						incomingData(stream);
 					}
-					catch (StreamException e)
+					catch (DashelException e)
 					{
 						assert(e.stream);
-						abnormalClosedReasons[e.stream] = e.reason + " " + e.sysMessage;
 					}
 				}
 			}
@@ -799,8 +794,7 @@ namespace Dashel
 			++it;
 			if (stream->failed())
 			{
-				assert(abnormalClosedReasons.find(stream) != abnormalClosedReasons.end());
-				connectionClosed(stream, true, abnormalClosedReasons[stream]);
+				connectionClosed(stream, true);
 				
 				streams.erase(stream);
 				dataStreams.erase(stream);

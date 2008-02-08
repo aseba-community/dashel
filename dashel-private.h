@@ -206,7 +206,7 @@ namespace Dashel
 			if(it == values.end())
 			{
 				std::string r = std::string("Parameter missing: ").append(key);
-				throw Dashel::StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
+				throw Dashel::DashelException(DashelException::InvalidTarget, 0, r.c_str());
 			}
 			std::istringstream iss(it->second);
 			iss >> t;
@@ -220,7 +220,7 @@ namespace Dashel
 			if(it == values.end())
 			{
 				std::string r = std::string("Parameter missing: ").append(key);
-				throw StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
+				throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 			}
 			return it->second;
 		}

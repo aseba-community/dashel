@@ -66,12 +66,12 @@ protected:
 			sendString((*it), line);
 	}
 	
-	void connectionClosed(Stream *stream, bool abnormal, const std::string &reason)
+	void connectionClosed(Stream *stream, bool abnormal)
 	{
+		cout << "- Connection closed to " << stream->getTargetName() << " (" << stream << ")";
 		if (abnormal)
-			cout << "! Connection error to " << stream->getTargetName() << " (" << stream << ") : " << reason << " Connection closed." << endl;
-		else
-			cout << "- Connection closed to " << stream->getTargetName() << " (" << stream << ") : " << reason << endl;
+			cout << " : " << stream->getFailReason();
+		cout << endl;
 		string nick = nicks[stream];
 		nicks.erase(stream);
 		cout << "- User " << nick << " is disconnected." << endl;
@@ -129,9 +129,12 @@ protected:
 		}
 	}
 	
-	void connectionClosed(Stream *stream, bool abnormal, const std::string &reason)
+	void connectionClosed(Stream *stream, bool abnormal)
 	{
-		cout << "Closed connection " << stream->getTargetName() << " (" << stream << ") : " << reason << endl;
+		cout << "Connection closed to " << stream->getTargetName() << " (" << stream << ")";
+		if (abnormal)
+			cout << " : " << stream->getFailReason();
+		cout << endl;
 		stop();
 	}
 };
@@ -151,7 +154,7 @@ int main(int argc, char* argv[])
 			server.run();
 		}
 	}
-	catch(StreamException e)
+	catch(DashelException e)
 	{
 		std::cerr << e.reason << " - " << e.sysMessage << " (" << e.sysError << ")" << std::endl;
 	}

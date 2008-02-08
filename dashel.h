@@ -108,7 +108,7 @@ namespace Dashel
 	class Stream;
 
 	//! The one size fits all exception for streams
-	class StreamException
+	class DashelException
 	{
 	public:
 		//! The different exception causes.
@@ -119,44 +119,29 @@ namespace Dashel
 			InvalidOperation,	//!< The operation is not valid on this stream.
 			ConnectionLost,		//!< The connection was lost.
 			IOError,			//!< Some I/O error.
-			ConnectionFailed	//!< The connection could not be established.
+			ConnectionFailed,	//!< The connection could not be established.
+			EnumerationError	//!< Some serial enumeration error
 		} Source;
 
 		//! The exception cause.
 		Source source;
-		//! The reason as a human readable string.
-		std::string reason;
 		//! The reason as an OS error code.
 		int sysError;
 		//! The reason as a human readable string according to the OS.
 		std::string sysMessage;
+		//! The reason as a human readable string.
+		std::string reason;
 		//! The stream that caused the exception to be thrown.
 		Stream *stream;
 
 	public:
 		//! Construct an stream exception with everything.
-		/*!	\param s Source code.
-			\param se System error code
-			\param reason Reason description.
-			\param stream Stream to which exception applies (if applicable).
-			\param reason The reason as a human readable string.
+		/*!	\param s Source of failure
+			\param se System error code.
+			\param reason The logical reason as a human readable string.
+			\param stream Stream to which exception applies.
 		*/
-		StreamException(Source s = Unknown, int se = 0, Stream *stream = NULL, const char *reason = NULL);
-	};
-	
-	//! The exception that can occur on enumeration
-	class EnumerationException 
-	{
-	public:
-		//! The reason as a human readable string.
-		std::string reason;
-		
-	public:
-		//! Construct an enumeration exception.
-		/*!
-			\param reason The reason as a human readable string.
-		*/
-		EnumerationException(const char *reason = NULL) : reason(reason) { }
+		DashelException(Source s, int se, const char *reason, Stream* stream = NULL);
 	};
 	
 	//! Serial port enumerator class.
@@ -180,6 +165,8 @@ namespace Dashel
 	private:
 		//! A flag indicating that the stream has failed.
 		bool failedFlag;
+		//! The human readable reason describing why the stream has failed.
+		std::string failReason;
 
 	protected:
 		//! The target name.
@@ -193,16 +180,32 @@ namespace Dashel
 		virtual ~Stream() {}
 
 		//! Set stream to failed state
-		void fail() { failedFlag = true; }
+		/*!	\param s Source of failure
+			\param se System error code
+			\param reason The logical reason as a human readable string.
+		*/
+		void fail(DashelException::Source s, int se, const char* reason);
 
 		//! Query failed state of stream.
 		/*! \return true if stream has failed.
 		*/
-		bool failed() { return failedFlag; }
+		bool failed() const { return failedFlag; }
+		
+		//!	Returns the reason the stream has failed.
+		/*!	\return the reason the stream has failed, or an empty string if fail() is false.
+		*/
+		const std::string &getFailReason() const { return failReason; }
+		
+		//!	Returns the name of the target.
+		/*!	The name of the target contains all parameters and the protocol name.
+
+			\return Name of the target
+		*/
+		const std::string &getTargetName() const { return targetName; }
 		
 		//!	Write data to the stream.
 		/*!	Writes all requested data to the stream, blocking until all the data has been written, or 
-			some error occurs. Errors are signaled by throwing a StreamException exception. This function
+			some error occurs. Errors are signaled by throwing a DashelException exception. This function
 			does not flush devices, therefore the data may not really have been written on return, but only
 			been buffered. In order to flush the stream, call flush().
 			
@@ -220,20 +223,13 @@ namespace Dashel
 		
 		//!	Reads data from the stream.
 		/*!	Reads all requested data from the stream, blocking until all the data has been read, or 
-			some error occurs. Errors are signaled by throwing a StreamException exception, which may
+			some error occurs. Errors are signaled by throwing a DashelException exception, which may
 			be caused either by device errors or reaching the end of file. 
 			
 			\param data Pointer to the memory where the read data should be stored.
 			\param size Amount of data to read in bytes.
 		*/
 		virtual void read(void *data, size_t size) = 0;
-		
-		//!	Returns the name of the target.
-		/*!	The name of the target contains all parameters and the protocol name.
-
-			\return Name of the target
-		*/
-		std::string getTargetName() const { return targetName; }
 	};
 	
 	/**
@@ -319,9 +315,8 @@ namespace Dashel
 			
 			\param stream stream to the target.
 			\param abnormal whether the connection was closed during step (abnormal == false) or when an operation was performed (abnormal == true)
-			\param reason reason of the abnormal closed.
 		*/
-		virtual void connectionClosed(Stream *stream, bool abnormal, const std::string &reason) = 0;
+		virtual void connectionClosed(Stream *stream, bool abnormal) = 0;
 	};
 }
 
