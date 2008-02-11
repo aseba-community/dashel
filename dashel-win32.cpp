@@ -878,9 +878,9 @@ namespace Dashel
 			r = r.append(proto);
 			throw StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
 		}
-
+		
 		incomingConnection(s);
-			
+		
 		streams.push_back(s);
 	}
 	

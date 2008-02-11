@@ -286,8 +286,8 @@ namespace Dashel
 		
 		/**
 			Called when a new connection is established.
-			If the stream is closed during this method, an exception occurs: Hub stops the execution of this
-			method and calls connectionClosed().
+			If the stream is closed during this method, an exception occurs: the caller is responsible to handle it.
+			The stream is not yet inserted in the stream list when this function is called.
 			Subclass must implement this method.
 			
 			\param stream stream to the target
