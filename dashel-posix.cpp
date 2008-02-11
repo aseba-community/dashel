@@ -689,6 +689,13 @@ namespace Dashel
 			dataStreams.insert(s);
 	}
 	
+	Stream* Hub::removeStream(Stream* stream)
+	{
+		streams.erase(stream);
+		dataStreams.erase(stream);
+		return stream;
+	}
+	
 	void Hub::run(void)
 	{
 		runTerminationReceived = false;
@@ -726,6 +733,10 @@ namespace Dashel
 		{
 			SelectableStream* stream = streamsArray[i];
 			
+			// make sure we do not try to handle removed streams
+			if (streams.find(stream) == streams.end())
+				continue;
+			
 			assert((pollFdsArray[i].revents & POLLNVAL) == 0);
 			
 			if (pollFdsArray[i].revents & (POLLERR | POLLHUP | POLLRDHUP))
@@ -745,9 +756,7 @@ namespace Dashel
 					assert(e.stream);
 				}
 				
-				streams.erase(stream);
-				dataStreams.erase(stream);
-				delete stream;
+				delete removeStream(stream);
 			}
 			else if (pollFdsArray[i].revents & POLLIN)
 			{
@@ -793,9 +802,7 @@ namespace Dashel
 			{
 				connectionClosed(stream, true);
 				
-				streams.erase(stream);
-				dataStreams.erase(stream);
-				delete stream;
+				delete removeStream(stream);
 			}
 		}
 	}

@@ -269,6 +269,17 @@ namespace Dashel
 		*/
 		void connect(const std::string &target);
 		
+		/**
+			Remove a stream for the Hub and return it.
+			After this call, the Hub does not have any reference to the stream and its deletion is thus the responsability
+			of the caller.
+			This function must not be called from connectionClosed() in case of abnormal termination.
+			It is safe to call otherwise.
+			
+			\param stream stream to remove
+		*/
+		Stream* removeStream(Stream* stream);
+		
 		//! Runs and returns only when an external event requests the application to stop.
 		void run(void);
 		
@@ -307,6 +318,7 @@ namespace Dashel
 		/**
 			Called when target closes connection.
 			The only valid method to call on the stream is getTargetName(), input/output operations are forbidden.
+			You must not call removeStream() in this method.
 			Subclass must implement this method.
 			
 			\param stream stream to the target.
