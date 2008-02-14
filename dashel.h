@@ -292,15 +292,12 @@ namespace Dashel
 		Stream* connect(const std::string &target);
 		
 		/**
-			Remove a stream for the Hub and return it.
-			After this call, the Hub does not have any reference to the stream and its deletion is thus the responsability
-			of the caller.
-			This function must not be called from connectionClosed() in case of abnormal termination.
-			It is safe to call otherwise.
+			Close a stream, remove it from the Hub, and delete it.
+			If the stream is not present in the Hub, it is deleted nevertheless.
 			
 			\param stream stream to remove
 		*/
-		Stream* removeStream(Stream* stream);
+		void closeStream(Stream* stream);
 		
 		//! Runs and returns only when an external event requests the application to stop.
 		void run(void);
@@ -318,20 +315,21 @@ namespace Dashel
 		void stop();
 		
 		/**
-			Called when a new connection is established.
+			Called when any data connection is created.
+			It is not called when a listening connection (eg tcpin:) is created.
 			If the stream is closed during this method, an exception occurs: the caller is responsible to handle it.
-			The stream is not yet inserted in the stream list when this function is called.
-			Subclass must implement this method.
+			The stream is already inserted in the stream list when this function is called.
+			Subclass can implement this method.
 			
 			\param stream stream to the target
 		*/
-		virtual void incomingConnection(Stream *stream) { }
+		virtual void connectionCreated(Stream *stream) { }
 		
 		/**
 			Called when data is available for reading on the stream.
 			If the stream is closed during this method, an exception occurs: Hub stops the execution of this
 			method and calls connectionClosed().
-			Subclass must implement this method.
+			Subclass can implement this method.
 			
 			\param stream stream to the target
 		*/
@@ -340,8 +338,8 @@ namespace Dashel
 		/**
 			Called when target closes connection.
 			The only valid method to call on the stream is getTargetName(), input/output operations are forbidden.
-			You must not call removeStream() in this method.
-			Subclass must implement this method.
+			In case of abnormal termination, you must not 
+			Subclass can implement this method.
 			
 			\param stream stream to the target.
 			\param abnormal whether the connection was closed during step (abnormal == false) or when an operation was performed (abnormal == true)

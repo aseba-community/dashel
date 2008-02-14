@@ -682,20 +682,13 @@ namespace Dashel
 			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
 		
-		incomingConnection(s);
-		
 		streams.insert(s);
 		if (proto != "tcpin")
+		{
 			dataStreams.insert(s);
-		
+			connectionCreated(s);
+		}
 		return s;
-	}
-	
-	Stream* Hub::removeStream(Stream* stream)
-	{
-		streams.erase(stream);
-		dataStreams.erase(stream);
-		return stream;
 	}
 	
 	void Hub::run(void)
@@ -717,11 +710,14 @@ namespace Dashel
 		{
 			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 			
-			streamsArray[i] = stream;
-			pollFdsArray[i].fd = stream->fd;
-			pollFdsArray[i].events = POLLRDHUP;
-			if (!stream->writeOnly)
-				pollFdsArray[i].events |= POLLIN;
+			if (!stream->failed())
+			{
+				streamsArray[i] = stream;
+				pollFdsArray[i].fd = stream->fd;
+				pollFdsArray[i].events = POLLRDHUP;
+				if (!stream->writeOnly)
+					pollFdsArray[i].events |= POLLIN;
+			}
 			i++;
 		}
 		
@@ -758,7 +754,7 @@ namespace Dashel
 					assert(e.stream);
 				}
 				
-				delete removeStream(stream);
+				closeStream(stream);
 			}
 			else if (pollFdsArray[i].revents & POLLIN)
 			{
@@ -795,16 +791,28 @@ namespace Dashel
 			}
 		}
 		
-		// remove all failed streams
-		for (StreamsSet::iterator it = streams.begin(); it != streams.end();)
+		// collect and remove all failed streams
+		vector<Stream*> failedStreams;
+		for (StreamsSet::iterator it = streams.begin(); it != streams.end();++it)
+			if ((*it)->failed())
+				failedStreams.push_back(*it);
+		
+		for (size_t i = 0; i < failedStreams.size(); i++)
 		{
-			Stream* stream = *it;
-			++it;
+			Stream* stream = failedStreams[i];
+			if (streams.find(stream) == streams.end())
+				continue;
 			if (stream->failed())
 			{
-				connectionClosed(stream, true);
-				
-				delete removeStream(stream);
+				try
+				{
+					connectionClosed(stream, true);
+				}
+				catch (DashelException e)
+				{
+					assert(e.stream);
+				}
+				closeStream(stream);
 			}
 		}
 	}

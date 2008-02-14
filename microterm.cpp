@@ -10,19 +10,19 @@ using namespace Dashel;
 class MicroTerm: public Hub
 {
 public:
-	MicroTerm() : s0(0), s1(0) { }
+	MicroTerm(const char* t0, const char* t1)
+	{
+		s0 = connect(t0);
+		s1 = connect(t1);
+	}
 	
 protected:
 	Stream* s0;
 	Stream* s1;
 	
-	void incomingConnection(Stream *stream)
+	void connectionCreated(Stream *stream)
 	{
 		cout << "Incoming connection " << stream->getTargetName() << " (" << stream << ")" << endl;
-		if (s0 == 0)
-			s0 = stream;
-		else
-			s1 = stream;
 	}
 	
 	void incomingData(Stream *stream)
@@ -76,10 +76,7 @@ int main(int argc, char* argv[])
 	
 	try
 	{
-		MicroTerm microTerm;
-		
-		microTerm.connect(argv[1]);
-		microTerm.connect(argv[2]);
+		MicroTerm microTerm(argv[1], argv[2]);
 		
 		microTerm.run();
 	}

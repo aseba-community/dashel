@@ -28,10 +28,9 @@ void sendString(Stream* stream, const string& line)
 class ChatServer: public Hub
 {
 public:
-	ChatServer() :
-		listenStream(0)
+	ChatServer()
 	{
-		connect("tcpin:port=8765");
+		listenStream = connect("tcpin:port=8765");
 	}
 
 protected:
@@ -39,20 +38,13 @@ protected:
 	map<Stream*, string> nicks;
 	
 protected:
-	void incomingConnection(Stream *stream)
+	void connectionCreated(Stream *stream)
 	{
-		if (listenStream == 0)
-		{
-			listenStream = stream;
-		}
-		else
-		{
-			cout << "+ Incoming connection from " << stream->getTargetName() << " (" << stream << ")" << endl;
-			string nick = readLine(stream);
-			nick.erase(nick.length() - 1);
-			nicks[stream] = nick;
-			cout << "+ User " << nick << " is connected." << endl;
-		}
+		cout << "+ Incoming connection from " << stream->getTargetName() << " (" << stream << ")" << endl;
+		string nick = readLine(stream);
+		nick.erase(nick.length() - 1);
+		nicks[stream] = nick;
+		cout << "+ User " << nick << " is connected." << endl;
 	}
 	
 	void incomingData(Stream *stream)
@@ -82,13 +74,13 @@ class ChatClient: public Hub
 {
 public:
 	ChatClient(string remoteTarget, const string& nick) :
-		inputStream(0),
-		remoteStream(0),
-		nick(nick)
+		nick(nick), inputStream(0)
 	{
 		remoteTarget += ";port=8765";
-		connect("stdin:");
-		connect(remoteTarget);
+		inputStream = connect("stdin:");
+		remoteStream = connect(remoteTarget);
+		this->nick += '\n';
+		sendString(remoteStream, this->nick);
 	}
 	
 protected:
@@ -96,19 +88,9 @@ protected:
 	Stream* remoteStream;
 	string nick;
 	
-	void incomingConnection(Stream *stream)
+	void connectionCreated(Stream *stream)
 	{
 		cout << "Incoming connection " << stream->getTargetName() << " (" << stream << ")" << endl;
-		if (inputStream == 0)
-		{
-			inputStream = stream;
-		}
-		else
-		{
-			remoteStream = stream;
-			nick += '\n';
-			sendString(remoteStream, nick);
-		}
 	}
 	
 	void incomingData(Stream *stream)

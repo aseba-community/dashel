@@ -46,6 +46,11 @@
 
 namespace Dashel
 {
-	
+	void Hub::closeStream(Stream* stream)
+	{
+		streams.erase(stream);
+		dataStreams.erase(stream);
+		delete stream;
+	}
 }
 

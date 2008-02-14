@@ -847,6 +847,8 @@ namespace Dashel
 	
 	Hub::~Hub()
 	{
+		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
+			delete *it;
 	}
 	
 	Stream* Hub::connect(const std::string &target)
@@ -879,10 +881,12 @@ namespace Dashel
 			throw StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
 		}
 		
-		incomingConnection(s);
-		
-		streams.push_back(s);
-		
+		streams.insert(s);
+		if (proto != "tcpin")
+		{
+			dataStreams.insert(s);
+			connectionCreated(s);
+		}
 		return s;
 	}
 	
