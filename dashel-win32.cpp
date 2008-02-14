@@ -849,7 +849,7 @@ namespace Dashel
 	{
 	}
 	
-	void Hub::connect(const std::string &target)
+	Stream* Hub::connect(const std::string &target)
 	{
 		std::string proto, params;
 		size_t c = target.find_first_of(':');
@@ -882,6 +882,8 @@ namespace Dashel
 		incomingConnection(s);
 		
 		streams.push_back(s);
+		
+		return s;
 	}
 	
 	void Hub::run(void)

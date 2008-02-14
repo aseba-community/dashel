@@ -214,6 +214,15 @@ namespace Dashel
 		*/
 		virtual void write(const void *data, const size_t size) = 0;
 		
+		//! Write a variable of basic type to the stream
+		/*! This function does not perform any endian conversion.
+			\param v variable to write.
+		*/
+		template<typename T> void write(T v)
+		{
+			write(&v, sizeof(T));
+		}
+		
 		//!	Flushes stream.
 		/*!	Calling this function requests the stream to be flushed, this may ensure that data is written
 			to physical media or actually sent over a wire. The exact performed function depends on the
@@ -230,6 +239,18 @@ namespace Dashel
 			\param size Amount of data to read in bytes.
 		*/
 		virtual void read(void *data, size_t size) = 0;
+		
+		//! Read a variable of basic type from the stream
+		/*! This function does not perform any endian conversion.
+		
+			\return variable to read.
+		*/
+		template<typename T> T read()
+		{
+			T v;
+			read(&v, sizeof(T));
+			return v;
+		}
 	};
 	
 	/**
@@ -266,8 +287,9 @@ namespace Dashel
 			May throw a ConnectionError exception if the target does not exists or is not ready.
 			
 			\param target destination to listen connections from (see Section \ref TargetNamingSec)
+			\return the stream we are connected to; if connect was not possible, an exception was throw.
 		*/
-		void connect(const std::string &target);
+		Stream* connect(const std::string &target);
 		
 		/**
 			Remove a stream for the Hub and return it.

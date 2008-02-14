@@ -652,7 +652,7 @@ namespace Dashel
 			delete *it;
 	}
 	
-	void Hub::connect(const std::string &target)
+	Stream* Hub::connect(const std::string &target)
 	{
 		std::string proto, params;
 		size_t c = target.find_first_of(':');
@@ -687,6 +687,8 @@ namespace Dashel
 		streams.insert(s);
 		if (proto != "tcpin")
 			dataStreams.insert(s);
+		
+		return s;
 	}
 	
 	Stream* Hub::removeStream(Stream* stream)
