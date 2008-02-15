@@ -54,13 +54,33 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <signal.h>
-#include <poll.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-// TODO: add support for OS X serial port enumeration
-#include <hal/libhal.h>
+
+#ifdef __APPLE__
+#define MACOSX
+#endif
+
+#ifdef MACOSX
+	#include <CoreFoundation/CoreFoundation.h>
+	#include <IOKit/IOKitLib.h>
+	#include <IOKit/serial/IOSerialKeys.h>
+#else
+	#include <hal/libhal.h>
+	
+#endif
+
+#ifdef MACOSX
+	#define USE_POLL_EMU
+#endif
+
+#ifndef USE_POLL_EMU
+	#include <poll.h>
+#else
+	#include "poll_emu.h"
+#endif
 
 #include "dashel-private.h"
 
@@ -92,6 +112,53 @@ namespace Dashel
 	{
 		std::map<int, std::pair<std::string, std::string> > ports;
 		
+
+
+#ifdef MACOSX
+		// use IOKit to enumerates devices
+		
+		// get a matching dictionary to specify which IOService class we're interested in
+		CFMutableDictionaryRef classesToMatch = IOServiceMatching(kIOSerialBSDServiceValue);
+		if (classesToMatch == NULL)
+			throw DashelException(DashelException::EnumerationError, 0, "IOServiceMatching returned a NULL dictionary");
+		
+		// specify all types of serial devices
+		CFDictionarySetValue(classesToMatch, CFSTR(kIOSerialBSDTypeKey), CFSTR(kIOSerialBSDAllTypes));
+		
+		// get an iterator to serial port services
+		io_iterator_t matchingServices;
+		kern_return_t kernResult = IOServiceGetMatchingServices(kIOMasterPortDefault, classesToMatch, &matchingServices);    
+		if (KERN_SUCCESS != kernResult)
+			throw DashelException(DashelException::EnumerationError, kernResult, "IOServiceGetMatchingServices failed");
+			
+		// iterate over services
+		io_object_t modemService;
+		int index = 0;
+		while((modemService = IOIteratorNext(matchingServices)))
+		{
+			// get path for device
+			CFTypeRef bsdPathAsCFString = IORegistryEntryCreateCFProperty(modemService, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, 0);
+			if (bsdPathAsCFString)
+			{
+				std::string path(CFStringGetCStringPtr((CFStringRef) bsdPathAsCFString, kCFStringEncodingUTF8));
+				CFRelease(bsdPathAsCFString);
+				
+				// add path to the port list
+				//FIXME: we should pass a user-friendly name here.
+				ports[index++] = std::make_pair<std::string, std::string>(path, path);
+			}
+			else
+				throw DashelException(DashelException::EnumerationError, 0, "IORegistryEntryCreateCFProperty returned a NULL path");
+			
+			// release service
+			IOObjectRelease(modemService);
+		}
+		
+		IOObjectRelease(matchingServices);
+		CFRelease(classesToMatch);
+			
+#else
+
 		// use HAL to enumerates devices
 		DBusConnection* dbusConnection = dbus_bus_get(DBUS_BUS_SYSTEM, 0);
 		if (!dbusConnection)
@@ -124,6 +191,7 @@ namespace Dashel
 		libhal_free_string_array(devices);
 		libhal_ctx_shutdown(halContext, 0);
 		libhal_ctx_free(halContext);
+#endif
 		
 		return ports;
 	};
@@ -284,7 +352,11 @@ namespace Dashel
 			
 			while (left)
 			{
+#ifdef MACOSX
+				ssize_t len = ::send(fd, ptr, left, 0);
+#else
 				ssize_t len = ::send(fd, ptr, left, MSG_NOSIGNAL);
+#endif
 				
 				if (len < 0)
 				{
@@ -431,7 +503,11 @@ namespace Dashel
 		{
 			assert(fd >= 0);
 			
+#ifdef MACOSX
+			if (fsync(fd) < 0)
+#else
 			if (fdatasync(fd) < 0)
+#endif
 			{
 				fail(DashelException::IOError, errno, "File flush error.");
 			}
@@ -580,6 +656,7 @@ namespace Dashel
 				case 57600: newtio.c_cflag |= B57600; break;
 				case 115200: newtio.c_cflag |= B115200; break;
 				case 230400: newtio.c_cflag |= B230400; break;
+#ifndef MACOSX
 				case 460800: newtio.c_cflag |= B460800; break;
 				case 500000: newtio.c_cflag |= B500000; break;
 				case 576000: newtio.c_cflag |= B576000; break;
@@ -592,6 +669,7 @@ namespace Dashel
 				case 3000000: newtio.c_cflag |= B3000000; break;
 				case 3500000: newtio.c_cflag |= B3500000; break;
 				case 4000000: newtio.c_cflag |= B4000000; break;
+#endif
 				default: throw DashelException(DashelException::ConnectionFailed, 0, "Invalid baud rate.");
 			}
 			
@@ -718,11 +796,16 @@ namespace Dashel
 				if (!stream->writeOnly)
 					pollFdsArray[i].events |= POLLIN;
 			}
+			
 			i++;
 		}
 		
 		// do poll and check for error
+#ifndef USE_POLL_EMU
 		int ret = poll(&pollFdsArray[0], streamsCount, timeout);
+#else
+		int ret = poll_emu(&pollFdsArray[0], streamsCount, timeout);
+#endif
 		if (ret < 0)
 			throw DashelException(DashelException::SyncError, errno, "Error during poll.");
 		
