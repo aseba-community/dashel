@@ -1,10 +1,11 @@
 #!/usr/bin/make -f
 
 build:
+	cmake .
 	$(MAKE)
 
 clean:
-	$(MAKE) distclean
+	$(MAKE) clean
 	rm -rf debian/files debian/substvars debian/tmp
 
 binary: binary-arch binary-indep
@@ -23,7 +24,6 @@ binary-arch: build
 	cp debian/copyright debian/tmp/usr/share/doc/libdashel
 	cp dashel.h debian/tmp/usr/include/dashel
 	cp libdashel.a debian/tmp/usr/lib
-	cp libdasheld.a debian/tmp/usr/lib
 	chown -R root.root debian/tmp
 	chmod -R o-s,go=u,go-ws debian/tmp
 	dpkg-gencontrol
