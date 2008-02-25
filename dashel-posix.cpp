@@ -69,7 +69,6 @@
 	#include <IOKit/serial/IOSerialKeys.h>
 #else
 	#include <hal/libhal.h>
-	
 #endif
 
 #ifdef MACOSX
