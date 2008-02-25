@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
-build:
-	cmake .
+build: clean
+	cmake -D CMAKE_BUILD_TYPE=relwithdebuginfo .
 	$(MAKE)
 
 clean:
