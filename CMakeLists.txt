@@ -1,11 +1,11 @@
 project(dashel)
 
 if (WIN32)
-	set(dashel-sources dashel-win32.cpp dashel-common.cpp)
+	set(DASHEL_SOURCES dashel-win32.cpp dashel-common.cpp)
 else (WIN32)
-	set(dashel-sources dashel-posix.cpp dashel-common.cpp)
+	set(DASHEL_SOURCES dashel-posix.cpp dashel-common.cpp)
 	if (APPLE)
-		set(dashel-sources ${dashel-sources} poll_emu.c)
+		set(DASHEL_SOURCES ${DASHEL_SOURCES} poll_emu.c)
 		find_library(COREFOUNDATION_LIBRARY CoreFoundation)
 		find_library(IOKIT_LIBRARY IOKit)
 		mark_as_advanced(COREFOUNDATION_LIBRARY)
@@ -19,7 +19,7 @@ else (WIN32)
 	endif (APPLE)
 endif (WIN32)
 
-add_library(dashel ${dashel-sources})
+add_library(dashel ${DASHEL_SOURCES})
 
 add_executable(microterm microterm.cpp)
 target_link_libraries(microterm dashel ${EXTRA_LIBS})
