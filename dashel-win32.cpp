@@ -49,9 +49,17 @@
 #include <sstream>
 
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "wbemuuid.lib")
+#pragma comment(lib, "comsuppw.lib")
 
+#define _WIN32_WINNT 0x0501
 #include <winsock2.h>
 #include <windows.h>
+#include <setupapi.h>
+#include <comdef.h>
+#include <Wbemidl.h>
+
+#pragma warning(disable:4996)
 
 #include "dashel-private.h"
 
@@ -69,7 +77,7 @@ namespace Dashel
 		return derived;
 	}
 
-	StreamException::StreamException(Source s, int se, Stream *stream, const char *reason)
+	DashelException::DashelException(Source s, int se, const char *reason, Stream *stream)
 	{
 		source = s;
 		sysError = se;
@@ -79,6 +87,142 @@ namespace Dashel
 		FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, se, 0, buf, 1024, NULL);
 		this->sysMessage = buf;
 	}
+
+	void Stream::fail(DashelException::Source s, int se, const char* reason)
+	{
+		char sysMessage[1024] = {0};
+		failedFlag = true;
+
+		if (se)
+			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, se, 0, sysMessage, 1024, NULL);
+
+		failReason += reason;
+		failReason += " ";
+		failReason += sysMessage;
+		throw DashelException(s, se, reason, this);
+	}
+
+		
+
+	std::map<int, std::pair<std::string, std::string> > SerialPortEnumerator::getPorts()
+	{
+		std::map<int, std::pair<std::string, std::string> > ports;
+
+		// Oldschool technique - returns too many ports...
+/*		DWORD n, p;
+		EnumPorts(NULL, 1, NULL, 0, &n, &p);
+		PORT_INFO_1 *d = (PORT_INFO_1*)alloca(n);
+		if(!d)
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Could not allocate buffer for port devices.");
+		if(!EnumPorts(NULL, 1, (LPBYTE)d, n, &n, &p))
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices.");
+
+		for(n = 0; n < p; ++n)
+		{
+			if(!strncmp(d[n].pName, "COM", 3))
+			{
+				int v = atoi(&d[n].pName[3]);
+				if(v > 0 && v < 256)
+				{
+					ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (d[n].pName, d[n].pName)));
+				}
+			}
+		}*/
+
+		// Newschool technique - returns only real hardware ports...
+		// WMI should be able to return everything, but everything we are looking for is probably well
+		// lost in the namespaces.
+		HRESULT hr;
+	    hr = CoInitializeEx(0, COINIT_MULTITHREADED); 
+	    if(FAILED(hr))
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not start COM).");
+	    hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
+	    if(FAILED(hr))
+		{
+	        CoUninitialize();
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not setup COM security).");
+		}
+
+		IWbemLocator *pLoc = NULL;
+		hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID *) &pLoc);
+	    if(FAILED(hr))
+		{
+	        CoUninitialize();
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not create WBEM locator).");
+		} 
+
+		IWbemServices *pSvc = NULL;
+		hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\CIMV2"), NULL, NULL, 0, NULL, 0, 0, &pSvc);
+	    if(FAILED(hr))
+		{
+			pLoc->Release();
+	        CoUninitialize();
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not connect to root of CIMV2).");
+		} 
+    
+		hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+	    if(FAILED(hr))
+		{
+			pSvc->Release();
+			pLoc->Release();
+	        CoUninitialize();
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not connect to root of CIMV2).");
+		} 
+
+		IEnumWbemClassObject* pEnumerator = NULL;
+		hr = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM Win32_SerialPort"), WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
+	    if(FAILED(hr))
+		{
+			pSvc->Release();
+			pLoc->Release();
+	        CoUninitialize();
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not connect to root of CIMV2).");
+		} 
+
+		IWbemClassObject *pclsObj;
+		ULONG uReturn = 0;
+		while (pEnumerator)
+		{
+			HRESULT hr = pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
+			if(0 == uReturn)
+				break;
+
+			VARIANT vtProp;
+			VariantInit(&vtProp);
+			char dn[1024], dcn[1024];
+
+			// Get the value of the Name property
+			hr = pclsObj->Get(L"DeviceID", 0, &vtProp, 0, 0);
+			if(!FAILED(hr))
+			{
+				WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dn, 1024, NULL, NULL);
+				VariantClear(&vtProp);
+
+				hr = pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
+				WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dcn, 1024, NULL, NULL);
+				VariantClear(&vtProp);
+
+				if(!strncmp(dn, "COM", 3))
+				{
+					int v = atoi(&dn[3]);
+					if(v > 0 && v < 256)
+					{
+						ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (dn, dcn)));
+					}
+				}
+			}
+			pclsObj->Release();
+			pclsObj = NULL;
+		}
+
+		pSvc->Release();
+		pLoc->Release();
+		pEnumerator->Release();
+		CoUninitialize();
+
+		return ports;
+	};
+
 
 	//! Ensure that the WinSock API has been started properly.
 	void startWinSock()
@@ -92,7 +236,7 @@ namespace Dashel
 
 			int rv = WSAStartup(ver, &d);
 			if(rv)
-				throw StreamException(StreamException::Unknown, rv, NULL, "Could not start WinSock service.");
+				throw DashelException(DashelException::Unknown, rv, "Could not start WinSock service.");
 			started = true;
 		}
 	}
@@ -175,12 +319,12 @@ namespace Dashel
 			// Create socket.
 			sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (sock == SOCKET_ERROR)
-				throw StreamException(StreamException::ConnectionFailed, WSAGetLastError(), NULL, "Cannot create socket.");
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
 			
 			// Reuse address.
 			int flag = 1;
 			if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&flag, sizeof (flag)) < 0)
-				throw StreamException(StreamException::ConnectionFailed, WSAGetLastError(), NULL, "Cannot set address reuse flag on socket, probably the port is already in use.");
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot set address reuse flag on socket, probably the port is already in use.");
 			
 			// Bind socket.
 			sockaddr_in addr;
@@ -188,11 +332,11 @@ namespace Dashel
 			addr.sin_port = htons(bindAddress.port);
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-				throw StreamException(StreamException::ConnectionFailed, WSAGetLastError(), NULL, "Cannot bind socket to port, probably the port is already in use.");
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
 			
 			// Listen on socket, backlog is sort of arbitrary.
 			if(listen(sock, 16) == SOCKET_ERROR)
-				throw StreamException(StreamException::ConnectionFailed, WSAGetLastError(), NULL, "Cannot listen on socket.");
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot listen on socket.");
 
 			// Create and register event.
 			hev = createEvent(EvConnect);
@@ -220,8 +364,7 @@ namespace Dashel
 				SOCKET trg = accept (sock, (struct sockaddr *)&targetAddr, &l);
 				if (trg == SOCKET_ERROR)
 				{
-					fail();
-					throw StreamException(StreamException::ConnectionFailed, WSAGetLastError(), this, "Cannot accept incoming connection on socket.");
+					fail(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot accept incoming connection on socket.");
 				}
 				
 				// create stream
@@ -263,13 +406,13 @@ namespace Dashel
 			ps.add(params.c_str());
 
 			if((hf = GetStdHandle(STD_INPUT_HANDLE)) == INVALID_HANDLE_VALUE)
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), NULL, "Cannot open standard input.");
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open standard input.");
 
 			DWORD cm;
 			GetConsoleMode(hf, &cm);
 			cm &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
 			if(!SetConsoleMode(hf, cm))
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), NULL, "Cannot change standard input mode to immediate.");
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot change standard input mode to immediate.");
 
 			// Create events.
 			addEvent(EvPotentialData, hf);
@@ -305,13 +448,13 @@ namespace Dashel
 		//! Cannot write to stdin.
 		virtual void write(const void *data, const size_t size)
 		{ 
-			throw StreamException(StreamException::InvalidOperation, GetLastError(), this, "Cannot write to standard input.");
+			throw DashelException(DashelException::InvalidOperation, GetLastError(), "Cannot write to standard input.", this);
 		}
 		
 		//! Cannot flush stdin.
 		virtual void flush() 
 		{ 
-			throw StreamException(StreamException::InvalidOperation, GetLastError(), this, "Cannot flush standard input.");
+			throw DashelException(DashelException::InvalidOperation, GetLastError(), "Cannot flush standard input.", this);
 		}
 		
 		virtual void read(void *data, size_t size)
@@ -330,8 +473,7 @@ namespace Dashel
 				// Blocking write.
 				if((r = ReadFile(hf, ptr, left, &len, NULL)) == 0)
 				{
-					fail();
-					throw StreamException(StreamException::IOError, GetLastError(), this, "Read error from standard input.");
+					fail(DashelException::IOError, GetLastError(), "Read error from standard input.");
 				}
 				else
 				{
@@ -359,7 +501,7 @@ namespace Dashel
 			ps.add(params.c_str());
 
 			if((hf = GetStdHandle(STD_OUTPUT_HANDLE)) == INVALID_HANDLE_VALUE)
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), NULL, "Cannot open standard output.");
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open standard output.");
 		}
 
 		//! Destructor
@@ -384,8 +526,7 @@ namespace Dashel
 				// Blocking write.
 				if((r = WriteFile(hf, ptr, left, &len, NULL)) == 0)
 				{
-					fail();
-					throw StreamException(StreamException::IOError, GetLastError(), this, "Write error to standard output.");
+					fail(DashelException::IOError, GetLastError(), "Write error to standard output.");
 				}
 				else
 				{
@@ -402,8 +543,7 @@ namespace Dashel
 		
 		virtual void read(void *data, size_t size) 
 		{ 
-			fail();
-			throw StreamException(StreamException::InvalidOperation, GetLastError(), this, "Cannot read from standard output.");
+			fail(DashelException::InvalidOperation, GetLastError(), "Cannot read from standard output.");
 		}
 
 	};
@@ -444,7 +584,7 @@ namespace Dashel
 			{
 				DWORD err = GetLastError();
 				if(err != ERROR_IO_PENDING)
-					throw StreamException(StreamException::IOError, GetLastError(), NULL, "Cannot read from file stream.");
+					throw DashelException(DashelException::IOError, GetLastError(), "Cannot read from file stream.");
 			}
 		}
 
@@ -467,7 +607,7 @@ namespace Dashel
 			else if (mode == "readwrite") 
 				hf = CreateFile(name.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
 			if(hf == INVALID_HANDLE_VALUE)
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), NULL, "Cannot open file.");
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open file.");
 
 			startStream();
 
@@ -508,8 +648,7 @@ namespace Dashel
 						break;
 
 					default:
-						fail();
-						throw StreamException(StreamException::IOError, GetLastError(), this, "Cannot write to file.");
+						fail(DashelException::IOError, GetLastError(), "Cannot write to file.");
 						break;
 					}
 				}
@@ -556,13 +695,12 @@ namespace Dashel
 					switch((err = GetLastError()))
 					{
 					case ERROR_HANDLE_EOF:
-						fail();
-						throw StreamException(StreamException::ConnectionLost, GetLastError(), this, "Reached end of file.");
+						fail(DashelException::ConnectionLost, GetLastError(), "Reached end of file.");
 						break;
 
 					case ERROR_IO_PENDING:
 						if(!GetOverlappedResult(hf, &o, &len, TRUE))
-							throw StreamException(StreamException::IOError, GetLastError(), this, "File read I/O error.");
+							fail(DashelException::IOError, GetLastError(), "File read I/O error.");
 						if(len == 0)
 							return;
 
@@ -571,8 +709,7 @@ namespace Dashel
 						break;
 
 					default:
-						fail();
-						throw StreamException(StreamException::IOError, GetLastError(), this, "File read I/O error.");
+						fail(DashelException::IOError, GetLastError(), "File read I/O error.");
 						break;
 					}
 				}
@@ -596,8 +733,7 @@ namespace Dashel
 				}
 				else if(err != ERROR_IO_PENDING)
 				{
-					fail();
-					throw StreamException(StreamException::IOError, GetLastError(), this, "Cannot read from file stream.");
+					fail(DashelException::IOError, GetLastError(), "Cannot read from file stream.");
 				}
 			}
 
@@ -617,7 +753,7 @@ namespace Dashel
 			\param parity Parity type.
 			\param stopbits Number of stop bits.
 		*/
-		bool buildDCB(HANDLE sp, int speed, int bits, const std::string& parity, const std::string& stopbits)
+		bool buildDCB(HANDLE sp, int speed, int bits, const std::string& parity, const std::string& stopbits, const std::string& fc)
 		{
 			DCB dcb;
 
@@ -625,16 +761,25 @@ namespace Dashel
 			dcb.DCBlength = sizeof(dcb);
 
 			if(!GetCommState(sp, &dcb))
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), this, "Cannot read current serial port state.");
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot read current serial port state.", this);
 
 			// Fill in the DCB
 			memset(&dcb,0,sizeof(dcb));
 			dcb.DCBlength = sizeof(dcb);
-			dcb.fOutxCtsFlow = FALSE;
+			if(fc == "hard")
+			{
+				dcb.fOutxCtsFlow = TRUE;
+				dcb.fRtsControl = RTS_CONTROL_DISABLE;
+			}
+			else
+			{
+				dcb.fOutxCtsFlow = FALSE;
+				dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
+			}
+
 			dcb.fOutxDsrFlow = FALSE;
 			dcb.fDtrControl = DTR_CONTROL_DISABLE;
 			dcb.fDsrSensitivity = FALSE;
-
 			dcb.fBinary = TRUE;
 			dcb.fParity = TRUE;
 			dcb.BaudRate = speed;
@@ -659,7 +804,7 @@ namespace Dashel
 
 			// Set the com port state.
 			if(!SetCommState(sp, &dcb))
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), this, "Cannot set new serial port state.");
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot set new serial port state.", this);
 
 			// Set timeouts as well for good measure. Since we will effectively be woken whenever
 			// this happens, keep it long.
@@ -671,7 +816,7 @@ namespace Dashel
 			cto.WriteTotalTimeoutConstant = 100000;
 			cto.WriteTotalTimeoutMultiplier = 100000;
 			if(!SetCommTimeouts(sp, &cto))
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), this, "Cannot set new serial port timeouts.");
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot set new serial port timeouts.", this);
 
 			return true;
 		}
@@ -689,9 +834,9 @@ namespace Dashel
 
 			hf = CreateFile(name.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 			if(hf == INVALID_HANDLE_VALUE)
-				throw StreamException(StreamException::ConnectionFailed, GetLastError(), NULL, "Cannot open serial port.");
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open serial port.");
 
-			buildDCB(hf, ps.get<int>("baud"), ps.get<int>("bits"), ps.get("parity"), ps.get("stop"));
+			buildDCB(hf, ps.get<int>("baud"), ps.get<int>("bits"), ps.get("parity"), ps.get("stop"), ps.get("fc"));
 
 			hev = createEvent(EvData);
 
@@ -750,7 +895,7 @@ namespace Dashel
 				// create socket
 				sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 				if (sock == SOCKET_ERROR)
-					throw StreamException(StreamException::ConnectionFailed, WSAGetLastError(), NULL, "Cannot create socket.");
+					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
 			
 				TCPIPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
 				// connect
@@ -759,7 +904,7 @@ namespace Dashel
 				addr.sin_port = htons(remoteAddress.port);
 				addr.sin_addr.s_addr = htonl(remoteAddress.address);
 				if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-					throw StreamException(StreamException::ConnectionFailed, WSAGetLastError(), NULL, "Cannot connect to remote host.");
+					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot connect to remote host.");
 			}
 
 			hev = createEvent(EvPotentialData);
@@ -804,8 +949,7 @@ namespace Dashel
 				
 				if (len == SOCKET_ERROR)
 				{
-					fail();
-					throw StreamException(StreamException::ConnectionFailed, GetLastError(), NULL, "Connection lost.");
+					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost.");
 				}
 				else
 				{
@@ -828,8 +972,7 @@ namespace Dashel
 				
 				if (len == SOCKET_ERROR)
 				{
-					fail();
-					throw StreamException(StreamException::ConnectionFailed, GetLastError(), NULL, "Connection lost.");
+					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost.");
 				}
 				else
 				{
@@ -856,7 +999,7 @@ namespace Dashel
 		std::string proto, params;
 		size_t c = target.find_first_of(':');
 		if(c == std::string::npos)
-			throw StreamException(StreamException::InvalidTarget, NULL, NULL, "No protocol specified in target.");
+			throw DashelException(DashelException::InvalidTarget, NULL, "No protocol specified in target.");
 		proto = target.substr(0, c);
 		params = target.substr(c+1);
 
@@ -878,7 +1021,7 @@ namespace Dashel
 		{
 			std::string r = "Invalid protocol in target: ";
 			r = r.append(proto);
-			throw StreamException(StreamException::InvalidTarget, 0, NULL, r.c_str());
+			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
 		
 		streams.insert(s);
@@ -910,7 +1053,7 @@ namespace Dashel
 			DWORD hc = 1;
 
 			// Collect all events from all our streams.
-			for(std::list<Stream*>::iterator it = streams.begin(); it != streams.end(); ++it)
+			for(std::set<Stream*>::iterator it = streams.begin(); it != streams.end(); ++it)
 			{
 				WaitableStream* stream = polymorphic_downcast<WaitableStream*>(*it);
 				for(std::map<EvType,HANDLE>::iterator ei = stream->hEvents.begin(); ei != stream->hEvents.end(); ++ei)
@@ -926,7 +1069,7 @@ namespace Dashel
 			
 			// Check for error or timeout.
 			if (r == WAIT_FAILED)
-				throw StreamException(StreamException::SyncError, 0, NULL);
+				throw DashelException(DashelException::SyncError, 0, "Wait failed.");
 			if (r == WAIT_TIMEOUT)
 				return true;
 
@@ -949,11 +1092,11 @@ namespace Dashel
 					{
 						incomingData(strs[r]);
 					}
-					catch (StreamException e) { }
+					catch (DashelException e) { }
 					if(strs[r]->failed())
 					{
-						connectionClosed(strs[r]);
-						streams.remove(strs[r]);
+						connectionClosed(strs[r], true);
+						streams.erase(strs[r]);
 						delete strs[r];
 					}
 				}
@@ -962,10 +1105,10 @@ namespace Dashel
 				{
 					try
 					{
-						connectionClosed(strs[r]);
+						connectionClosed(strs[r], false);
 					}
-					catch (StreamException e) { }
-					streams.remove(strs[r]);
+					catch (DashelException e) { }
+					streams.erase(strs[r]);
 					delete strs[r];
 				}
 			}
