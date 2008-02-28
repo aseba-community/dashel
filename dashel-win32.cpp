@@ -320,7 +320,7 @@ namespace Dashel
 		SocketServerStream(const std::string& params) : WaitableStream(params)
 		{ 
 			ParameterSet ps;
-			ps.add("tcpin:port=5000;host=0.0.0.0;");
+			ps.add("tcpin:host=0.0.0.0;port=5000;");
 			ps.add(params.c_str());
 
 			startWinSock();
@@ -379,9 +379,7 @@ namespace Dashel
 				}
 				
 				// create stream
-				std::string ls = "tcp:host=";
-
-				ls = ls.append(TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format());
+				std::string ls = TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
 				
 				std::ostringstream buf;
 				buf << (int)trg;
@@ -566,8 +564,11 @@ namespace Dashel
 		//! The file handle.
 		HANDLE hf;
 
-		//! The overlapped structure used for serial port reads.
+		//! The overlapped structure used for file reads.
 		OVERLAPPED ovl;
+
+		//! The current write offset.
+		DWORD writeOffset;
 
 		//! The data used.
 		DWORD dataUsed;
@@ -605,22 +606,32 @@ namespace Dashel
 		FileStream(const std::string& params) : WaitableStream(params)
 		{ 
 			ParameterSet ps;
-			ps.add("file:mode=read");
+			ps.add("file:name;mode=read");
 			ps.add(params.c_str());
 			std::string name = ps.get("name");
 			std::string mode = ps.get("mode");
 
 			hf = NULL;
 			if (mode == "read")
+			{
 				hf = CreateFile(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+				startStream();
+			}
 			else if (mode == "write")
+			{
+				dataUsed = 0;
+				writeOffset = 0;
 				hf = CreateFile(name.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
+			}
 			else if (mode == "readwrite") 
+			{
+				writeOffset = 0;
 				hf = CreateFile(name.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
+				startStream();
+			}
 			if(hf == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open file.");
 
-			startStream();
 
 			hEOF = createEvent(EvClosed);
 		}
@@ -645,6 +656,8 @@ namespace Dashel
 				OVERLAPPED o;
 				memset(&o, 0, sizeof(o));
 
+				o.Offset = writeOffset;
+
 				// Blocking write.
 				BOOL r = WriteFile(hf, ptr, left, &len, &o);
 				if(!r)
@@ -668,6 +681,8 @@ namespace Dashel
 					ptr += len;
 					left -= len;
 				}
+			
+				writeOffset += len;	
 			}
 		}
 		
@@ -886,7 +901,12 @@ namespace Dashel
 		//! Event for shutdown.
 		HANDLE hev3;
 
-	private:
+		//! Indicates whether stream is actually ready to read.
+		/*! If a read is attempted when this flag is false, we need to wait for data
+			to arrive, because our user is being cruel and did not wait for the 
+			notification.
+		*/
+		bool readyToRead;
 
 	public:
 		//! Create the stream and associates a file descriptor
@@ -895,7 +915,7 @@ namespace Dashel
 		SocketStream(const std::string& params) : WaitableStream(params)
 		{ 
 			ParameterSet ps;
-			ps.add("tcp:address;port;sock=0");
+			ps.add("tcp:host;port;sock=0");
 			ps.add(params.c_str());
 
 			sock = ps.get<SOCKET>("sock");
@@ -922,7 +942,11 @@ namespace Dashel
 			hev2 = createEvent(EvData);
 			hev3 = createEvent(EvClosed);
 
-			WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			if (rv == SOCKET_ERROR)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
+
+			readyToRead = false;
 		}
 
 		~SocketStream()
@@ -946,6 +970,10 @@ namespace Dashel
 				else
 					SetEvent(hev2);
 			}
+			if(t == EvData)
+			{
+				readyToRead = true;
+			}
 		}
 
 
@@ -960,7 +988,7 @@ namespace Dashel
 				
 				if (len == SOCKET_ERROR)
 				{
-					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost.");
+					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost on write.");
 				}
 				else
 				{
@@ -976,6 +1004,13 @@ namespace Dashel
 		{
 			char *ptr = (char *)data;
 			size_t left = size;
+
+			if(!readyToRead)
+			{
+				// Block until something happens.
+				WaitForSingleObject(hev, INFINITE);
+			}
+			readyToRead = false;
 			
 			while (left)
 			{
@@ -983,7 +1018,7 @@ namespace Dashel
 				
 				if (len == SOCKET_ERROR)
 				{
-					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost.");
+					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost on read.");
 				}
 				else
 				{

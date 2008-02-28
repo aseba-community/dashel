@@ -8,6 +8,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "microterm", "microterm.vcpr
 		{C8D9A6E0-858C-4F6E-BFFC-225061039311} = {C8D9A6E0-858C-4F6E-BFFC-225061039311}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "chat", "chat.vcproj", "{EF02489B-86BF-4ACA-8726-40C5F4F1063E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C8D9A6E0-858C-4F6E-BFFC-225061039311} = {C8D9A6E0-858C-4F6E-BFFC-225061039311}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -22,6 +27,10 @@ Global
 		{66013ABF-E30E-4F8E-B379-54657D6A57A5}.Debug|Win32.Build.0 = Debug|Win32
 		{66013ABF-E30E-4F8E-B379-54657D6A57A5}.Release|Win32.ActiveCfg = Release|Win32
 		{66013ABF-E30E-4F8E-B379-54657D6A57A5}.Release|Win32.Build.0 = Release|Win32
+		{EF02489B-86BF-4ACA-8726-40C5F4F1063E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EF02489B-86BF-4ACA-8726-40C5F4F1063E}.Debug|Win32.Build.0 = Debug|Win32
+		{EF02489B-86BF-4ACA-8726-40C5F4F1063E}.Release|Win32.ActiveCfg = Release|Win32
+		{EF02489B-86BF-4ACA-8726-40C5F4F1063E}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -5,7 +5,7 @@
 using namespace std;
 using namespace Dashel;
 
-#undef LOCAL_ECHO
+#define LOCAL_ECHO
 
 class MicroTerm: public Hub
 {
@@ -35,6 +35,8 @@ protected:
 		if (stream == s0)
 		{
 			#ifdef LOCAL_ECHO
+			if(c == 4)
+				stop();
 			#ifdef WIN32
 			if(c == '\r')
 				cout << std::endl;

@@ -14,7 +14,7 @@ string readLine(Stream* stream)
 		stream->read(&c, 1);
 		line += c;
 	}
-	while (c != '\n');
+	while (c != '\n' && c != '\r');
 	return line;
 }
 
