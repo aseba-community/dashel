@@ -51,10 +51,8 @@
 
 #ifdef _MSC_VER
 	#pragma comment(lib, "ws2_32.lib")
-	/* Only required for newschool serial port enumeration
 	#pragma comment(lib, "wbemuuid.lib")
 	#pragma comment(lib, "comsuppw.lib")
-	*/
 #endif // _MSC_VER
 
 #define _WIN32_WINNT 0x0501
@@ -62,12 +60,10 @@
 #include <windows.h>
 #include <setupapi.h>
 
-/* Only required for newschool serial port enumeration
 #ifdef _MSC_VER
 	#include <comdef.h>
 	#include <Wbemidl.h>
 #endif // _MSC_VER
-*/
 
 #pragma warning(disable:4996)
 
@@ -118,6 +114,7 @@ namespace Dashel
 	{
 		std::map<int, std::pair<std::string, std::string> > ports;
 
+		/*
 		// Oldschool technique - returns too many ports...
 		DWORD n, p;
 		EnumPorts(NULL, 1, NULL, 0, &n, &p);
@@ -138,8 +135,9 @@ namespace Dashel
 				}
 			}
 		}
-		/*
-		// Newschool technique - returns only real hardware ports...
+		*/
+
+		// Newschool technique - OK behaviour now...
 		// WMI should be able to return everything, but everything we are looking for is probably well
 		// lost in the namespaces.
 		HRESULT hr;
@@ -176,17 +174,17 @@ namespace Dashel
 			pSvc->Release();
 			pLoc->Release();
 	        CoUninitialize();
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not connect to root of CIMV2).");
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not set proxy blanket).");
 		} 
 
 		IEnumWbemClassObject* pEnumerator = NULL;
-		hr = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM Win32_SerialPort"), WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
+		hr = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM Win32_PnPEntity WHERE ClassGuid=\"{4D36E978-E325-11CE-BFC1-08002BE10318}\""), WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
 	    if(FAILED(hr))
 		{
 			pSvc->Release();
 			pLoc->Release();
 	        CoUninitialize();
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not connect to root of CIMV2).");
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not execute WBEM query).");
 		} 
 
 		IWbemClassObject *pclsObj;
@@ -199,25 +197,30 @@ namespace Dashel
 
 			VARIANT vtProp;
 			VariantInit(&vtProp);
-			char dn[1024], dcn[1024];
+			char dn[1024], dcn[1024], *co;
 
 			// Get the value of the Name property
-			hr = pclsObj->Get(L"DeviceID", 0, &vtProp, 0, 0);
+			hr = pclsObj->Get(L"Caption", 0, &vtProp, 0, 0);
 			if(!FAILED(hr))
 			{
 				WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dn, 1024, NULL, NULL);
 				VariantClear(&vtProp);
-
+/*
 				hr = pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
 				WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dcn, 1024, NULL, NULL);
 				VariantClear(&vtProp);
-
-				if(!strncmp(dn, "COM", 3))
+*/
+				if((co = strstr(dn, "(COM")))
 				{
-					int v = atoi(&dn[3]);
+					strcpy(dcn, co+1);
+					strtok(dcn, ")");
+
+					int v = atoi(&dcn[3]);
+
 					if(v > 0 && v < 256)
 					{
-						ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (dn, dcn)));
+						std::string name = std::string("\\\\.\\").append(dcn);
+						ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (name, dn)));
 					}
 				}
 			}
@@ -229,7 +232,6 @@ namespace Dashel
 		pLoc->Release();
 		pEnumerator->Release();
 		CoUninitialize();
-		*/
 		
 		return ports;
 	};
@@ -856,7 +858,12 @@ namespace Dashel
 			ParameterSet ps;
 			ps.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
 			ps.add(params.c_str());
-			std::string name = std::string("\\\\.\\COM").append(ps.get("port"));
+
+			std::string name;
+			if (ps.isSet("device"))
+				name = ps.get("device");
+			else
+				name = std::string("\\\\.\\COM").append(ps.get("port"));
 
 			hf = CreateFile(name.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 			if(hf == INVALID_HANDLE_VALUE)

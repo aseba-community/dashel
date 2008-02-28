@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8.00"
-	Name="chat"
-	ProjectGUID="{EF02489B-86BF-4ACA-8726-40C5F4F1063E}"
-	RootNamespace="chat"
+	Name="portlist"
+	ProjectGUID="{1B54A982-8152-42C7-9F63-1D12F3DE2130}"
+	RootNamespace="portlist"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -175,7 +175,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\chat.cpp"
+				RelativePath="..\portlist.cpp"
 				>
 			</File>
 		</Filter>
