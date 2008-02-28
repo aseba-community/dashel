@@ -42,22 +42,32 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <malloc.h>
 #include <map>
 #include <vector>
 #include <algorithm>
 #include <iostream>
 #include <sstream>
 
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "wbemuuid.lib")
-#pragma comment(lib, "comsuppw.lib")
+#ifdef _MSC_VER
+	#pragma comment(lib, "ws2_32.lib")
+	/* Only required for newschool serial port enumeration
+	#pragma comment(lib, "wbemuuid.lib")
+	#pragma comment(lib, "comsuppw.lib")
+	*/
+#endif // _MSC_VER
 
 #define _WIN32_WINNT 0x0501
 #include <winsock2.h>
 #include <windows.h>
 #include <setupapi.h>
-#include <comdef.h>
-#include <Wbemidl.h>
+
+/* Only required for newschool serial port enumeration
+#ifdef _MSC_VER
+	#include <comdef.h>
+	#include <Wbemidl.h>
+#endif // _MSC_VER
+*/
 
 #pragma warning(disable:4996)
 
@@ -109,7 +119,7 @@ namespace Dashel
 		std::map<int, std::pair<std::string, std::string> > ports;
 
 		// Oldschool technique - returns too many ports...
-/*		DWORD n, p;
+		DWORD n, p;
 		EnumPorts(NULL, 1, NULL, 0, &n, &p);
 		PORT_INFO_1 *d = (PORT_INFO_1*)alloca(n);
 		if(!d)
@@ -127,8 +137,8 @@ namespace Dashel
 					ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (d[n].pName, d[n].pName)));
 				}
 			}
-		}*/
-
+		}
+		/*
 		// Newschool technique - returns only real hardware ports...
 		// WMI should be able to return everything, but everything we are looking for is probably well
 		// lost in the namespaces.
@@ -219,7 +229,8 @@ namespace Dashel
 		pLoc->Release();
 		pEnumerator->Release();
 		CoUninitialize();
-
+		*/
+		
 		return ports;
 	};
 
@@ -372,9 +383,9 @@ namespace Dashel
 
 				ls = ls.append(TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format());
 				
-				char buf[32];
-				_itoa_s((int)trg, buf, 32, 10);
-				ls = ls.append(";sock=").append(buf);
+				std::ostringstream buf;
+				buf << (int)trg;
+				ls = ls.append(";sock=").append(buf.str());
 				srv->connect(ls);
 			}
 		}
@@ -999,7 +1010,7 @@ namespace Dashel
 		std::string proto, params;
 		size_t c = target.find_first_of(':');
 		if(c == std::string::npos)
-			throw DashelException(DashelException::InvalidTarget, NULL, "No protocol specified in target.");
+			throw DashelException(DashelException::InvalidTarget, 0, "No protocol specified in target.");
 		proto = target.substr(0, c);
 		params = target.substr(c+1);
 

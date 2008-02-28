@@ -2,6 +2,7 @@ project(dashel)
 
 if (WIN32)
 	set(DASHEL_SOURCES dashel-win32.cpp dashel-common.cpp)
+	set(EXTRA_LIBS winspool ws2_32)
 else (WIN32)
 	set(DASHEL_SOURCES dashel-posix.cpp dashel-common.cpp)
 	if (APPLE)
