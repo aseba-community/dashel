@@ -1045,6 +1045,8 @@ namespace Dashel
 					ptr += len;
 					left -= len;
 				}
+				if(left)
+					WaitForSingleObject(hev, INFINITE);
 			}
 		}
 	};
