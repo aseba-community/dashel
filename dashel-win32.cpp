@@ -707,6 +707,9 @@ namespace Dashel
 
 			// Quick check to make sure nobody is giving us funny 64-bit stuff.
 			assert(left == size);
+			
+			if (size == 0)
+				return;
 
 			if(dataUsed)
 			{
@@ -1018,6 +1021,9 @@ namespace Dashel
 		{
 			char *ptr = (char *)data;
 			size_t left = size;
+			
+			if (size == 0)
+				return;
 
 			if(!readyToRead)
 			{
