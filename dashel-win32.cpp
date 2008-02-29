@@ -60,9 +60,12 @@
 #include <windows.h>
 #include <setupapi.h>
 
+
 #ifdef _MSC_VER
 	#include <comdef.h>
 	#include <Wbemidl.h>
+//#else
+//	#include "Wbemidl.h"
 #endif // _MSC_VER
 
 #pragma warning(disable:4996)
@@ -114,7 +117,8 @@ namespace Dashel
 	{
 		std::map<int, std::pair<std::string, std::string> > ports;
 
-		/*
+		#ifndef _MSC_VER
+		
 		// Oldschool technique - returns too many ports...
 		DWORD n, p;
 		EnumPorts(NULL, 1, NULL, 0, &n, &p);
@@ -135,8 +139,9 @@ namespace Dashel
 				}
 			}
 		}
-		*/
-
+		
+		#else // _MSC_VER 
+		
 		// Newschool technique - OK behaviour now...
 		// WMI should be able to return everything, but everything we are looking for is probably well
 		// lost in the namespaces.
@@ -205,11 +210,11 @@ namespace Dashel
 			{
 				WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dn, 1024, NULL, NULL);
 				VariantClear(&vtProp);
-/*
-				hr = pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
-				WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dcn, 1024, NULL, NULL);
-				VariantClear(&vtProp);
-*/
+
+				//hr = pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
+				//WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dcn, 1024, NULL, NULL);
+				//VariantClear(&vtProp);
+
 				if((co = strstr(dn, "(COM")))
 				{
 					strcpy(dcn, co+1);
@@ -232,6 +237,8 @@ namespace Dashel
 		pLoc->Release();
 		pEnumerator->Release();
 		CoUninitialize();
+		
+		#endif // _MSC_VER
 		
 		return ports;
 	};

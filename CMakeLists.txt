@@ -27,3 +27,6 @@ target_link_libraries(microterm dashel ${EXTRA_LIBS})
 
 add_executable(chat chat.cpp)
 target_link_libraries(chat dashel ${EXTRA_LIBS})
+
+add_executable(portlist portlist.cpp)
+target_link_libraries(portlist dashel ${EXTRA_LIBS})
