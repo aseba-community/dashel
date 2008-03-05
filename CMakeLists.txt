@@ -21,6 +21,13 @@ else (WIN32)
 endif (WIN32)
 
 add_library(dashel ${DASHEL_SOURCES})
+install(FILES dashel.h
+        DESTINATION include)
+install(TARGETS dashel
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+)
+
 
 add_executable(microterm microterm.cpp)
 target_link_libraries(microterm dashel ${EXTRA_LIBS})
