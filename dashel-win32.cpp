@@ -925,6 +925,12 @@ namespace Dashel
 		*/
 		bool readyToRead;
 
+		//! Byte that is read to check for disconnections. Yuck.
+		char readByte;
+
+		//! Flag indicating whether readByte is around.
+		bool readByteAvailable;
+
 	public:
 		//! Create the stream and associates a file descriptor
 		/*! \param params Parameter string.
@@ -964,10 +970,12 @@ namespace Dashel
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
 
 			readyToRead = false;
+			readByteAvailable = false;
 		}
 
 		~SocketStream()
 		{
+			shutdown(sock, SD_BOTH);
 			closesocket(sock);
 		}
 
@@ -978,14 +986,14 @@ namespace Dashel
 		{ 
 			if(t == EvPotentialData)
 			{
-				fd_set s;
-				timeval tv={0,0};
-				FD_ZERO(&s);
-				FD_SET(sock, &s);
-				if(select(1, NULL, NULL, &s, &tv))
+				int rv = recv(sock, &readByte, 1, 0);
+				if(rv == 0)
 					SetEvent(hev3);
 				else
+				{
+					readByteAvailable = true;
 					SetEvent(hev2);
+				}
 			}
 			if(t == EvData)
 			{
@@ -1031,6 +1039,13 @@ namespace Dashel
 				WaitForSingleObject(hev, INFINITE);
 			}
 			readyToRead = false;
+
+			if(readByteAvailable)
+			{
+				*ptr++ = readByte;
+				readByteAvailable = false;
+				left--;
+			}
 			
 			while (left)
 			{
@@ -1040,14 +1055,25 @@ namespace Dashel
 				{
 					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost on read.");
 				}
+				else if(len == 0)
+				{
+					// We have been disconnected.
+				}
 				else
 				{
 					ptr += len;
 					left -= len;
 				}
 				if(left)
+				{
+					// Wait for more data.
 					WaitForSingleObject(hev, INFINITE);
+				}
 			}
+
+			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			if (rv == SOCKET_ERROR)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
 		}
 	};
 
