@@ -682,7 +682,7 @@ namespace Dashel
 			newtio.c_cc[VMIN] = 1;				// one byte is sufficient to return
 			
 			// set attributes
-			if ((tcflush(fd, TCIFLUSH) < 0) || (tcsetattr(fd, TCSANOW, &newtio) < 0))
+			if ((tcflush(fd, TCIOFLUSH) < 0) || (tcsetattr(fd, TCSANOW, &newtio) < 0))
 				throw DashelException(DashelException::ConnectionFailed, 0, "Cannot setup serial port. The requested baud rate might not be supported.");
 		}
 		
@@ -690,6 +690,10 @@ namespace Dashel
 		virtual ~SerialStream()
 		{
 			 tcsetattr(fd, TCSANOW, &oldtio);
+		}
+		
+		virtual void flush()
+		{
 		}
 	};
 	
@@ -809,6 +813,7 @@ namespace Dashel
 			throw DashelException(DashelException::SyncError, errno, "Error during poll.");
 		
 		// check streams for errors
+		bool wasActivity = false;
 		for (i = 0; i < streamsCount; i++)
 		{
 			SelectableStream* stream = streamsArray[i];
@@ -821,6 +826,7 @@ namespace Dashel
 			
 			if (pollFdsArray[i].revents & (POLLERR | POLLHUP | POLLRDHUP))
 			{
+				wasActivity = true;
 				try
 				{
 					if (pollFdsArray[i].revents & POLLERR)
@@ -840,6 +846,8 @@ namespace Dashel
 			}
 			else if (pollFdsArray[i].revents & POLLIN)
 			{
+				wasActivity = true;
+				
 				// test if listen stream
 				SocketServerStream* serverStream = dynamic_cast<SocketServerStream*>(stream);
 				
@@ -897,6 +905,8 @@ namespace Dashel
 				closeStream(stream);
 			}
 		}
+		
+		return wasActivity;
 	}
 	
 	void Hub::stop()
