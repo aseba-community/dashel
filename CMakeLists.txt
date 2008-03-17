@@ -37,3 +37,6 @@ target_link_libraries(chat dashel ${EXTRA_LIBS})
 
 add_executable(portlist portlist.cpp)
 target_link_libraries(portlist dashel ${EXTRA_LIBS})
+
+add_executable(01-win32-aseba-switch-socket-error tests/01-win32-aseba-switch-socket-error.cpp)
+target_link_libraries(01-win32-aseba-switch-socket-error dashel ${EXTRA_LIBS})

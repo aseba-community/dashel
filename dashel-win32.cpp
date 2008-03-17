@@ -1032,7 +1032,7 @@ namespace Dashel
 			
 			if (size == 0)
 				return;
-
+			std::cerr << "ready to read " << readyToRead << std::endl;
 			if(!readyToRead)
 			{
 				// Block until something happens.
@@ -1049,10 +1049,13 @@ namespace Dashel
 			
 			while (left)
 			{
+				std::cerr << "ready to recv " << std::endl;
 				int len = recv(sock, ptr, (int)left, 0);
+				std::cerr << "recv done " << std::endl;
 				
 				if (len == SOCKET_ERROR)
 				{
+					std::cerr << "socket error" << std::endl;
 					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost on read.");
 				}
 				else if(len == 0)
