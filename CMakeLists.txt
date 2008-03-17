@@ -1,12 +1,12 @@
 project(dashel)
 
 if (WIN32)
-	set(DASHEL_SOURCES dashel-win32.cpp dashel-common.cpp)
+	set(DASHEL_SOURCES dashel/dashel-win32.cpp dashel/dashel-common.cpp)
 	set(EXTRA_LIBS winspool ws2_32)
 else (WIN32)
-	set(DASHEL_SOURCES dashel-posix.cpp dashel-common.cpp)
+	set(DASHEL_SOURCES dashel/dashel-posix.cpp dashel/dashel-common.cpp)
 	if (APPLE)
-		set(DASHEL_SOURCES ${DASHEL_SOURCES} poll_emu.c)
+		set(DASHEL_SOURCES ${DASHEL_SOURCES} dashel/poll_emu.c)
 		find_library(COREFOUNDATION_LIBRARY CoreFoundation)
 		find_library(IOKIT_LIBRARY IOKit)
 		mark_as_advanced(COREFOUNDATION_LIBRARY)
@@ -21,22 +21,26 @@ else (WIN32)
 endif (WIN32)
 
 add_library(dashel ${DASHEL_SOURCES})
-install(FILES dashel.h
+
+# install target
+install(FILES dashel/dashel.h
         DESTINATION include)
 install(TARGETS dashel
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
 )
 
+# examples
+foreach (example microterm chat portlist)
+	add_executable(${example} examples/${example}.cpp)
+	target_link_libraries(${example} dashel ${EXTRA_LIBS})
+endforeach (example)
 
-add_executable(microterm microterm.cpp)
-target_link_libraries(microterm dashel ${EXTRA_LIBS})
+# test cases
+foreach (test 01-win32-aseba-switch-socket-error)
+	add_executable(${test} tests/${test}.cpp)
+	target_link_libraries(${test} dashel ${EXTRA_LIBS})
+endforeach (test)
 
-add_executable(chat chat.cpp)
-target_link_libraries(chat dashel ${EXTRA_LIBS})
-
-add_executable(portlist portlist.cpp)
-target_link_libraries(portlist dashel ${EXTRA_LIBS})
-
-add_executable(01-win32-aseba-switch-socket-error tests/01-win32-aseba-switch-socket-error.cpp)
-target_link_libraries(01-win32-aseba-switch-socket-error dashel ${EXTRA_LIBS})
+# not use for now
+# include(CPack)

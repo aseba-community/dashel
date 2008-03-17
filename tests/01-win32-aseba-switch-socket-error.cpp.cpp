@@ -52,7 +52,7 @@
 #include <valarray>
 #include <vector>
 #include <iterator>
-#include "../dashel.h"
+#include <dashel/dashel.h>
 
 using namespace std;
 using namespace Dashel;

@@ -1,4 +1,4 @@
-#include "dashel.h"
+#include <dashel/dashel.h>
 #include <iostream>
 #include <cassert>
 
