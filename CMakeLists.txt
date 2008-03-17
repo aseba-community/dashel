@@ -30,6 +30,8 @@ install(TARGETS dashel
         ARCHIVE DESTINATION lib
 )
 
+include_directories(${CMAKE_HOME_DIRECTORY})
+
 # examples
 foreach (example microterm chat portlist)
 	add_executable(${example} examples/${example}.cpp)
