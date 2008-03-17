@@ -30,7 +30,7 @@ install(TARGETS dashel
         ARCHIVE DESTINATION lib
 )
 
-include_directories(${CMAKE_HOME_DIRECTORY})
+include_directories(${dashel_SOURCE_DIR})
 
 # examples
 foreach (example microterm chat portlist)
@@ -43,6 +43,3 @@ foreach (test 01-win32-aseba-switch-socket-error)
 	add_executable(${test} tests/${test}.cpp)
 	target_link_libraries(${test} dashel ${EXTRA_LIBS})
 endforeach (test)
-
-# not use for now
-# include(CPack)
