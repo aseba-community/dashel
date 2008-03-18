@@ -775,138 +775,145 @@ namespace Dashel
 	void Hub::run(void)
 	{
 		runTerminationReceived = false;
-		while (!runTerminationReceived && (hTerminate == (void*)0))
-			step(-1);
+		while (!runTerminationReceived && step(-1));
 	}
 	
 	bool Hub::step(int timeout)
 	{
-		size_t streamsCount = streams.size();
-		valarray<struct pollfd> pollFdsArray(streamsCount);
-		valarray<SelectableStream*> streamsArray(streamsCount);
-		
-		// add streams
-		size_t i = 0;
-		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
-		{
-			SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
-			
-			if (!stream->failed())
-			{
-				streamsArray[i] = stream;
-				pollFdsArray[i].fd = stream->fd;
-				pollFdsArray[i].events = POLLRDHUP;
-				if (!stream->writeOnly)
-					pollFdsArray[i].events |= POLLIN;
-			}
-			
-			i++;
-		}
-		
-		// do poll and check for error
-#ifndef USE_POLL_EMU
-		int ret = poll(&pollFdsArray[0], streamsCount, timeout);
-#else
-		int ret = poll_emu(&pollFdsArray[0], streamsCount, timeout);
-#endif
-		if (ret < 0)
-			throw DashelException(DashelException::SyncError, errno, "Error during poll.");
-		
-		// check streams for errors
+		bool firstPoll = true;
 		bool wasActivity = false;
-		for (i = 0; i < streamsCount; i++)
+		do
 		{
-			SelectableStream* stream = streamsArray[i];
+			wasActivity = false;
+			size_t streamsCount = streams.size();
+			valarray<struct pollfd> pollFdsArray(streamsCount);
+			valarray<SelectableStream*> streamsArray(streamsCount);
 			
-			// make sure we do not try to handle removed streams
-			if (streams.find(stream) == streams.end())
-				continue;
-			
-			assert((pollFdsArray[i].revents & POLLNVAL) == 0);
-			
-			if (pollFdsArray[i].revents & (POLLERR | POLLHUP | POLLRDHUP))
+			// add streams
+			size_t i = 0;
+			for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 			{
-				wasActivity = true;
-				try
+				SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
+				
+				if (!stream->failed())
 				{
-					if (pollFdsArray[i].revents & POLLERR)
-					{
-						stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
-						connectionClosed(stream, true);
-					}
-					else
-						connectionClosed(stream, false);
-				}
-				catch (DashelException e)
-				{
-					assert(e.stream);
+					streamsArray[i] = stream;
+					pollFdsArray[i].fd = stream->fd;
+					pollFdsArray[i].events = POLLRDHUP;
+					if (!stream->writeOnly)
+						pollFdsArray[i].events |= POLLIN;
 				}
 				
-				closeStream(stream);
+				i++;
 			}
-			else if (pollFdsArray[i].revents & POLLIN)
+			
+			// do poll and check for error
+			int thisPollTimeout = firstPoll ? timeout : 0;
+			firstPoll = false;
+			#ifndef USE_POLL_EMU
+			int ret = poll(&pollFdsArray[0], streamsCount, thisPollTimeout);
+			#else
+			int ret = poll_emu(&pollFdsArray[0], streamsCount, thisPollTimeout);
+			#endif
+			if (ret < 0)
+				throw DashelException(DashelException::SyncError, errno, "Error during poll.");
+			
+			// check streams for errors
+			for (i = 0; i < streamsCount; i++)
 			{
-				wasActivity = true;
+				SelectableStream* stream = streamsArray[i];
 				
-				// test if listen stream
-				SocketServerStream* serverStream = dynamic_cast<SocketServerStream*>(stream);
+				// make sure we do not try to handle removed streams
+				if (streams.find(stream) == streams.end())
+					continue;
 				
-				if (serverStream)
+				assert((pollFdsArray[i].revents & POLLNVAL) == 0);
+				
+				if (pollFdsArray[i].revents & (POLLERR | POLLHUP | POLLRDHUP))
 				{
-					// accept connection
-					struct sockaddr_in targetAddr;
-					socklen_t l = sizeof (targetAddr);
-					int targetFD = accept (stream->fd, (struct sockaddr *)&targetAddr, &l);
-					if (targetFD < 0)
-						throw DashelException(DashelException::SyncError, errno, "Cannot accept new stream.");
-					
-					// create a target stream using the new file descriptor from accept
-					ostringstream targetName;
-					targetName << TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
-					targetName << ";sock=";
-					targetName << targetFD;
-					connect(targetName.str());
-				}
-				else
-				{
+					wasActivity = true;
 					try
 					{
-						incomingData(stream);
+						if (pollFdsArray[i].revents & POLLERR)
+						{
+							stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
+							connectionClosed(stream, true);
+						}
+						else
+							connectionClosed(stream, false);
 					}
 					catch (DashelException e)
 					{
 						assert(e.stream);
 					}
+					
+					closeStream(stream);
+				}
+				else if (pollFdsArray[i].revents & POLLIN)
+				{
+					wasActivity = true;
+					
+					// test if listen stream
+					SocketServerStream* serverStream = dynamic_cast<SocketServerStream*>(stream);
+					
+					if (serverStream)
+					{
+						// accept connection
+						struct sockaddr_in targetAddr;
+						socklen_t l = sizeof (targetAddr);
+						int targetFD = accept (stream->fd, (struct sockaddr *)&targetAddr, &l);
+						if (targetFD < 0)
+							throw DashelException(DashelException::SyncError, errno, "Cannot accept new stream.");
+						
+						// create a target stream using the new file descriptor from accept
+						ostringstream targetName;
+						targetName << TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
+						targetName << ";sock=";
+						targetName << targetFD;
+						connect(targetName.str());
+					}
+					else
+					{
+						try
+						{
+							incomingData(stream);
+						}
+						catch (DashelException e)
+						{
+							assert(e.stream);
+						}
+					}
 				}
 			}
-		}
-		
-		// collect and remove all failed streams
-		vector<Stream*> failedStreams;
-		for (StreamsSet::iterator it = streams.begin(); it != streams.end();++it)
-			if ((*it)->failed())
-				failedStreams.push_back(*it);
-		
-		for (size_t i = 0; i < failedStreams.size(); i++)
-		{
-			Stream* stream = failedStreams[i];
-			if (streams.find(stream) == streams.end())
-				continue;
-			if (stream->failed())
+			
+			// collect and remove all failed streams
+			vector<Stream*> failedStreams;
+			for (StreamsSet::iterator it = streams.begin(); it != streams.end();++it)
+				if ((*it)->failed())
+					failedStreams.push_back(*it);
+			
+			for (size_t i = 0; i < failedStreams.size(); i++)
 			{
-				try
+				Stream* stream = failedStreams[i];
+				if (streams.find(stream) == streams.end())
+					continue;
+				if (stream->failed())
 				{
-					connectionClosed(stream, true);
+					try
+					{
+						connectionClosed(stream, true);
+					}
+					catch (DashelException e)
+					{
+						assert(e.stream);
+					}
+					closeStream(stream);
 				}
-				catch (DashelException e)
-				{
-					assert(e.stream);
-				}
-				closeStream(stream);
 			}
 		}
+		while (wasActivity);
 		
-		return wasActivity;
+		return (hTerminate == (void*)0);
 	}
 	
 	void Hub::stop()

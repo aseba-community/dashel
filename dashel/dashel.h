@@ -304,9 +304,10 @@ namespace Dashel
 		
 		/**
 			Waits for data from the transfers streams or connections from the listening streams.
+			Read all available data.
 		
 			\param timeout if -1, waits until data arrive. If 0, do not wait, just poll for activity. If positive, waits at maximum timeout ms.
-			\return true if there was activity on the stream, false otherwise
+			\return false if stop() was called or the application was requested to terminate, true otherwise.
 		*/
 		bool step(int timeout = 0);
 
