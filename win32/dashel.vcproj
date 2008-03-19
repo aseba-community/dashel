@@ -148,23 +148,11 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\dashel-common.cpp"
+				RelativePath="..\dashel\dashel-common.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\dashel-posix.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\dashel-win32.cpp"
+				RelativePath="..\dashel\dashel-win32.cpp"
 				>
 			</File>
 		</Filter>
@@ -174,11 +162,11 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\dashel-private.h"
+				RelativePath="..\dashel\dashel-private.h"
 				>
 			</File>
 			<File
-				RelativePath="..\dashel.h"
+				RelativePath="..\dashel\dashel.h"
 				>
 			</File>
 		</Filter>

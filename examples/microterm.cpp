@@ -5,7 +5,7 @@
 using namespace std;
 using namespace Dashel;
 
-#undef LOCAL_ECHO
+#define LOCAL_ECHO
 
 class MicroTerm: public Hub
 {

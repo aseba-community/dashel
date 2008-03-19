@@ -147,7 +147,13 @@ namespace Dashel
 		// lost in the namespaces.
 		HRESULT hr;
 	    hr = CoInitializeEx(0, COINIT_MULTITHREADED); 
-	    if(FAILED(hr))
+		if(hr == RPC_E_CHANGED_MODE)
+		{
+			hr = CoInitializeEx(0, COINIT_APARTMENTTHREADED); 
+			if(FAILED(hr))
+				throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not start COM with apartment thread model either).");
+		}
+	    else if(FAILED(hr))
 			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not start COM).");
 	    hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
 	    if(FAILED(hr))
@@ -307,7 +313,7 @@ namespace Dashel
 		/*! \param srv Hub instance that has generated the notification.
 			\param t Type of event.
 		*/
-		virtual void notifyEvent(Hub *srv, EvType t) { }
+		virtual void notifyEvent(Hub *srv, EvType& t) { }
 	};
 
 	//! Socket server stream.
@@ -374,7 +380,7 @@ namespace Dashel
 		/*! \param srv Hub instance.
 			\param t Type of event.
 		*/
-		virtual void notifyEvent(Hub *srv, EvType t) 
+		virtual void notifyEvent(Hub *srv, EvType& t) 
 		{ 
 			if(t == EvConnect)
 			{
@@ -446,7 +452,7 @@ namespace Dashel
 		//! Callback when an event is notified, allowing the stream to rearm it.
 		/*! \param t Type of event.
 		*/
-		virtual void notifyEvent(Hub *srv, EvType t) 
+		virtual void notifyEvent(Hub *srv, EvType& t) 
 		{ 
 			DWORD n = 0;
 			if(GetNumberOfConsoleInputEvents(hf, &n))
@@ -458,7 +464,9 @@ namespace Dashel
 					if(ir.EventType != KEY_EVENT)
 						ReadConsoleInput(hf, &ir, 1, &n);
 					else
-						SetEvent(hev);
+					{
+						t = EvData;
+					}
 				}
 			}
 		}
@@ -889,7 +897,7 @@ namespace Dashel
 		//! Callback when an event is notified, allowing the stream to rearm it.
 		/*! \param t Type of event.
 		*/
-		virtual void notifyEvent(Hub *srv, EvType t) 
+		virtual void notifyEvent(Hub *srv, EvType& t) 
 		{ 
 			if(t == EvPotentialData)
 			{
@@ -897,7 +905,9 @@ namespace Dashel
 				if(dataUsed == 0)
 					ReadFile(hf, &data, 1, &dataUsed, &ovl);
 				else
-					SetEvent(hev);
+				{
+					t = EvData;
+				}
 			}
 		}
 
@@ -961,9 +971,9 @@ namespace Dashel
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot connect to remote host.");
 			}
 
-			hev = createEvent(EvPotentialData);
 			hev2 = createEvent(EvData);
 			hev3 = createEvent(EvClosed);
+			hev = createEvent(EvPotentialData);
 
 			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
 			if (rv == SOCKET_ERROR)
@@ -982,22 +992,24 @@ namespace Dashel
 		//! Callback when an event is notified, allowing the stream to rearm it.
 		/*! \param t Type of event.
 		*/
-		virtual void notifyEvent(Hub *srv, EvType t) 
+		virtual void notifyEvent(Hub *srv, EvType& t) 
 		{ 
 			if(t == EvPotentialData)
 			{
+				if(readByteAvailable)
+					return;
+
 				int rv = recv(sock, &readByte, 1, 0);
-				if(rv == 0)
-					SetEvent(hev3);
+				if(rv <= 0)
+				{
+					t = EvClosed;
+				}
 				else
 				{
 					readByteAvailable = true;
-					SetEvent(hev2);
+					readyToRead = true;
+					t = EvData;
 				}
-			}
-			if(t == EvData)
-			{
-				readyToRead = true;
 			}
 		}
 
@@ -1045,6 +1057,8 @@ namespace Dashel
 				*ptr++ = readByte;
 				readByteAvailable = false;
 				left--;
+				if(left)
+					WaitForSingleObject(hev, INFINITE);
 			}
 			
 			while (left)
@@ -1074,9 +1088,10 @@ namespace Dashel
 				}
 			}
 
-			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+/*			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
 			if (rv == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
+*/
 		}
 	};
 
@@ -1193,8 +1208,7 @@ namespace Dashel
 					if(strs[r]->failed())
 					{
 						connectionClosed(strs[r], true);
-						streams.erase(strs[r]);
-						delete strs[r];
+						closeStream(strs[r]);
 					}
 				}
 				// Notify user that something happended.
@@ -1205,8 +1219,7 @@ namespace Dashel
 						connectionClosed(strs[r], false);
 					}
 					catch (DashelException e) { }
-					streams.erase(strs[r]);
-					delete strs[r];
+					closeStream(strs[r]);
 				}
 			}
 

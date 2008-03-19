@@ -330,7 +330,7 @@ namespace Dashel
 			Called when data is available for reading on the stream.
 			If the stream is closed during this method, an exception occurs: Hub stops the execution of this
 			method and calls connectionClosed().
-			Subclass can implement this method.
+			If step() is used, subclass must implement this method and call read at least once.
 			
 			\param stream stream to the target
 		*/
