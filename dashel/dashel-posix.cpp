@@ -227,16 +227,27 @@ namespace Dashel
 		int fd; //!< associated file descriptor
 		bool writeOnly;	//!< true if we can only write on this stream
 		friend class Hub;
+		bool readByteAvailable; //!< flag indicating whether readByte is around.
+		char readByte;	//!< fyte that is read to check for disconnections. Yuck.
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		SelectableStream(const string& targetName): Stream(targetName), fd(-1), writeOnly(false) { }
+		SelectableStream(const string& targetName) : 
+			Stream(targetName),
+			fd(-1),
+			writeOnly(false)
+		{
+			readByteAvailable = false;
+		}
 		
 		virtual ~SelectableStream()
 		{
 			if (fd >= 0)
 				close(fd);
 		}
+		
+		//! Read a byte and check for disconnection; return true on disconnection, fales otherwise
+		virtual bool readByteAndCheckDisconnection() = 0;
 	};
 	
 	//! Socket, uses send/recv for read/write
@@ -317,6 +328,9 @@ namespace Dashel
 		{
 			assert(fd >= 0);
 			
+			if (size == 0)
+				return;
+			
 			#ifdef TCP_CORK
 			send(data, size);
 			#else
@@ -392,8 +406,18 @@ namespace Dashel
 		{
 			assert(fd >= 0);
 			
+			if (size == 0)
+				return;
+			
 			unsigned char *ptr = (unsigned char *)data;
 			size_t left = size;
+			
+			if (readByteAvailable)
+			{
+				*ptr++ = readByte;
+				readByteAvailable = false;
+				left--;
+			}
 			
 			while (left)
 			{
@@ -412,6 +436,25 @@ namespace Dashel
 					ptr += len;
 					left -= len;
 				}
+			}
+		}
+		
+		virtual bool readByteAndCheckDisconnection()
+		{
+			if (readByteAvailable)
+				throw DashelException(DashelException::PreviousIncomingDataNotRead, 0, "Previous incoming data not read.", this);
+			
+			ssize_t len = recv(fd, &readByte, 1, 0);
+			if (len > 0)
+			{
+				readByteAvailable = true;
+				return false;
+			}
+			else
+			{
+				if (len < 0)
+					fail(DashelException::IOError, errno, "Socket read I/O error.");
+				return true;
 			}
 		}
 	};
@@ -459,6 +502,7 @@ namespace Dashel
 		virtual void write(const void *data, const size_t size) { }
 		virtual void flush() { }
 		virtual void read(void *data, size_t size) { }
+		virtual bool readByteAndCheckDisconnection() { return false; }
 	};
 	
 	
@@ -474,6 +518,9 @@ namespace Dashel
 		virtual void write(const void *data, const size_t size)
 		{
 			assert(fd >= 0);
+			
+			if (size == 0)
+				return;
 			
 			const char *ptr = (const char *)data;
 			size_t left = size;
@@ -516,8 +563,18 @@ namespace Dashel
 		{
 			assert(fd >= 0);
 			
+			if (size == 0)
+				return;
+			
 			char *ptr = (char *)data;
 			size_t left = size;
+			
+			if (readByteAvailable)
+			{
+				*ptr++ = readByte;
+				readByteAvailable = false;
+				left--;
+			}
 			
 			while (left)
 			{
@@ -536,6 +593,25 @@ namespace Dashel
 					ptr += len;
 					left -= len;
 				}
+			}
+		}
+		
+		virtual bool readByteAndCheckDisconnection()
+		{
+			if (readByteAvailable)
+				throw DashelException(DashelException::PreviousIncomingDataNotRead, 0, "Previous incoming data not read.", this);
+			
+			ssize_t len = ::read(fd, &readByte, 1);
+			if (len > 0)
+			{
+				readByteAvailable = true;
+				return false;
+			}
+			else
+			{
+				if (len < 0)
+					fail(DashelException::IOError, errno, "File read I/O error.");
+				return true;
 			}
 		}
 	};
@@ -795,14 +871,11 @@ namespace Dashel
 			{
 				SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
 				
-				if (!stream->failed())
-				{
-					streamsArray[i] = stream;
-					pollFdsArray[i].fd = stream->fd;
-					pollFdsArray[i].events = POLLRDHUP;
-					if (!stream->writeOnly)
-						pollFdsArray[i].events |= POLLIN;
-				}
+				streamsArray[i] = stream;
+				pollFdsArray[i].fd = stream->fd;
+				pollFdsArray[i].events = 0;
+				if ((!stream->failed()) && (!stream->writeOnly))
+					pollFdsArray[i].events |= POLLIN;
 				
 				i++;
 			}
@@ -829,18 +902,14 @@ namespace Dashel
 				
 				assert((pollFdsArray[i].revents & POLLNVAL) == 0);
 				
-				if (pollFdsArray[i].revents & (POLLERR | POLLHUP | POLLRDHUP))
+				if (pollFdsArray[i].revents & (POLLERR | POLLHUP))
 				{
 					wasActivity = true;
+					
 					try
 					{
-						if (pollFdsArray[i].revents & POLLERR)
-						{
-							stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
-							connectionClosed(stream, true);
-						}
-						else
-							connectionClosed(stream, false);
+						stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
+						connectionClosed(stream, true);
 					}
 					catch (DashelException e)
 					{
@@ -874,14 +943,24 @@ namespace Dashel
 					}
 					else
 					{
+						bool streamClosed = false;
 						try
 						{
-							incomingData(stream);
+							if (stream->readByteAndCheckDisconnection())
+							{
+								connectionClosed(stream, false);
+								streamClosed = true;
+							}
+							else
+								incomingData(stream);
 						}
 						catch (DashelException e)
 						{
 							assert(e.stream);
 						}
+						
+						if (streamClosed)
+							closeStream(stream);
 					}
 				}
 			}

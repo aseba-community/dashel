@@ -120,7 +120,8 @@ namespace Dashel
 			ConnectionLost,		//!< The connection was lost.
 			IOError,			//!< Some I/O error.
 			ConnectionFailed,	//!< The connection could not be established.
-			EnumerationError	//!< Some serial enumeration error
+			EnumerationError,	//!< Some serial enumeration error
+			PreviousIncomingDataNotRead //!< The incoming data was not read by the Hub subclass
 		} Source;
 
 		//! The exception cause.
@@ -329,7 +330,8 @@ namespace Dashel
 		/**
 			Called when data is available for reading on the stream.
 			If the stream is closed during this method, an exception occurs: Hub stops the execution of this
-			method and calls connectionClosed().
+			method and calls connectionClosed(); objects dynamically allocated must thus be handled
+			with auto_ptr.
 			If step() is used, subclass must implement this method and call read at least once.
 			
 			\param stream stream to the target
