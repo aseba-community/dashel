@@ -83,9 +83,6 @@
 
 #include "dashel-private.h"
 
-#ifndef POLLRDHUP
-#define POLLRDHUP 0
-#endif
 
 
 /*!	\file streams.cpp
@@ -902,14 +899,39 @@ namespace Dashel
 				
 				assert((pollFdsArray[i].revents & POLLNVAL) == 0);
 				
-				if (pollFdsArray[i].revents & (POLLERR | POLLHUP))
+				if (pollFdsArray[i].revents & POLLERR)
 				{
+					//std::cerr << "POLLERR" << std::endl;
 					wasActivity = true;
 					
 					try
 					{
 						stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
+					}
+					catch (DashelException e)
+					{
+						assert(e.stream);
+					}
+					
+					try
+					{
 						connectionClosed(stream, true);
+					}
+					catch (DashelException e)
+					{
+						assert(e.stream);
+					}
+					
+					closeStream(stream);
+				}
+				else if (pollFdsArray[i].revents & POLLHUP)
+				{
+					//std::cerr << "POLLHUP" << std::endl;
+					wasActivity = true;
+					
+					try
+					{
+						connectionClosed(stream, false);
 					}
 					catch (DashelException e)
 					{
@@ -920,6 +942,7 @@ namespace Dashel
 				}
 				else if (pollFdsArray[i].revents & POLLIN)
 				{
+					//std::cerr << "POLLIN" << std::endl;
 					wasActivity = true;
 					
 					// test if listen stream
