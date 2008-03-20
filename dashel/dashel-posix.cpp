@@ -971,14 +971,19 @@ namespace Dashel
 						{
 							if (stream->readByteAndCheckDisconnection())
 							{
+								//std::cerr << "connection closed" << std::endl;
 								connectionClosed(stream, false);
 								streamClosed = true;
 							}
 							else
+							{
+								//std::cerr << "incoming data" << std::endl;
 								incomingData(stream);
+							}
 						}
 						catch (DashelException e)
 						{
+							//std::cerr << "exception on POLLIN" << std::endl;
 							assert(e.stream);
 						}
 						

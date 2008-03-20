@@ -295,6 +295,9 @@ namespace Dashel
 		/**
 			Close a stream, remove it from the Hub, and delete it.
 			If the stream is not present in the Hub, it is deleted nevertheless.
+			Note that connectionClosed() is not called by closeStream() and that
+			you must not call closeStream(s) from inside connectionClosed(s) for
+			the same s.
 			
 			\param stream stream to remove
 		*/
@@ -341,7 +344,8 @@ namespace Dashel
 		/**
 			Called when target closes connection.
 			The only valid method to call on the stream is getTargetName(), input/output operations are forbidden.
-			In case of abnormal termination, you must not 
+			You must not call closeStream(stream) from within this method for the same stream as the
+			one passed as parameter.
 			Subclass can implement this method.
 			
 			\param stream stream to the target.
