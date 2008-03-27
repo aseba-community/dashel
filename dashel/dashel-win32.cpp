@@ -275,6 +275,9 @@ namespace Dashel
 		/*! Each element in the map is a type, handle pair.
 		*/
 		std::map<EvType,HANDLE> hEvents; 
+
+		//! Flag indicating whether a read was performed.
+		bool readDone;
 		
 	protected:
 		//! Create a new event for this stream.
@@ -491,6 +494,8 @@ namespace Dashel
 			// Quick check to make sure nobody is giving us funny 64-bit stuff.
 			assert(left == size);
 
+			readDone = true;
+
 			while (left)
 			{
 				DWORD len = 0;
@@ -587,11 +592,18 @@ namespace Dashel
 		//! The current write offset.
 		DWORD writeOffset;
 
-		//! The data used.
-		DWORD dataUsed;
+		//! Indicates whether stream is actually ready to read.
+		/*! If a read is attempted when this flag is false, we need to wait for data
+			to arrive, because our user is being cruel and did not wait for the 
+			notification.
+		*/
+		bool readyToRead;
 
-		//! Single byte for non-blocking read.
-		BYTE data;
+		//! Byte that is read to check for disconnections. Yuck.
+		char readByte;
+
+		//! Flag indicating whether readByte is around.
+		bool readByteAvailable;
 
 		//! Event for notifying end of file (i.e. disconnect)
 		HANDLE hEOF;
@@ -605,16 +617,18 @@ namespace Dashel
 		//! Start non-blocking read on stream to get notifications when data arrives.
 		void startStream(EvType et = EvData)
 		{
-			dataUsed = 0;
+			readByteAvailable = false;
 			memset(&ovl, 0, sizeof(ovl));
 			ovl.hEvent = createEvent(et);
-			BOOL r = ReadFile(hf, &data, 1, &dataUsed, &ovl);
+			BOOL r = ReadFile(hf, &readByte, 1, NULL, &ovl);
 			if(!r)
 			{
 				DWORD err = GetLastError();
 				if(err != ERROR_IO_PENDING)
 					throw DashelException(DashelException::IOError, GetLastError(), "Cannot read from file stream.");
 			}
+			else
+				readByteAvailable = true;
 		}
 
 	public:
@@ -636,7 +650,6 @@ namespace Dashel
 			}
 			else if (mode == "write")
 			{
-				dataUsed = 0;
 				writeOffset = 0;
 				hf = CreateFile(name.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
 			}
@@ -719,12 +732,21 @@ namespace Dashel
 			if (size == 0)
 				return;
 
+			readDone = true;
+
+			if(!readByteAvailable)
+				WaitForSingleObject(ovl.hEvent, INFINITE);
+
+			DWORD dataUsed;
+			if(!GetOverlappedResult(hf, &ovl, &dataUsed, TRUE))
+				fail(DashelException::IOError, GetLastError(), "File read I/O error.");
+
 			if(dataUsed)
 			{
-				*ptr++ = this->data;
-				dataUsed--;
+				*ptr++ = readByte;
 				left--;
 			}
+			readByteAvailable = false;
 
 			while (left)
 			{
@@ -732,8 +754,9 @@ namespace Dashel
 				OVERLAPPED o;
 				memset(&o, 0, sizeof(o));
 				o.Offset = ovl.Offset + size - left;
+				o.hEvent = ovl.hEvent ;
 
-				// Blocking write.
+				// Non-blocking read.
 				BOOL r = ReadFile(hf, ptr, left, &len, &o);
 				if(!r)
 				{
@@ -745,6 +768,7 @@ namespace Dashel
 						break;
 
 					case ERROR_IO_PENDING:
+						WaitForSingleObject(ovl.hEvent, INFINITE);
 						if(!GetOverlappedResult(hf, &o, &len, TRUE))
 							fail(DashelException::IOError, GetLastError(), "File read I/O error.");
 						if(len == 0)
@@ -761,15 +785,15 @@ namespace Dashel
 				}
 				else
 				{
+					WaitForSingleObject(ovl.hEvent, INFINITE);
 					ptr += len;
 					left -= len;
 				}
 			}
 
 			// Reset our blocking read for whatever is up next.
-			dataUsed = 0;
 			ovl.Offset += (DWORD)size;
-			BOOL r = ReadFile(hf, &this->data, 1, &dataUsed, &ovl);
+			BOOL r = ReadFile(hf, &readByte, 1, &dataUsed, &ovl);
 			if(!r)
 			{
 				DWORD err = GetLastError();
@@ -782,15 +806,34 @@ namespace Dashel
 					fail(DashelException::IOError, GetLastError(), "Cannot read from file stream.");
 				}
 			}
+			else
+				readByteAvailable = true;
 
+		}
+
+		//! Callback when an event is notified, allowing the stream to rearm it.
+		/*! \param t Type of event.
+		*/
+		virtual void notifyEvent(Hub *srv, EvType& t) 
+		{ 
+			if(t == EvPotentialData)
+			{
+				DWORD dataUsed;
+				GetOverlappedResult(hf, &ovl, &dataUsed, TRUE);
+				if(dataUsed == 0)
+					ReadFile(hf, &readByte, 1, NULL, &ovl);
+				else
+				{
+					readByteAvailable = true;
+					t = EvData;
+				}
+			}
 		}
 	};
 
 	//! Serial port stream
 	class SerialStream : public FileStream
 	{
-		//! Event for real data.
-		HANDLE hev;
 	private:
 		//! Set up a DCB for the given port parameters.
 		/*! \param sp File handle to the serial port.
@@ -815,12 +858,12 @@ namespace Dashel
 			if(fc == "hard")
 			{
 				dcb.fOutxCtsFlow = TRUE;
-				dcb.fRtsControl = RTS_CONTROL_DISABLE;
+				dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
 			}
 			else
 			{
 				dcb.fOutxCtsFlow = FALSE;
-				dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
+				dcb.fRtsControl = RTS_CONTROL_DISABLE;
 			}
 
 			dcb.fOutxDsrFlow = FALSE;
@@ -889,28 +932,8 @@ namespace Dashel
 
 			buildDCB(hf, ps.get<int>("baud"), ps.get<int>("bits"), ps.get("parity"), ps.get("stop"), ps.get("fc"));
 
-			hev = createEvent(EvData);
-
 			startStream(EvPotentialData);
 		}
-
-		//! Callback when an event is notified, allowing the stream to rearm it.
-		/*! \param t Type of event.
-		*/
-		virtual void notifyEvent(Hub *srv, EvType& t) 
-		{ 
-			if(t == EvPotentialData)
-			{
-				GetOverlappedResult(hf, &ovl, &dataUsed, TRUE);
-				if(dataUsed == 0)
-					ReadFile(hf, &data, 1, &dataUsed, &ovl);
-				else
-				{
-					t = EvData;
-				}
-			}
-		}
-
 	};
 
 	//! Serial port stream
@@ -1044,6 +1067,9 @@ namespace Dashel
 			
 			if (size == 0)
 				return;
+
+			readDone = true;
+
 			//std::cerr << "ready to read " << readyToRead << std::endl;
 			if(!readyToRead)
 			{
@@ -1202,9 +1228,12 @@ namespace Dashel
 				{
 					try
 					{
+						strs[r]->readDone = false;
 						incomingData(strs[r]);
 					}
 					catch (DashelException e) { }
+					if(!strs[r]->readDone)
+						throw DashelException(DashelException::PreviousIncomingDataNotRead, 0, "Previous incoming data not read.", strs[r]);
 					if(strs[r]->failed())
 					{
 						connectionClosed(strs[r], true);
