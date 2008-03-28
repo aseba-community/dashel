@@ -1,10 +1,5 @@
 project(dashel)
 
-# svn version
-find_package(Subversion REQUIRED)
-Subversion_WC_INFO(${PROJECT_SOURCE_DIR} dashel)
-add_definitions(-DSVN_REV=\\"${dashel_WC_REVISION}\\")
-
 # libraries
 if (WIN32)
 	set(DASHEL_SOURCES dashel/dashel-win32.cpp dashel/dashel-common.cpp)

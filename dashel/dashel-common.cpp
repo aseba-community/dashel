@@ -46,15 +46,6 @@
 
 namespace Dashel
 {
-	#ifndef SVN_REV
-	#define SVN_REV "unknown, please configure your build system to set SVN_REV correctly"
-	#endif
-	
-	std::string getSVNRevision()
-	{
-		return SVN_REV;
-	}
-	
 	void Hub::closeStream(Stream* stream)
 	{
 		streams.erase(stream);

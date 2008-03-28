@@ -107,9 +107,8 @@ namespace Dashel
 {
 	class Stream;
 	
-	//! Return the Dashel version
-	std::string getSVNRevision();
-
+	#define DASHEL_SVN_REV "$Revision$"
+	
 	//! The one size fits all exception for streams
 	class DashelException
 	{
