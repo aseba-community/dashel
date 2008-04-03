@@ -71,6 +71,10 @@
 	#include <hal/libhal.h>
 #endif
 
+#ifdef MACOSX
+	#define USE_POLL_EMU
+#endif
+
 #ifndef USE_POLL_EMU
 	#include <poll.h>
 #else
