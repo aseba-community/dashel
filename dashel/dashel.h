@@ -158,6 +158,7 @@ namespace Dashel
 			\return A map where the key is the port number name as passed to the ser: protocol, and
 			the value is a pair of the system device name and a human readable description
 			that may be displayed in a user interface.
+			All strings are encoded in UTF-8.
 		*/
 		static std::map<int, std::pair<std::string, std::string> > getPorts();
 	};
