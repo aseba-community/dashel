@@ -136,7 +136,15 @@ namespace Dashel
 			CFTypeRef bsdPathAsCFString = IORegistryEntryCreateCFProperty(modemService, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, 0);
 			if (bsdPathAsCFString)
 			{
-				std::string path(CFStringGetCStringPtr((CFStringRef) bsdPathAsCFString, kCFStringEncodingUTF8));
+				std::string path;
+				char cStr[255];
+				
+				bool res = CFStringGetCString((CFStringRef) bsdPathAsCFString, cStr, 255, kCFStringEncodingUTF8);
+				if(res)
+					path = cStr;
+				else
+					throw DashelException(DashelException::EnumerationError, 0, "CFStringGetCString failed");
+				
 				CFRelease(bsdPathAsCFString);
 				
 				// add path to the port list
@@ -149,9 +157,9 @@ namespace Dashel
 			// release service
 			IOObjectRelease(modemService);
 		}
-		
+
 		IOObjectRelease(matchingServices);
-		CFRelease(classesToMatch);
+
 			
 #else
 
