@@ -64,15 +64,17 @@
 #endif
 
 #ifdef MACOSX
-	#include <CoreFoundation/CoreFoundation.h>
-	#include <IOKit/IOKitLib.h>
-	#include <IOKit/serial/IOSerialKeys.h>
-#else
-	#include <hal/libhal.h>
+	#define USE_POLL_EMU
 #endif
 
 #ifdef MACOSX
-	#define USE_POLL_EMU
+	#include <CoreFoundation/CoreFoundation.h>
+	#include <IOKit/IOKitLib.h>
+	#include <IOKit/serial/IOSerialKeys.h>
+#endif
+
+#ifdef USE_HAL
+	#include <hal/libhal.h>
 #endif
 
 #ifndef USE_POLL_EMU
@@ -161,7 +163,7 @@ namespace Dashel
 		IOObjectRelease(matchingServices);
 
 			
-#else
+#elif defined(USE_HAL)
 
 		// use HAL to enumerates devices
 		DBusConnection* dbusConnection = dbus_bus_get(DBUS_BUS_SYSTEM, 0);
