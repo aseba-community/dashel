@@ -323,6 +323,8 @@ namespace Dashel
 		
 		virtual ~SocketStream()
 		{
+			flush();
+			
 			if (fd >= 0)
 				shutdown(fd, SHUT_RDWR);
 			
