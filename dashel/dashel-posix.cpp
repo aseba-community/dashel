@@ -1030,7 +1030,7 @@ namespace Dashel
 				}
 			}
 		}
-		while (wasActivity);
+		while (wasActivity && (hTerminate == (void*)0));
 		
 		return (hTerminate == (void*)0);
 	}
