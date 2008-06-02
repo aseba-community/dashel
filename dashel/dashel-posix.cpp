@@ -226,6 +226,8 @@ namespace Dashel
 		failReason += sysMessage;
 		throw DashelException(s, se, reason, this);
 	}
+	
+	#define RECV_BUFFER_SIZE	4096
 
 	//! Stream with a file descriptor that is selectable
 	class SelectableStream: public Stream
@@ -234,17 +236,20 @@ namespace Dashel
 		int fd; //!< associated file descriptor
 		bool writeOnly;	//!< true if we can only write on this stream
 		friend class Hub;
-		bool readByteAvailable; //!< flag indicating whether readByte is around.
-		char readByte;	//!< fyte that is read to check for disconnections. Yuck.
+		unsigned char recvBuffer[RECV_BUFFER_SIZE];	//!< reception buffer
+		size_t recvBufferPos; //!< position of read in reception buffer
+		size_t recvBufferSize; //!< amount of data in reception buffer
 	
 	public:
 		//! Create the stream and associates a file descriptor
 		SelectableStream(const string& targetName) : 
 			Stream(targetName),
 			fd(-1),
-			writeOnly(false)
+			writeOnly(false),
+			recvBufferPos(0),
+			recvBufferSize(0)
 		{
-			readByteAvailable = false;
+			
 		}
 		
 		virtual ~SelectableStream()
@@ -253,8 +258,11 @@ namespace Dashel
 				close(fd);
 		}
 		
+		//! Return true while there is some unread data in the reception buffer
+		bool isDataInRecvBuffer() const { return recvBufferPos != recvBufferSize; }
+		
 		//! Read a byte and check for disconnection; return true on disconnection, fales otherwise
-		virtual bool readByteAndCheckDisconnection() = 0;
+		virtual bool receiveDataAndCheckDisconnection() = 0;
 	};
 	
 	//! Socket, uses send/recv for read/write
@@ -265,13 +273,13 @@ namespace Dashel
 		//! Socket constants
 		enum Consts
 		{
-			SEND_BUFFER_SIZE_INITIAL = 256, //!< initial size of the socket send buffer
-			SEND_BUFFER_SIZE_LIMIT = 65536 //!< when the socket send buffer reaches this size, a flush is forced
+			SEND_BUFFER_SIZE_INITIAL = 256, //!< initial size of the socket send sendBuffer
+			SEND_BUFFER_SIZE_LIMIT = 65536 //!< when the socket send sendBuffer reaches this size, a flush is forced
 		};
 		
-		unsigned char *buffer; //!< send buffer. Its size is increased when required. On flush, bufferPos is set to zero and bufferSize rest unchanged. It is freed on SocketStream destruction.
-		size_t bufferSize; //!< size of send buffer
-		size_t bufferPos; //!< actual position in send buffer
+		unsigned char *sendBuffer; //!< send sendBuffer. Its size is increased when required. On flush, sendBufferPos is set to zero and sendBufferSize rest unchanged. It is freed on SocketStream destruction.
+		size_t sendBufferSize; //!< size of send sendBuffer
+		size_t sendBufferPos; //!< actual position in send sendBuffer
 		#endif
 		
 	public:
@@ -310,11 +318,11 @@ namespace Dashel
 				this->targetName.erase(this->targetName.rfind(";sock="));
 			}
 			
-			// setup TCP Cork or create buffer for delayed sending
+			// setup TCP Cork or create sendBuffer for delayed sending
 			#ifndef TCP_CORK
-			bufferSize = SEND_BUFFER_SIZE_INITIAL;
-			buffer = (unsigned char*)malloc(bufferSize);
-			bufferPos = 0;
+			sendBufferSize = SEND_BUFFER_SIZE_INITIAL;
+			sendBuffer = (unsigned char*)malloc(sendBufferSize);
+			sendBufferPos = 0;
 			#else
 			int flag = 1;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
@@ -329,7 +337,7 @@ namespace Dashel
 				shutdown(fd, SHUT_RDWR);
 			
 			#ifndef TCP_CORK
-			free(buffer);
+			free(sendBuffer);
 			#endif
 		}
 		
@@ -350,15 +358,15 @@ namespace Dashel
 			}
 			else
 			{
-				if (bufferPos + size > bufferSize)
+				if (sendBufferPos + size > sendBufferSize)
 				{
-					bufferSize = max(bufferSize * 2, bufferPos + size);
-					buffer = (unsigned char*)realloc(buffer, bufferSize);
+					sendBufferSize = max(sendBufferSize * 2, sendBufferPos + size);
+					sendBuffer = (unsigned char*)realloc(sendBuffer, sendBufferSize);
 				}
-				memcpy(buffer + bufferPos, (unsigned char *)data, size);
-				bufferPos += size;
+				memcpy(sendBuffer + sendBufferPos, (unsigned char *)data, size);
+				sendBufferPos += size;
 		
-				if (bufferPos >= SEND_BUFFER_SIZE_LIMIT)
+				if (sendBufferPos >= SEND_BUFFER_SIZE_LIMIT)
 					flush();
 			}
 			#endif
@@ -406,8 +414,8 @@ namespace Dashel
 			flag = 1;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
 			#else
-			send(buffer, bufferPos);
-			bufferPos = 0;
+			send(sendBuffer, sendBufferPos);
+			sendBufferPos = 0;
 			#endif
 		}
 		
@@ -421,11 +429,13 @@ namespace Dashel
 			unsigned char *ptr = (unsigned char *)data;
 			size_t left = size;
 			
-			if (readByteAvailable)
+			if (isDataInRecvBuffer())
 			{
-				*ptr++ = readByte;
-				readByteAvailable = false;
-				left--;
+				size_t toCopy = std::min(recvBufferSize - recvBufferPos, size);
+				memcpy(ptr, recvBuffer + recvBufferPos, toCopy);
+				recvBufferPos += toCopy;
+				ptr += toCopy;
+				left -= toCopy;
 			}
 			
 			while (left)
@@ -448,15 +458,15 @@ namespace Dashel
 			}
 		}
 		
-		virtual bool readByteAndCheckDisconnection()
+		virtual bool receiveDataAndCheckDisconnection()
 		{
-			if (readByteAvailable)
-				throw DashelException(DashelException::PreviousIncomingDataNotRead, 0, "Previous incoming data not read.", this);
+			assert(recvBufferPos == recvBufferSize);
 			
-			ssize_t len = recv(fd, &readByte, 1, 0);
+			ssize_t len = recv(fd, &recvBuffer, RECV_BUFFER_SIZE, 0);
 			if (len > 0)
 			{
-				readByteAvailable = true;
+				recvBufferSize = len;
+				recvBufferPos = 0;
 				return false;
 			}
 			else
@@ -511,7 +521,7 @@ namespace Dashel
 		virtual void write(const void *data, const size_t size) { }
 		virtual void flush() { }
 		virtual void read(void *data, size_t size) { }
-		virtual bool readByteAndCheckDisconnection() { return false; }
+		virtual bool receiveDataAndCheckDisconnection() { return false; }
 	};
 	
 	
@@ -578,11 +588,13 @@ namespace Dashel
 			char *ptr = (char *)data;
 			size_t left = size;
 			
-			if (readByteAvailable)
+			if (isDataInRecvBuffer())
 			{
-				*ptr++ = readByte;
-				readByteAvailable = false;
-				left--;
+				size_t toCopy = std::min(recvBufferSize - recvBufferPos, size);
+				memcpy(ptr, recvBuffer + recvBufferPos, toCopy);
+				recvBufferPos += toCopy;
+				ptr += toCopy;
+				left -= toCopy;
 			}
 			
 			while (left)
@@ -605,15 +617,15 @@ namespace Dashel
 			}
 		}
 		
-		virtual bool readByteAndCheckDisconnection()
+		virtual bool receiveDataAndCheckDisconnection()
 		{
-			if (readByteAvailable)
-				throw DashelException(DashelException::PreviousIncomingDataNotRead, 0, "Previous incoming data not read.", this);
+			assert(recvBufferPos == recvBufferSize);
 			
-			ssize_t len = ::read(fd, &readByte, 1);
+			ssize_t len = ::read(fd, &recvBuffer, RECV_BUFFER_SIZE);
 			if (len > 0)
 			{
-				readByteAvailable = true;
+				recvBufferSize = len;
+				recvBufferPos = 0;
 				return false;
 			}
 			else
@@ -981,7 +993,7 @@ namespace Dashel
 						bool streamClosed = false;
 						try
 						{
-							if (stream->readByteAndCheckDisconnection())
+							if (stream->receiveDataAndCheckDisconnection())
 							{
 								//std::cerr << "connection closed" << std::endl;
 								connectionClosed(stream, false);
@@ -989,8 +1001,10 @@ namespace Dashel
 							}
 							else
 							{
+								// read all data available on this socket
+								while (stream->isDataInRecvBuffer())
+									incomingData(stream);
 								//std::cerr << "incoming data" << std::endl;
-								incomingData(stream);
 							}
 						}
 						catch (DashelException e)
