@@ -317,10 +317,11 @@ namespace Dashel
 			\return false if stop() was called or the application was requested to terminate, true otherwise.
 		*/
 		bool step(int timeout = 0);
+		
+		//! Stops running, subclasses or external code may call this function, that is the only thread-safe function of the Hub
+		void stop();
 
 	protected:
-		//! Stops running, subclasses may call this function.
-		void stop();
 		
 		/**
 			Called when any data connection is created.

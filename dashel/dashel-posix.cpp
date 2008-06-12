@@ -796,36 +796,54 @@ namespace Dashel
 	
 	// Signal handler for SIGTERM
 	
-	//! Global variables to signal the continuous run must terminates.
-	bool runTerminationReceived = false;
+	typedef std::set<Hub*> HubsSet;
+	typedef HubsSet::iterator HubsSetIterator;
 	
-	//! Called when SIGTERM arrives, halts all running clients or servers in all threads
+	//! All instanciated Hubs, required for correctly terminating them on signal
+	static HubsSet allHubs;
+	
+	//! Called when SIGTERM or SIGINT arrives, halts all running clients or servers in all threads
 	void termHandler(int t)
 	{
-		runTerminationReceived = true;
+		for (HubsSetIterator it = allHubs.begin(); it != allHubs.end(); ++it)
+		{
+			(*it)->stop();
+		}
 	}
 	
-	//! Class to setup SIGTERM handler
-	class SigTermHandlerSetuper
+	//! Class to setup SIGTERM or SIGINT handler
+	static class SigTermHandlerSetuper
 	{
 	public:
 		//! Private constructor that redirects SIGTERM
 		SigTermHandlerSetuper()
 		{
 			signal(SIGTERM, termHandler);
+			signal(SIGINT, termHandler);
 		}
 	} staticSigTermHandlerSetuper;
-	// TODO: check if this works in real life
 	
 	// Hub
 	
 	Hub::Hub()
 	{
-		hTerminate = (void*)0;
+		int *terminationPipes = new int[2];
+		if (pipe(terminationPipes) != 0)
+			abort();
+		hTerminate = terminationPipes;
+		
+		allHubs.insert(this);
 	}
 	
 	Hub::~Hub()
 	{
+		allHubs.erase(this);
+		
+		int *terminationPipes = (int*)hTerminate;
+		close(terminationPipes[0]);
+		close(terminationPipes[1]);
+		delete[] terminationPipes;
+		
 		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 			delete *it;
 	}
@@ -871,19 +889,19 @@ namespace Dashel
 	
 	void Hub::run(void)
 	{
-		runTerminationReceived = false;
-		while (!runTerminationReceived && step(-1));
+		while (step(-1));
 	}
 	
 	bool Hub::step(int timeout)
 	{
 		bool firstPoll = true;
 		bool wasActivity = false;
+		bool runInterrupted = false;
 		do
 		{
 			wasActivity = false;
 			size_t streamsCount = streams.size();
-			valarray<struct pollfd> pollFdsArray(streamsCount);
+			valarray<struct pollfd> pollFdsArray(streamsCount+1);
 			valarray<SelectableStream*> streamsArray(streamsCount);
 			
 			// add streams
@@ -900,14 +918,18 @@ namespace Dashel
 				
 				i++;
 			}
+			// add pipe
+			int *terminationPipes = (int*)hTerminate;
+			pollFdsArray[i].fd = terminationPipes[0];
+			pollFdsArray[i].events = POLLIN;
 			
 			// do poll and check for error
 			int thisPollTimeout = firstPoll ? timeout : 0;
 			firstPoll = false;
 			#ifndef USE_POLL_EMU
-			int ret = poll(&pollFdsArray[0], streamsCount, thisPollTimeout);
+			int ret = poll(&pollFdsArray[0], pollFdsArray.size(), thisPollTimeout);
 			#else
-			int ret = poll_emu(&pollFdsArray[0], streamsCount, thisPollTimeout);
+			int ret = poll_emu(&pollFdsArray[0], pollFdsArray.size(), thisPollTimeout);
 			#endif
 			if (ret < 0)
 				throw DashelException(DashelException::SyncError, errno, "Error during poll.");
@@ -1018,6 +1040,13 @@ namespace Dashel
 					}
 				}
 			}
+			// check pipe for termination
+			if (pollFdsArray[i].revents)
+			{
+				char c;
+				read(pollFdsArray[i].fd, &c, 1);
+				runInterrupted = true;
+			}
 			
 			// collect and remove all failed streams
 			vector<Stream*> failedStreams;
@@ -1044,13 +1073,15 @@ namespace Dashel
 				}
 			}
 		}
-		while (wasActivity && (hTerminate == (void*)0));
+		while (wasActivity && !runInterrupted);
 		
-		return (hTerminate == (void*)0);
+		return !runInterrupted;
 	}
 	
 	void Hub::stop()
 	{
-		hTerminate = (void*)1;
+		int *terminationPipes = (int*)hTerminate;
+		char c = 0;
+		write(terminationPipes[1], &c, 1);
 	}
 }
