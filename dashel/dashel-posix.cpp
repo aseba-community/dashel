@@ -97,11 +97,19 @@ namespace Dashel
 	
 	// Exception
 	
-	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
-		source(s), sysError(se), reason(reason), stream(stream)
+	void Stream::fail(DashelException::Source s, int se, const char* reason)
 	{
+		string sysMessage;
+		failedFlag = true;
+		
 		if (se)
-			sysMessage = strerror(se);
+			sysMessage = strerror(errno);
+			
+		failReason += reason;
+		failReason += " ";
+		failReason += sysMessage;
+		
+		throw DashelException(s, se, failReason.c_str(), this);
 	}
 	
 	// Serial port enumerator
@@ -215,39 +223,24 @@ namespace Dashel
 	
 	// Streams
 	
-	void Stream::fail(DashelException::Source s, int se, const char* reason)
-	{
-		string sysMessage;
-		failedFlag = true;
-		if (se)
-			sysMessage = strerror(errno);
-		failReason += reason;
-		failReason += " ";
-		failReason += sysMessage;
-		throw DashelException(s, se, reason, this);
-	}
-	
 	#define RECV_BUFFER_SIZE	4096
 
 	//! Stream with a file descriptor that is selectable
-	class SelectableStream: public Stream
+	class SelectableStream: virtual public Stream
 	{
 	protected:
 		int fd; //!< associated file descriptor
 		bool writeOnly;	//!< true if we can only write on this stream
 		friend class Hub;
-		unsigned char recvBuffer[RECV_BUFFER_SIZE];	//!< reception buffer
-		size_t recvBufferPos; //!< position of read in reception buffer
-		size_t recvBufferSize; //!< amount of data in reception buffer
 	
 	public:
+		//! Default constructor required because of virtual inheritance
+		SelectableStream() { }
 		//! Create the stream and associates a file descriptor
 		SelectableStream(const string& targetName) : 
 			Stream(targetName),
 			fd(-1),
-			writeOnly(false),
-			recvBufferPos(0),
-			recvBufferSize(0)
+			writeOnly(false)
 		{
 			
 		}
@@ -258,15 +251,38 @@ namespace Dashel
 				close(fd);
 		}
 		
-		//! Return true while there is some unread data in the reception buffer
-		bool isDataInRecvBuffer() const { return recvBufferPos != recvBufferSize; }
-		
-		//! Read a byte and check for disconnection; return true on disconnection, fales otherwise
+		//! If necessary, read a byte and check for disconnection; return true on disconnection, fales otherwise
 		virtual bool receiveDataAndCheckDisconnection() = 0;
+		
+		//! Return true while there is some unread data in the reception buffer
+		virtual bool isDataInRecvBuffer() const = 0;
+	};
+	
+	//! In addition its parent, this stream can also make select return because of the target has disconnected
+	class DisconnectableStream: public SelectableStream
+	{
+	protected:
+		friend class Hub;
+		unsigned char recvBuffer[RECV_BUFFER_SIZE];	//!< reception buffer
+		size_t recvBufferPos; //!< position of read in reception buffer
+		size_t recvBufferSize; //!< amount of data in reception buffer
+	
+	public:
+		//! Create the stream and associates a file descriptor
+		DisconnectableStream(const string& targetName) : 
+			SelectableStream(targetName),
+			recvBufferPos(0),
+			recvBufferSize(0)
+		{
+			
+		}
+		
+		//! Return true while there is some unread data in the reception buffer
+		virtual bool isDataInRecvBuffer() const { return recvBufferPos != recvBufferSize; }
 	};
 	
 	//! Socket, uses send/recv for read/write
-	class SocketStream: public SelectableStream
+	class SocketStream: public DisconnectableStream
 	{
 	protected:
 		#ifndef TCP_CORK
@@ -285,7 +301,7 @@ namespace Dashel
 	public:
 		//! Create a socket stream to the following destination
 		SocketStream(const string& targetName) :
-			SelectableStream(targetName)
+			DisconnectableStream(targetName)
 		{
 			ParameterSet ps;
 			ps.add("tcp:host;port;sock=-1");
@@ -299,7 +315,7 @@ namespace Dashel
 				if (fd < 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
 				
-				TCPIPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
+				IPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
 				
 				// connect
 				sockaddr_in addr;
@@ -490,10 +506,10 @@ namespace Dashel
 			SelectableStream(targetName)
 		{
 			ParameterSet ps;
-			ps.add("tcpin:host=0.0.0.0;port");
+			ps.add("tcpin:port=5000;address=0.0.0.0");
 			ps.add(targetName.c_str());
 			
-			TCPIPV4Address bindAddress(ps.get("host"), ps.get<int>("port"));
+			IPV4Address bindAddress(ps.get("address"), ps.get<int>("port"));
 			
 			// create socket
 			fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -522,16 +538,93 @@ namespace Dashel
 		virtual void flush() { }
 		virtual void read(void *data, size_t size) { }
 		virtual bool receiveDataAndCheckDisconnection() { return false; }
+		virtual bool isDataInRecvBuffer() const { return false; }
+	};
+	
+	//! UDP Socket, uses sendto/recvfrom for read/write
+	class UDPSocketStream: public PacketStream, public SelectableStream
+	{
+	public:
+		//! Create as UDP socket stream on a specific port
+		UDPSocketStream(const string& targetName) :
+			PacketStream(targetName)
+		{
+			ParameterSet ps;
+			ps.add("udp:port=5000;address=0.0.0.0;sock=-1");
+			ps.add(targetName.c_str());
+
+			fd = ps.get<int>("sock");
+			if (fd < 0)
+			{
+				IPV4Address bindAddress(ps.get("address"), ps.get<int>("port"));
+				
+				// create socket
+				fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				if (fd < 0)
+					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
+				
+				// bind
+				sockaddr_in addr;
+				addr.sin_family = AF_INET;
+				addr.sin_port = htons(bindAddress.port);
+				addr.sin_addr.s_addr = htonl(bindAddress.address);
+				if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
+			}
+			else
+			{
+				// remove file descriptor information from target name
+				this->targetName.erase(this->targetName.rfind(";sock="));
+			}
+			
+			// enable broadcast
+			int broadcastPermission = 1;
+			setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcastPermission, sizeof(broadcastPermission));
+		}
+		
+		virtual void send(const IPV4Address& dest)
+		{
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(dest.port);;
+			addr.sin_addr.s_addr = htonl(dest.address);
+			
+			// TODO: this is inefficent
+			std::valarray<unsigned char> buf(sendBuffer.size());
+			copy(sendBuffer.begin(), sendBuffer.end(), &buf[0]);
+			if (sendto(fd, &buf[0], buf.size(), 0, (struct sockaddr *)&addr, sizeof(addr)) != buf.size())
+				fail(DashelException::IOError, errno, "UDP Socket write I/O error.");
+			
+			sendBuffer.clear();
+		}
+		
+		virtual void receive(IPV4Address& source)
+		{
+			unsigned char buf[4006];
+			sockaddr_in addr;
+			socklen_t addrLen = sizeof(addr);
+			ssize_t recvCount = recvfrom(fd, buf, 4096, 0, (struct sockaddr *)&addr, &addrLen);
+			if (recvCount <= 0)
+				fail(DashelException::ConnectionLost, errno, "UDP Socket read I/O error.");
+			
+			receptionBuffer.resize(recvCount);
+			std::copy(buf, buf+recvCount, receptionBuffer.begin());
+			
+			source = IPV4Address(ntohl(addr.sin_addr.s_addr), ntohs(addr.sin_port));
+		}
+		
+		virtual bool receiveDataAndCheckDisconnection() { return false; }
+		virtual bool isDataInRecvBuffer() const { return true; }
 	};
 	
 	
 	//! File descriptor, uses send/recv for read/write
-	class FileDescriptorStream: public SelectableStream
+	class FileDescriptorStream: public DisconnectableStream
 	{
 	public:
 		//! Create the stream and associates a file descriptor
 		FileDescriptorStream(const string& targetName) :
-			SelectableStream(targetName)
+			DisconnectableStream(targetName)
 		{ }
 		
 		virtual void write(const void *data, const size_t size)
@@ -870,6 +963,8 @@ namespace Dashel
 			s = new SocketServerStream(target);
 		if(proto == "tcp")
 			s = new SocketStream(target);
+		if(proto == "udp")
+			s = new UDPSocketStream(target);
 		
 		if(!s)
 		{
@@ -1005,7 +1100,7 @@ namespace Dashel
 						
 						// create a target stream using the new file descriptor from accept
 						ostringstream targetName;
-						targetName << TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
+						targetName << IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
 						targetName << ";sock=";
 						targetName << targetFD;
 						connect(targetName.str());

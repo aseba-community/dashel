@@ -86,17 +86,6 @@ namespace Dashel
 		return derived;
 	}
 
-	DashelException::DashelException(Source s, int se, const char *reason, Stream *stream)
-	{
-		source = s;
-		sysError = se;
-		this->reason = reason;
-		this->stream = stream;
-		char buf[1024];
-		FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, se, 0, buf, 1024, NULL);
-		this->sysMessage = buf;
-	}
-
 	void Stream::fail(DashelException::Source s, int se, const char* reason)
 	{
 		char sysMessage[1024] = {0};
@@ -108,10 +97,11 @@ namespace Dashel
 		failReason += reason;
 		failReason += " ";
 		failReason += sysMessage;
-		throw DashelException(s, se, reason, this);
+		
+		throw DashelException(s, se, failReason, this);
 	}
 
-		
+	// Serial port enumerator
 
 	std::map<int, std::pair<std::string, std::string> > SerialPortEnumerator::getPorts()
 	{
@@ -338,12 +328,12 @@ namespace Dashel
 		SocketServerStream(const std::string& params) : WaitableStream(params)
 		{ 
 			ParameterSet ps;
-			ps.add("tcpin:host=0.0.0.0;port=5000;");
+			ps.add("tcpin:port=5000;address=0.0.0.0");
 			ps.add(params.c_str());
 
 			startWinSock();
 
-			TCPIPV4Address bindAddress(ps.get("host"), ps.get<int>("port"));
+			IPV4Address bindAddress(ps.get("address"), ps.get<int>("port"));
 			
 			// Create socket.
 			sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -397,7 +387,7 @@ namespace Dashel
 				}
 				
 				// create stream
-				std::string ls = TCPIPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
+				std::string ls = IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
 				
 				std::ostringstream buf;
 				buf << (int)trg;
@@ -984,7 +974,7 @@ namespace Dashel
 				if (sock == SOCKET_ERROR)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
 			
-				TCPIPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
+				IPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
 				// connect
 				sockaddr_in addr;
 				addr.sin_family = AF_INET;

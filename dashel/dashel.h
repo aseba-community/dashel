@@ -44,6 +44,9 @@
 #include <string>
 #include <set>
 #include <map>
+#include <vector>
+#include <deque>
+#include <stdexcept>
 
 /*!	\file streams.h
 	\brief Public interface of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
@@ -78,6 +81,8 @@
 	The following protocols are available:
 	\li \c file : local files
 	\li \c tcp : TCP/IP
+	\li \c tcpin : TCP/IP server
+	\li \c udp : UDP/IP
 	\li \c ser : serial port
 	\li \c stdin : standard input
 	\li \c stdout : standard output
@@ -89,6 +94,14 @@
 	The tcp protocol accepts the following parameters, in this implicit order:
 	\li \c host : host
 	\li \c port : port
+	
+	The tcpin protocol accepts the following parameters, in this implicit order:
+	\li \c port : port
+	\li \c address : if the computer possesses multiple network addresses, the one to listen on, default 0.0.0.0 (any)
+	
+	The udp protocol accepts the following parameters, in this implicit order:
+	\li \c port : port
+	\li \c address : if the computer possesses multiple network addresses, the one to connect to, default 0.0.0.0 (any)
 	
 	The ser protocol accepts the following parameters, in this implicit order:
 	\li \c device : serial port device name, system specific; either port or device must be given, device has priority if both are given.
@@ -109,8 +122,11 @@ namespace Dashel
 	
 	#define DASHEL_SVN_REV "$Revision$"
 	
-	//! The one size fits all exception for streams
-	class DashelException
+	//! The one size fits all exception for streams.
+	/*!
+		The reason of the failure is stored in the runtime error, and is returned by what()
+	*/
+	class DashelException: public std::runtime_error
 	{
 	public:
 		//! The different exception causes.
@@ -130,10 +146,6 @@ namespace Dashel
 		Source source;
 		//! The reason as an OS error code.
 		int sysError;
-		//! The reason as a human readable string according to the OS.
-		std::string sysMessage;
-		//! The reason as a human readable string.
-		std::string reason;
 		//! The stream that caused the exception to be thrown.
 		Stream *stream;
 
@@ -162,6 +174,36 @@ namespace Dashel
 		*/
 		static std::map<int, std::pair<std::string, std::string> > getPorts();
 	};
+	
+	//! A IP version 4 address
+	class IPV4Address
+	{
+	public:
+		unsigned address; //!< IP host address. Stored in local byte order.
+		unsigned short port; //!< IP port. Stored in local byte order.
+	
+	public:
+		//! Constructor. Numeric argument
+		IPV4Address(unsigned addr = 0, unsigned short prt = 0);
+		
+		//! Constructor. String address, do resolution
+		IPV4Address(const std::string& name, unsigned short port);
+	
+		//! Equality operator
+		bool operator==(const IPV4Address& o) const;
+		
+		//! Less than operator
+		bool operator<(const IPV4Address& o) const;
+		
+		//! Return Dashel string form
+		std::string format() const;
+		
+		//! Return the hostname corresponding to the address
+		std::string hostname() const;
+		
+		//! Is the address valid?
+		//bool isValid() const;
+	};
 
 	//! A data stream, with low-level (not-endian safe) read/write functions
 	class Stream
@@ -177,19 +219,21 @@ namespace Dashel
 		std::string targetName;
 
 	public:
+		//! Default constructor required because of virtual inheritance
+		Stream() { }
 		//! Constructor.
 		Stream(const std::string& targetName) { this->targetName = targetName; failedFlag = false; }
-
+	
 		//! Virtual destructor, to ensure calls to destructors of sub-classes.
 		virtual ~Stream() {}
-
+		
 		//! Set stream to failed state
 		/*!	\param s Source of failure
 			\param se System error code
 			\param reason The logical reason as a human readable string.
 		*/
 		void fail(DashelException::Source s, int se, const char* reason);
-
+		
 		//! Query failed state of stream.
 		/*! \return true if stream has failed.
 		*/
@@ -202,7 +246,7 @@ namespace Dashel
 		
 		//!	Returns the name of the target.
 		/*!	The name of the target contains all parameters and the protocol name.
-
+		
 			\return Name of the target
 		*/
 		const std::string &getTargetName() const { return targetName; }
@@ -255,6 +299,48 @@ namespace Dashel
 			read(&v, sizeof(T));
 			return v;
 		}
+	};
+	
+	//! A data stream, that can be later send data as at UDP packet or read data from an UDP packet
+	/*!
+		You can use PacketStream to write and read data as with normal stream, with the difference
+		that:
+		* written byte will be collected in a send buffer until send() is called with the destination
+		address; if you have written too much byte for send to transmit all of them an exception will occur.
+		However, the underlying operating system may pretend that all data has been transmitted while discarding some of it anyway. In any case, send less bytes than ethernet MTU minus UDP header.
+		* you have to call receive() when there are bytes available on the stream to be able to read them; if your read past the received bytes an exception will occur.
+	*/
+	class PacketStream: virtual public Stream
+	{
+	protected:
+		//! The buffer collecting data to send
+		std::vector<unsigned char> sendBuffer;
+		//! The buffer holding data from last receive
+		std::deque<unsigned char> receptionBuffer;
+	
+	public:
+		//! Constructor
+		PacketStream(const std::string& targetName) : Stream(targetName) { }
+	
+		virtual void write(const void *data, const size_t size);
+		
+		virtual void flush() { }
+		
+		virtual void read(void *data, size_t size);
+		
+		//! Send all written data to an IP address in a single packet.
+		/*!
+			\param destination IP address to send packet to
+		*/
+		virtual void send(const IPV4Address& dest) = 0;
+		
+		//! Receive a packet and make its payload available for reading.
+		/*!
+			Block until a packet is available.
+			
+			\param source IP address from where the packet originates.
+		*/
+		virtual void receive(IPV4Address& source) = 0;
 	};
 	
 	/**

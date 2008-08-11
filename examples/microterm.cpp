@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
 	}
 	catch (DashelException e)
 	{
-		std::cerr << e.reason << " " << e.sysMessage << std::endl;
+		std::cerr << e.what() << std::endl;
 	}
 	
 	return 0;

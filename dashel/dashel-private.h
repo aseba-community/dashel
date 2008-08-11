@@ -44,112 +44,12 @@
 #define INCLUDED_DASHEL_PRIVATE_H
 
 #include "dashel.h"
-
 #include <sstream>
 #include <vector>
 #include <cassert>
 
-#ifndef WIN32
-	#include <netdb.h>
-	#include <sys/socket.h>
-	#include <arpa/inet.h>
-#else
-	#include <winsock2.h>
-#endif
-
 namespace Dashel
 {
-	//! A TCP/IP version 4 address
-	class TCPIPV4Address
-	{
-	public:
-		unsigned address; //!< IP host address. Stored in local byte order.
-		unsigned short port; //!< IP port. Stored in local byte order.
-	
-	public:
-		//! Constructor. Numeric argument
-		TCPIPV4Address(unsigned addr = INADDR_ANY, unsigned short prt = 0)
-		{
-			address = addr;
-			port = prt;
-		}
-		
-		//! Constructor. String address, do resolution
-		TCPIPV4Address(const std::string& name, unsigned short port) :
-			port(port)
-		{
-			hostent *he = gethostbyname(name.c_str());
-			
-			if (he == NULL)
-			{
-				#ifndef WIN32
-				struct in_addr addr;
-				if (inet_aton(name.c_str(), &addr))
-				{
-					address = ntohl(addr.s_addr);
-				}
-				else
-				{
-					address = INADDR_ANY;
-				}
-				#else // WIN32
-				unsigned long addr = inet_addr(name.c_str());
-				if(addr != INADDR_NONE)
-					address = addr;
-				else
-					address = INADDR_ANY;
-				#endif // WIN32
-			}
-			else
-			{
-#ifndef WIN32
-				address = ntohl(*((unsigned *)he->h_addr));
-#else
-				address = ntohl(*((unsigned *)he->h_addr));
-#endif
-			}
-		}
-	
-		//! Equality operator
-		bool operator==(const TCPIPV4Address& o) const
-		{
-			return address==o.address && port==o.port;
-		}
-		
-		//! Less than operator
-		bool operator<(const TCPIPV4Address& o) const
-		{
-			return address<o.address || (address==o.address && port<o.port);
-		}
-		
-		//! Return string form
-		std::string format() const
-		{
-			std::ostringstream buf;
-			unsigned a2 = htonl(address);
-			struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
-			
-			if (he == NULL)
-			{
-				struct in_addr addr;
-				addr.s_addr = a2;
-				buf << "tcp:host=" << inet_ntoa(addr) << ";port=" << port;
-			}
-			else
-			{
-				buf << "tcp:host=" << he->h_name << ";port=" << port;
-			}
-			
-			return buf.str();
-		}
-		
-		//! Is the address valid?
-		bool valid() const
-		{
-			return address != INADDR_ANY && port != 0;
-		}
-	};
-
 	//! Parameter set.
 	class ParameterSet
 	{
@@ -192,7 +92,7 @@ namespace Dashel
 			free(lc);
 		}
 		
-		//! Return wether a key is set or not
+		//! Return whether a key is set or not
 		bool isSet(const char *key)
 		{
 			return (values.find(key) != values.end());

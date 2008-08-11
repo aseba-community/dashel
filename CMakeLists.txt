@@ -38,7 +38,7 @@ install(TARGETS dashel
 include_directories(${dashel_SOURCE_DIR})
 
 # examples
-foreach (example microterm chat portlist)
+foreach (example microterm chat portlist udp)
 	add_executable(${example} examples/${example}.cpp)
 	target_link_libraries(${example} dashel ${EXTRA_LIBS})
 endforeach (example)

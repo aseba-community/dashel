@@ -39,6 +39,17 @@
 */
 
 #include "dashel.h"
+#include <algorithm>
+
+#include <ostream>
+#include <sstream>
+#ifndef WIN32
+	#include <netdb.h>
+	#include <sys/socket.h>
+	#include <arpa/inet.h>
+#else
+	#include <winsock2.h>
+#endif
 
 /*!	\file dashel-commong.cpp
 	\brief Implementation of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
@@ -46,6 +57,119 @@
 
 namespace Dashel
 {
+	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
+		std::runtime_error(reason),
+		source(s),
+		sysError(se),
+		stream(stream)
+	{
+	
+	}
+	
+	IPV4Address::IPV4Address(unsigned addr, unsigned short prt)
+	{
+		address = addr;
+		port = prt;
+	}
+	
+	IPV4Address::IPV4Address(const std::string& name, unsigned short port) :
+		port(port)
+	{
+		hostent *he = gethostbyname(name.c_str());
+		
+		if (he == NULL)
+		{
+			#ifndef WIN32
+			struct in_addr addr;
+			if (inet_aton(name.c_str(), &addr))
+			{
+				address = ntohl(addr.s_addr);
+			}
+			else
+			{
+				address = INADDR_ANY;
+			}
+			#else // WIN32
+			unsigned long addr = inet_addr(name.c_str());
+			if(addr != INADDR_NONE)
+				address = addr;
+			else
+				address = INADDR_ANY;
+			#endif // WIN32
+		}
+		else
+		{
+			#ifndef WIN32
+			address = ntohl(*((unsigned *)he->h_addr));
+			#else
+			address = ntohl(*((unsigned *)he->h_addr));
+			#endif
+		}
+	}
+	
+	bool IPV4Address::operator==(const IPV4Address& o) const
+	{
+		return address==o.address && port==o.port;
+	}
+	
+	bool IPV4Address::operator<(const IPV4Address& o) const
+	{
+		return address<o.address || (address==o.address && port<o.port);
+	}
+	
+	std::string IPV4Address::hostname() const
+	{
+		unsigned a2 = htonl(address);
+		struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
+		
+		if (he == NULL)
+		{
+			struct in_addr addr;
+			addr.s_addr = a2;
+			return std::string(inet_ntoa(addr));
+		}
+		else
+		{
+			return std::string(he->h_name);
+		}
+	}
+	
+	std::string IPV4Address::format() const
+	{
+		std::ostringstream buf;
+		unsigned a2 = htonl(address);
+		struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
+		
+		if (he == NULL)
+		{
+			struct in_addr addr;
+			addr.s_addr = a2;
+			buf << "tcp:host=" << inet_ntoa(addr) << ";port=" << port;
+		}
+		else
+		{
+			buf << "tcp:host=" << he->h_name << ";port=" << port;
+		}
+		
+		return buf.str();
+	}
+	
+	void PacketStream::write(const void *data, const size_t size)
+	{
+		unsigned char* ptr = (unsigned char*)data;
+		std::copy(ptr, ptr + size, std::back_inserter(sendBuffer));
+	}
+	
+	void PacketStream::read(void *data, size_t size)
+	{
+		if (size > receptionBuffer.size())
+			fail(DashelException::IOError, 0, "Attempt to read past available data");
+		
+		unsigned char* ptr = (unsigned char*)data;
+		std::copy(receptionBuffer.begin(), receptionBuffer.begin() + size, ptr);
+		receptionBuffer.erase(receptionBuffer.begin(), receptionBuffer.begin() + size);
+	}
+	
 	void Hub::closeStream(Stream* stream)
 	{
 		streams.erase(stream);
