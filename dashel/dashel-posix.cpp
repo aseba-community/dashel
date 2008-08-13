@@ -531,12 +531,16 @@ namespace Dashel
 	//! UDP Socket, uses sendto/recvfrom for read/write
 	class UDPSocketStream: public MemoryPacketStream, public SelectableStream
 	{
+	private:
+		mutable bool selectWasCalled;
+		
 	public:
 		//! Create as UDP socket stream on a specific port
 		UDPSocketStream(const string& targetName) :
 			Stream(targetName),
 			MemoryPacketStream(targetName),
-			SelectableStream(targetName)
+			SelectableStream(targetName),
+			selectWasCalled(false)
 		{
 			ParameterSet ps;
 			ps.add("udp:port=5000;address=0.0.0.0;sock=-1");
@@ -599,8 +603,8 @@ namespace Dashel
 			source = IPV4Address(ntohl(addr.sin_addr.s_addr), ntohs(addr.sin_port));
 		}
 		
-		virtual bool receiveDataAndCheckDisconnection() { return false; }
-		virtual bool isDataInRecvBuffer() const { return true; }
+		virtual bool receiveDataAndCheckDisconnection() { selectWasCalled = true; return false; }
+		virtual bool isDataInRecvBuffer() const { bool ret = selectWasCalled; selectWasCalled = false; return ret; }
 	};
 	
 	
