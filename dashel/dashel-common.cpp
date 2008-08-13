@@ -39,6 +39,7 @@
 */
 
 #include "dashel.h"
+#include "dashel-private.h"
 #include <algorithm>
 
 #include <ostream>
@@ -57,6 +58,38 @@
 
 namespace Dashel
 {
+	using namespace std;
+	
+	// frome dashe-private.h
+	ExpandableBuffer::ExpandableBuffer(size_t size) :
+		_data((unsigned char*)malloc(size)),
+		_size(size),
+		_pos(0)
+	{
+	}
+	
+	ExpandableBuffer::~ExpandableBuffer()
+	{
+		free(_data);
+	}
+	
+	void ExpandableBuffer::clear()
+	{
+		_pos = 0;
+	}
+	
+	void ExpandableBuffer::add(const void* data, const size_t size)
+	{
+		if (_pos + size > _size)
+		{
+			_size = max(_size * 2, _size + size);
+			_data = (unsigned char*)realloc(_data, _size);
+		}
+		memcpy(_data + _pos, (unsigned char *)data, size);
+		_pos += size;
+	}
+	
+	// frome dashel.h
 	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
 		std::runtime_error(reason),
 		source(s),
@@ -154,13 +187,12 @@ namespace Dashel
 		return buf.str();
 	}
 	
-	void PacketStream::write(const void *data, const size_t size)
+	void MemoryPacketStream::write(const void *data, const size_t size)
 	{
-		unsigned char* ptr = (unsigned char*)data;
-		std::copy(ptr, ptr + size, std::back_inserter(sendBuffer));
+		sendBuffer.add(data, size);
 	}
 	
-	void PacketStream::read(void *data, size_t size)
+	void MemoryPacketStream::read(void *data, size_t size)
 	{
 		if (size > receptionBuffer.size())
 			fail(DashelException::IOError, 0, "Attempt to read past available data");

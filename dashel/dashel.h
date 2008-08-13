@@ -217,10 +217,8 @@ namespace Dashel
 	protected:
 		//! The target name.
 		std::string targetName;
-
+		
 	public:
-		//! Default constructor required because of virtual inheritance
-		Stream() { }
 		//! Constructor.
 		Stream(const std::string& targetName) { this->targetName = targetName; failedFlag = false; }
 	
@@ -312,25 +310,13 @@ namespace Dashel
 	*/
 	class PacketStream: virtual public Stream
 	{
-	protected:
-		//! The buffer collecting data to send
-		std::vector<unsigned char> sendBuffer;
-		//! The buffer holding data from last receive
-		std::deque<unsigned char> receptionBuffer;
-	
 	public:
 		//! Constructor
 		PacketStream(const std::string& targetName) : Stream(targetName) { }
 	
-		virtual void write(const void *data, const size_t size);
-		
-		virtual void flush() { }
-		
-		virtual void read(void *data, size_t size);
-		
 		//! Send all written data to an IP address in a single packet.
 		/*!
-			\param destination IP address to send packet to
+			\param dest IP address to send packet to
 		*/
 		virtual void send(const IPV4Address& dest) = 0;
 		

@@ -234,8 +234,6 @@ namespace Dashel
 		friend class Hub;
 	
 	public:
-		//! Default constructor required because of virtual inheritance
-		SelectableStream() { }
 		//! Create the stream and associates a file descriptor
 		SelectableStream(const string& targetName) : 
 			Stream(targetName),
@@ -269,7 +267,8 @@ namespace Dashel
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		DisconnectableStream(const string& targetName) : 
+		DisconnectableStream(const string& targetName) :
+			Stream(targetName),
 			SelectableStream(targetName),
 			recvBufferPos(0),
 			recvBufferSize(0)
@@ -293,15 +292,17 @@ namespace Dashel
 			SEND_BUFFER_SIZE_LIMIT = 65536 //!< when the socket send sendBuffer reaches this size, a flush is forced
 		};
 		
-		unsigned char *sendBuffer; //!< send sendBuffer. Its size is increased when required. On flush, sendBufferPos is set to zero and sendBufferSize rest unchanged. It is freed on SocketStream destruction.
-		size_t sendBufferSize; //!< size of send sendBuffer
-		size_t sendBufferPos; //!< actual position in send sendBuffer
+		ExpandableBuffer sendBuffer;
 		#endif
 		
 	public:
 		//! Create a socket stream to the following destination
 		SocketStream(const string& targetName) :
+			Stream(targetName),
 			DisconnectableStream(targetName)
+			#ifndef TCP_CORK
+			,sendBuffer(SEND_BUFFER_SIZE_INITIAL)
+			#endif
 		{
 			ParameterSet ps;
 			ps.add("tcp:host;port;sock=-1");
@@ -334,12 +335,8 @@ namespace Dashel
 				this->targetName.erase(this->targetName.rfind(";sock="));
 			}
 			
-			// setup TCP Cork or create sendBuffer for delayed sending
-			#ifndef TCP_CORK
-			sendBufferSize = SEND_BUFFER_SIZE_INITIAL;
-			sendBuffer = (unsigned char*)malloc(sendBufferSize);
-			sendBufferPos = 0;
-			#else
+			// setup TCP Cork for delayed sending
+			#ifdef TCP_CORK
 			int flag = 1;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
 			#endif
@@ -351,10 +348,6 @@ namespace Dashel
 			
 			if (fd >= 0)
 				shutdown(fd, SHUT_RDWR);
-			
-			#ifndef TCP_CORK
-			free(sendBuffer);
-			#endif
 		}
 		
 		virtual void write(const void *data, const size_t size)
@@ -374,15 +367,8 @@ namespace Dashel
 			}
 			else
 			{
-				if (sendBufferPos + size > sendBufferSize)
-				{
-					sendBufferSize = max(sendBufferSize * 2, sendBufferPos + size);
-					sendBuffer = (unsigned char*)realloc(sendBuffer, sendBufferSize);
-				}
-				memcpy(sendBuffer + sendBufferPos, (unsigned char *)data, size);
-				sendBufferPos += size;
-		
-				if (sendBufferPos >= SEND_BUFFER_SIZE_LIMIT)
+				sendBuffer.add(data, size);
+				if (sendBuffer.size() >= SEND_BUFFER_SIZE_LIMIT)
 					flush();
 			}
 			#endif
@@ -430,8 +416,8 @@ namespace Dashel
 			flag = 1;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
 			#else
-			send(sendBuffer, sendBufferPos);
-			sendBufferPos = 0;
+			send(sendBuffer.get(), sendBuffer.size());
+			sendBuffer.clear();
 			#endif
 		}
 		
@@ -503,6 +489,7 @@ namespace Dashel
 	public:
 		//! Create the stream and associates a file descriptor
 		SocketServerStream(const std::string& targetName) :
+			Stream(targetName),
 			SelectableStream(targetName)
 		{
 			ParameterSet ps;
@@ -542,12 +529,14 @@ namespace Dashel
 	};
 	
 	//! UDP Socket, uses sendto/recvfrom for read/write
-	class UDPSocketStream: public PacketStream, public SelectableStream
+	class UDPSocketStream: public MemoryPacketStream, public SelectableStream
 	{
 	public:
 		//! Create as UDP socket stream on a specific port
 		UDPSocketStream(const string& targetName) :
-			PacketStream(targetName)
+			Stream(targetName),
+			MemoryPacketStream(targetName),
+			SelectableStream(targetName)
 		{
 			ParameterSet ps;
 			ps.add("udp:port=5000;address=0.0.0.0;sock=-1");
@@ -589,10 +578,7 @@ namespace Dashel
 			addr.sin_port = htons(dest.port);;
 			addr.sin_addr.s_addr = htonl(dest.address);
 			
-			// TODO: this is inefficent
-			std::valarray<unsigned char> buf(sendBuffer.size());
-			copy(sendBuffer.begin(), sendBuffer.end(), &buf[0]);
-			if (sendto(fd, &buf[0], buf.size(), 0, (struct sockaddr *)&addr, sizeof(addr)) != buf.size())
+			if (sendto(fd, sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr *)&addr, sizeof(addr)) != sendBuffer.size())
 				fail(DashelException::IOError, errno, "UDP Socket write I/O error.");
 			
 			sendBuffer.clear();
@@ -624,6 +610,7 @@ namespace Dashel
 	public:
 		//! Create the stream and associates a file descriptor
 		FileDescriptorStream(const string& targetName) :
+			Stream(targetName),
 			DisconnectableStream(targetName)
 		{ }
 		
@@ -736,6 +723,7 @@ namespace Dashel
 	public:
 		//! Parse the target name and create the corresponding file stream
 		FileStream(const string& targetName) :
+			Stream(targetName),
 			FileDescriptorStream(targetName)
 		{
 			ParameterSet ps;
@@ -771,6 +759,7 @@ namespace Dashel
 	public:
 		//! Parse the target name and create the corresponding serial stream
 		SerialStream(const string& targetName) :
+			Stream(targetName),
 			FileDescriptorStream(targetName)
 		{
 			ParameterSet ps;

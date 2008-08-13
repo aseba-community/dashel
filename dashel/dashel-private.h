@@ -50,6 +50,52 @@
 
 namespace Dashel
 {
+	//! A simple buffer that can expand when data is added (like std::vector), but that can also return a pointer to the underlying data (like std::valarray).
+	class ExpandableBuffer
+	{
+	private:
+		unsigned char* _data; //!< data buffer. Its size is increased when required.
+		size_t _size; //!< allocated size of data
+		size_t _pos; //!< size of used part of data
+	
+	public:
+		//! Construct an expandable buffer of specific size
+		ExpandableBuffer(size_t size = 0);
+		//! Destroy the buffer and frees the allocated memory
+		~ExpandableBuffer();
+		//! Remove all data from the buffer, the allocated memory is not freed to speed-up further reduce
+		void clear();
+		//! Append data to the buffer
+		void add(const void* data, const size_t size);
+		
+		//! Return a pointer to the underlying data
+		unsigned char* get() { return _data; }
+		//! Return the actual amount of data stored
+		size_t size() const { return _pos; }
+		//! Return the amount of allocated memory, always >= size(), to reduce the amount of reallocation required
+		size_t reservedSize() const { return _size; }
+	};
+	
+	//! The system-neutral part of packet stream that implement the actual memory buffers
+	class MemoryPacketStream: public PacketStream
+	{
+	protected:
+		//! The buffer collecting data to send
+		ExpandableBuffer sendBuffer;
+		//! The buffer holding data from last receive
+		std::deque<unsigned char> receptionBuffer;
+	
+	public:
+		//! Constructor
+		MemoryPacketStream(const std::string& targetName) : Stream(targetName), PacketStream(targetName) { }
+	
+		virtual void write(const void *data, const size_t size);
+		
+		virtual void flush() { }
+		
+		virtual void read(void *data, size_t size);
+	};
+	
 	//! Parameter set.
 	class ParameterSet
 	{
