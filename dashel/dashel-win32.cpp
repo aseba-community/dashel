@@ -98,7 +98,7 @@ namespace Dashel
 		failReason += " ";
 		failReason += sysMessage;
 		
-		throw DashelException(s, se, failReason, this);
+		throw DashelException(s, se, failReason.c_str(), this);
 	}
 
 	// Serial port enumerator
@@ -258,7 +258,7 @@ namespace Dashel
 	}
 
 	//! Stream with a handle that can be waited on.
-	class WaitableStream: public Stream
+	class WaitableStream: virtual public Stream
 	{
 	public:
 		//! The events on which we may want to wait.
@@ -325,7 +325,7 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		SocketServerStream(const std::string& params) : WaitableStream(params)
+		SocketServerStream(const std::string& params) : Stream(params), WaitableStream(params)
 		{ 
 			ParameterSet ps;
 			ps.add("tcpin:port=5000;address=0.0.0.0");
@@ -417,7 +417,7 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		StdinStream(const std::string& params) : WaitableStream(params)
+		StdinStream(const std::string& params) : Stream(params), WaitableStream(params)
 		{ 
 			ParameterSet ps;
 			ps.add(params.c_str());
@@ -516,7 +516,7 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		StdoutStream(const std::string& params) : WaitableStream(params)
+		StdoutStream(const std::string& params) : Stream(params), WaitableStream(params)
 		{ 
 			ParameterSet ps;
 			ps.add(params.c_str());
@@ -602,7 +602,7 @@ namespace Dashel
 		//! Create a blank stream.
 		/*! This constructor is used only by derived classes that initialize differently.
 		*/
-		FileStream(const std::string& params, bool dummy) : WaitableStream(params) { }
+		FileStream(const std::string& params, bool dummy) : Stream(params), WaitableStream(params) { }
 
 		//! Start non-blocking read on stream to get notifications when data arrives.
 		void startStream(EvType et = EvData)
@@ -624,7 +624,7 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		FileStream(const std::string& params) : WaitableStream(params)
+		FileStream(const std::string& params) : Stream(params), WaitableStream(params)
 		{ 
 			ParameterSet ps;
 			ps.add("file:name;mode=read");
@@ -904,7 +904,7 @@ namespace Dashel
 		//! Create the stream and associates a file descriptor
 		/*! \param params Parameter string.
 		*/
-		SerialStream(const std::string& params) : FileStream(params, true)
+		SerialStream(const std::string& params) : Stream(params), FileStream(params, true)
 		{ 
 			ParameterSet ps;
 			ps.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
@@ -958,7 +958,7 @@ namespace Dashel
 		//! Create the stream and associates a file descriptor
 		/*! \param params Parameter string.
 		*/
-		SocketStream(const std::string& params) : WaitableStream(params)
+		SocketStream(const std::string& params) : Stream(params), WaitableStream(params)
 		{ 
 			ParameterSet ps;
 			ps.add("tcp:host;port;sock=0");
@@ -1111,6 +1111,104 @@ namespace Dashel
 		}
 	};
 
+	//! UDP Socket, uses sendto/recvfrom for read/write
+	class UDPSocketStream: public MemoryPacketStream, public WaitableStream
+	{
+	private:
+		//! Socket handle.
+		SOCKET sock;
+
+	public:
+		//! Create as UDP socket stream on a specific port
+		UDPSocketStream(const std::string& targetName) :
+			Stream(targetName),
+			MemoryPacketStream(targetName),
+			WaitableStream(targetName)
+		{
+			ParameterSet ps;
+			ps.add("udp:port=5000;address=0.0.0.0;sock=-1");
+			ps.add(targetName.c_str());
+
+			sock = ps.get<SOCKET>("sock");
+			if(sock < 0)
+			{
+				startWinSock();
+
+				// create socket
+				sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				if (sock == SOCKET_ERROR)
+					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
+
+				IPV4Address bindAddress(ps.get("address"), ps.get<int>("port"));
+				
+				// bind
+				sockaddr_in addr;
+				addr.sin_family = AF_INET;
+				addr.sin_port = htons(bindAddress.port);
+				addr.sin_addr.s_addr = htonl(bindAddress.address);
+				if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
+			}
+			else
+			{
+				// remove file descriptor information from target name
+				this->targetName.erase(this->targetName.rfind(";sock="));
+			}
+			
+			// enable broadcast
+			int broadcastPermission = 1;
+			setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (const char*)&broadcastPermission, sizeof(broadcastPermission));
+
+			/* TODO: what subset of this do I need
+			hev2 = createEvent(EvData);
+			hev3 = createEvent(EvClosed);
+			hev = createEvent(EvPotentialData);
+			
+			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			if (rv == SOCKET_ERROR)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
+			*/
+		}
+
+		virtual ~UDPSocketStream()
+		{
+			closesocket(sock);
+		}
+
+		virtual void notifyEvent(Hub *srv, EvType& t) 
+		{
+			// TODO: what do I need there (see previous TODO)
+		}
+		
+		virtual void send(const IPV4Address& dest)
+		{
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(dest.port);;
+			addr.sin_addr.s_addr = htonl(dest.address);
+			
+			if (sendto(sock, (const char*)sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr *)&addr, sizeof(addr)) != sendBuffer.size())
+				fail(DashelException::IOError, WSAGetLastError(), "UDP Socket write I/O error.");
+			
+			sendBuffer.clear();
+		}
+		
+		virtual void receive(IPV4Address& source)
+		{
+			unsigned char buf[4006];
+			sockaddr_in addr;
+			int addrLen = sizeof(addr);
+			int recvCount = recvfrom(sock, (char*)buf, 4096, 0, (struct sockaddr *)&addr, &addrLen);
+			if (recvCount <= 0)
+				fail(DashelException::ConnectionLost, WSAGetLastError(), "UDP Socket read I/O error.");
+			
+			receptionBuffer.resize(recvCount);
+			std::copy(buf, buf+recvCount, receptionBuffer.begin());
+			
+			source = IPV4Address(ntohl(addr.sin_addr.s_addr), ntohs(addr.sin_port));
+		}
+	};
+
 	Hub::Hub()
 	{
 		hTerminate = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -1144,6 +1242,8 @@ namespace Dashel
 			s = new SocketServerStream(target);
 		if(proto == "tcp")
 			s = new SocketStream(target);
+		if(proto == "udp")
+			s = new UDPSocketStream(target);
 		
 		if(!s)
 		{
