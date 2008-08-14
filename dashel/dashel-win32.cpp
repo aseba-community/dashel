@@ -1159,15 +1159,12 @@ namespace Dashel
 			int broadcastPermission = 1;
 			setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (const char*)&broadcastPermission, sizeof(broadcastPermission));
 
-			/* TODO: what subset of this do I need
-			hev2 = createEvent(EvData);
-			hev3 = createEvent(EvClosed);
-			hev = createEvent(EvPotentialData);
+			// Create and register event.
+			hev = createEvent(EvData);
 			
-			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			int rv = WSAEventSelect(sock, hev, FD_READ);
 			if (rv == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
-			*/
 		}
 
 		virtual ~UDPSocketStream()
@@ -1175,11 +1172,6 @@ namespace Dashel
 			closesocket(sock);
 		}
 
-		virtual void notifyEvent(Hub *srv, EvType& t) 
-		{
-			// TODO: what do I need there (see previous TODO)
-		}
-		
 		virtual void send(const IPV4Address& dest)
 		{
 			sockaddr_in addr;
