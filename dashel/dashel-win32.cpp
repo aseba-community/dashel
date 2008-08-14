@@ -1118,6 +1118,9 @@ namespace Dashel
 		//! Socket handle.
 		SOCKET sock;
 
+		//! Event for real data.
+		HANDLE hev;
+
 	public:
 		//! Create as UDP socket stream on a specific port
 		UDPSocketStream(const std::string& targetName) :
@@ -1126,11 +1129,11 @@ namespace Dashel
 			WaitableStream(targetName)
 		{
 			ParameterSet ps;
-			ps.add("udp:port=5000;address=0.0.0.0;sock=-1");
+			ps.add("udp:port=5000;address=0.0.0.0;sock=0");
 			ps.add(targetName.c_str());
 
 			sock = ps.get<SOCKET>("sock");
-			if(sock < 0)
+			if(!sock)
 			{
 				startWinSock();
 
@@ -1148,11 +1151,6 @@ namespace Dashel
 				addr.sin_addr.s_addr = htonl(bindAddress.address);
 				if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
-			}
-			else
-			{
-				// remove file descriptor information from target name
-				this->targetName.erase(this->targetName.rfind(";sock="));
 			}
 			
 			// enable broadcast
@@ -1190,6 +1188,8 @@ namespace Dashel
 			unsigned char buf[4006];
 			sockaddr_in addr;
 			int addrLen = sizeof(addr);
+			readDone = true;
+
 			int recvCount = recvfrom(sock, (char*)buf, 4096, 0, (struct sockaddr *)&addr, &addrLen);
 			if (recvCount <= 0)
 				fail(DashelException::ConnectionLost, WSAGetLastError(), "UDP Socket read I/O error.");
