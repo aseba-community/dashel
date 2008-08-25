@@ -105,7 +105,7 @@ namespace Dashel
 		if (se)
 			sysMessage = strerror(errno);
 			
-		failReason += reason;
+		failReason = reason;
 		failReason += " ";
 		failReason += sysMessage;
 		

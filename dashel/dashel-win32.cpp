@@ -94,7 +94,7 @@ namespace Dashel
 		if (se)
 			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, se, 0, sysMessage, 1024, NULL);
 
-		failReason += reason;
+		failReason = reason;
 		failReason += " ";
 		failReason += sysMessage;
 		
