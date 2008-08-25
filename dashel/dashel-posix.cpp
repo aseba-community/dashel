@@ -344,7 +344,8 @@ namespace Dashel
 		
 		virtual ~SocketStream()
 		{
-			flush();
+			if (!failed())
+				flush();
 			
 			if (fd >= 0)
 				shutdown(fd, SHUT_RDWR);
