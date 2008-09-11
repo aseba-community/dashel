@@ -905,8 +905,14 @@ namespace Dashel
 		//! Private constructor that redirects SIGTERM
 		SigTermHandlerSetuper()
 		{
-			signal(SIGTERM, termHandler);
-			signal(SIGINT, termHandler);
+			struct sigaction new_act, old_act;
+			new_act.sa_handler = termHandler;
+			sigemptyset(&new_act.sa_mask);
+
+			new_act.sa_flags = 0;
+
+			sigaction(SIGTERM, &new_act, &old_act);
+			sigaction(SIGINT, &new_act, &old_act);
 		}
 	} staticSigTermHandlerSetuper;
 	
