@@ -881,6 +881,11 @@ namespace Dashel
 		}
 	};
 	
+	
+	/*
+	We have decided to let the application choose what to do with signals.
+	Hub::stop() being thread safe, it is ok to let the user decide.
+	
 	// Signal handler for SIGTERM
 	
 	typedef std::set<Hub*> HubsSet;
@@ -897,6 +902,7 @@ namespace Dashel
 			(*it)->stop();
 		}
 	}
+	
 	
 	//! Class to setup SIGTERM or SIGINT handler
 	static class SigTermHandlerSetuper
@@ -915,6 +921,7 @@ namespace Dashel
 			sigaction(SIGINT, &new_act, &old_act);
 		}
 	} staticSigTermHandlerSetuper;
+	*/
 	
 	// Hub
 	
@@ -925,12 +932,14 @@ namespace Dashel
 			abort();
 		hTerminate = terminationPipes;
 		
-		allHubs.insert(this);
+		// commented because we let the users manage the signal themselves
+		//allHubs.insert(this);
 	}
 	
 	Hub::~Hub()
 	{
-		allHubs.erase(this);
+		// commented because we let the users manage the signal themselves
+		//allHubs.erase(this);
 		
 		int *terminationPipes = (int*)hTerminate;
 		close(terminationPipes[0]);
