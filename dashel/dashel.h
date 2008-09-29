@@ -1,7 +1,7 @@
 /*
-	DaSHEL
+	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007:
+	Copyright (C) 2007 -- 2008:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -38,8 +38,8 @@
 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __DaSHEL_H
-#define __DaSHEL_H
+#ifndef __Dashel_H
+#define __Dashel_H
 
 #include <string>
 #include <set>
@@ -48,39 +48,50 @@
 #include <deque>
 #include <stdexcept>
 
-/*!	\file streams.h
-	\brief Public interface of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
+/*!	\file dashel.h
+	\brief Public interface of Dashel, A cross-platform DAta Stream Helper Encapsulation Library
 */
 
 /**
-	\mainpage Streams
+	\mainpage Dashel
 	
 	Stéphane Magnenat (http://stephane.magnenat.net),
 	Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne (http://mobots.epfl.ch) \n
 	Sebastion Gerlach,
-	Kenzan Technologies (http://www.kenzantech.com)
+	Kenzan Technologies (http://www.kenzantech.com)\n
+	Antoine Beyeler (http://www.ab-ware.com),
+	Laboratory of Intelligent Systems, EPFL, Lausanne (http://lis.epfl.ch)
+	
 	
 	\section IntroSec Introduction
 	
-	DaSHEL is a cross-platform DAta Stream Helper Encapsulation Library.
-	It provides a unified access to TCP/IP, serial port, and files streams.
-	It also allows a server application to wait for any activity
-	on any combination of those streams.
+	Dashel is a cross-platform data stream helper encapsulation library.
+	It provides a unified access to TCP/UDP sockets, serial ports, console, and files streams.
+	It also allows a server application to wait for any activity on any combination of these streams.
 	
-	Streams is licensed under a modified BSD license, which is a permissive open source license.
+	Dashel is licensed under a modified BSD license, which is a permissive open source license.
 	Yet, if you find bugs or do some improvements, please let us know.
+	
+	\section Usage
+	
+	To use Dashel, you have to instanciate a Dashel::Hub.
+	The Hub is your connection with the data streams.
+	It is the place where you create, destroy, and synchronize them.
+	
+	The \c example directory in Dashel distribution provides several working examples that
+	you can read to learn to use Dashel.
 	
 	\section TargetNamingSec Targets Naming
 	
-	To construct a new Client, or to listen connections in a Hub, you have to specify a target.
-	A target is a string which describes a file, a TCP/IP address/port, or a serial port.
-	This string consists of the type of the target followed by a comma separated list of parameters.
-	This list is contains key-values pair, with a predifined order such that keys can be omitted (but if a key is present, all subsequent entries must have an explicit key).
+	In Dashel, streams connect to targets.
+	A target is a string that describes a file, a TCP/UDP address/port, or a serial port.
+	This string consists of the type of the target, a colon, followed by a semicolon separated list of parameters.
+	This list contains key-values pairs, with a predifined order such that keys can be omitted (but if a key is present, all subsequent entries must have an explicit key).
 	Its general syntax is thus \c "protocol:[param1key=]param1value;...;[paramNkey=]paramNvalue".
 	
 	The following protocols are available:
 	\li \c file : local files
-	\li \c tcp : TCP/IP
+	\li \c tcp : TCP/IP client
 	\li \c tcpin : TCP/IP server
 	\li \c udp : UDP/IP
 	\li \c ser : serial port
@@ -115,12 +126,13 @@
 	Protocols \c stdin and \c stdout do not take any parameter.
 */
 
-//! DaSHEL, a cross-platform stream abstraction library
+//! Dashel, a cross-platform stream abstraction library
 namespace Dashel
 {
 	class Stream;
 	
-	#define DASHEL_SVN_REV "$Revision$"
+	//! version of the Dashel library as string
+	#define DASHEL_VERSION "1.0.0"
 	
 	//! The one size fits all exception for streams.
 	/*!
@@ -330,8 +342,7 @@ namespace Dashel
 	};
 	
 	/**
-		A server that listens for incoming connections and maintains a list of
-		targets.
+		The central place where to create, destroy, and synchronize streams.
 		To create a client connection, users of the library have to subclass Hub
 		and implement incomingConnection(), incomingData(), and connectionClosed().
 	*/

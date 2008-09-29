@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 2.6)
+
 project(dashel)
 
 # libraries
@@ -44,7 +46,7 @@ foreach (example microterm chat portlist udp)
 endforeach (example)
 
 # test cases
-foreach (test 01-win32-aseba-switch-socket-error)
-	add_executable(${test} tests/${test}.cpp)
-	target_link_libraries(${test} dashel ${EXTRA_LIBS})
-endforeach (test)
+#foreach (test none-for-now)
+#	add_executable(${test} tests/${test}.cpp)
+#	target_link_libraries(${test} dashel ${EXTRA_LIBS})
+#endforeach (test)

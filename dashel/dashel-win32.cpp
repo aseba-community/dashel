@@ -1,7 +1,7 @@
 /*
-	DaSHEL
+	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007:
+	Copyright (C) 2007 -- 2008:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -73,7 +73,7 @@
 #include "dashel-private.h"
 
 /*!	\file dashel-win32.cpp
-	\brief Win32 implementation of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
+	\brief Win32 implementation of Dashel, A cross-platform DAta Stream Helper Encapsulation Library
 */
 namespace Dashel
 {

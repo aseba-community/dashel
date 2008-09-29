@@ -1,7 +1,7 @@
 /*
-	DaSHEL
+	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007:
+	Copyright (C) 2007 -- 2008:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -88,7 +88,7 @@
 
 
 /*!	\file streams.cpp
-	\brief Implementation of DaSHEL, A cross-platform DAta Stream Helper Encapsulation Library
+	\brief Implementation of Dashel, A cross-platform DAta Stream Helper Encapsulation Library
 */
 
 namespace Dashel
