@@ -44,6 +44,8 @@
 #define INCLUDED_DASHEL_PRIVATE_H
 
 #include "dashel.h"
+#include <cstring>
+#include <cstdlib>
 #include <sstream>
 #include <vector>
 #include <cassert>
