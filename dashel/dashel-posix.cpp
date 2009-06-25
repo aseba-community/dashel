@@ -819,6 +819,11 @@ namespace Dashel
 				if (ps.get("parity") == "odd")
 					newtio.c_cflag |= PARODD;	// parity for input and output is odd.
 			}
+			
+#ifdef MACOSX
+			if (cfsetspeed(&newtio,ps.get<int>("baud")) != 0)
+				throw DashelException(DashelException::ConnectionFailed, errno, "Invalid baud rate.");
+#else
 			switch (ps.get<int>("baud"))
 			{
 				case 50: newtio.c_cflag |= B50; break;
@@ -839,7 +844,6 @@ namespace Dashel
 				case 57600: newtio.c_cflag |= B57600; break;
 				case 115200: newtio.c_cflag |= B115200; break;
 				case 230400: newtio.c_cflag |= B230400; break;
-#ifndef MACOSX
 				case 460800: newtio.c_cflag |= B460800; break;
 				case 500000: newtio.c_cflag |= B500000; break;
 				case 576000: newtio.c_cflag |= B576000; break;
@@ -852,9 +856,9 @@ namespace Dashel
 				case 3000000: newtio.c_cflag |= B3000000; break;
 				case 3500000: newtio.c_cflag |= B3500000; break;
 				case 4000000: newtio.c_cflag |= B4000000; break;
-#endif
 				default: throw DashelException(DashelException::ConnectionFailed, 0, "Invalid baud rate.");
 			}
+#endif
 			
 			newtio.c_iflag = IGNPAR;			// ignore parity on input
 			
