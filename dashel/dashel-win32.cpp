@@ -390,8 +390,11 @@ namespace Dashel
 				std::string ls = IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
 				
 				std::ostringstream buf;
+				buf << ";connectionPort=";
+				buf << atoi(serverStream->getTargetParameter("port").c_str());
+				buf << ";sock=";
 				buf << (int)trg;
-				ls = ls.append(";sock=").append(buf.str());
+				ls.append(buf.str());
 				srv->connect(ls);
 			}
 		}

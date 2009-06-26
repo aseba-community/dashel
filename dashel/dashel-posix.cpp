@@ -1103,7 +1103,7 @@ namespace Dashel
 					SocketServerStream* serverStream = dynamic_cast<SocketServerStream*>(stream);
 					
 					if (serverStream)
-					{
+					{	
 						// accept connection
 						struct sockaddr_in targetAddr;
 						socklen_t l = sizeof (targetAddr);
@@ -1114,6 +1114,8 @@ namespace Dashel
 						// create a target stream using the new file descriptor from accept
 						ostringstream targetName;
 						targetName << IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
+						targetName << ";connectionPort=";
+						targetName << atoi(serverStream->getTargetParameter("port").c_str());
 						targetName << ";sock=";
 						targetName << targetFD;
 						connect(targetName.str());

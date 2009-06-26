@@ -261,6 +261,12 @@ namespace Dashel
 		*/
 		const std::string &getTargetName() const { return targetName; }
 		
+		//! Returns the value of a parameter extracted from the target.
+		/*! \param param the name of the parameter
+			\return A string containing the parameter.
+		*/
+		const std::string &getTargetParameter(const char *param) const;
+		
 		//!	Write data to the stream.
 		/*!	Writes all requested data to the stream, blocking until all the data has been written, or 
 			some error occurs. Errors are signaled by throwing a DashelException exception. This function

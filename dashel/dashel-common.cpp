@@ -187,6 +187,14 @@ namespace Dashel
 		return buf.str();
 	}
 	
+	const std::string &Stream::getTargetParameter(const char *param) const
+	{
+		ParameterSet ps;
+		ps.add(targetName.c_str());
+		return ps.get(param);
+	}
+	
+	
 	void MemoryPacketStream::write(const void *data, const size_t size)
 	{
 		sendBuffer.add(data, size);
