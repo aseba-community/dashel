@@ -391,7 +391,7 @@ namespace Dashel
 				
 				std::ostringstream buf;
 				buf << ";connectionPort=";
-				buf << atoi(serverStream->getTargetParameter("port").c_str());
+				buf << atoi(getTargetParameter("port").c_str());
 				buf << ";sock=";
 				buf << (int)trg;
 				ls.append(buf.str());

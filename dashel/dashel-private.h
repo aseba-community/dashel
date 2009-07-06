@@ -89,7 +89,7 @@ namespace Dashel
 	
 	public:
 		//! Constructor
-		MemoryPacketStream(const std::string& targetName) : Stream(targetName), PacketStream(targetName) { }
+		MemoryPacketStream(const std::string& protocolName) : Stream(protocolName), PacketStream(protocolName) { }
 	
 		virtual void write(const void *data, const size_t size);
 		
@@ -98,81 +98,21 @@ namespace Dashel
 		virtual void read(void *data, size_t size);
 	};
 	
-	//! Parameter set.
-	class ParameterSet
+	
+	template<typename T> T ParameterSet::get(const char *key) const
 	{
-	private:
-		std::map<std::string, std::string> values;
-		std::vector<std::string> params;
-
-	public:
-		//! Add values to set.
-		void add(const char *line)
+		T t;
+		std::map<std::string, std::string>::const_iterator it = values.find(key);
+		if(it == values.end())
 		{
-			char *lc = strdup(line);
-			int spc = 0;
-			char *param;
-			bool storeParams = (params.size() == 0);
-			char *protocolName = strtok(lc, ":");
-			
-			// Do nothing with this.
-			assert(protocolName);
-			
-			while((param = strtok(NULL, ";")) != NULL)
-			{
-				char *sep = strchr(param, '=');
-				if(sep)
-				{
-					*sep++ = 0;
-					values[param] = sep;
-					if (storeParams)
-						params.push_back(param);
-				}
-				else
-				{
-					if (storeParams)
-						params.push_back(param);
-					values[params[spc]] = param;
-				}
-				++spc;
-			}
-			
-			free(lc);
+			std::string r = std::string("Parameter missing: ").append(key);
+			throw Dashel::DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
-		
-		//! Return whether a key is set or not
-		bool isSet(const char *key)
-		{
-			return (values.find(key) != values.end());
-		}
-
-		//! Get a parameter value
-		template<typename T> T get(const char *key)
-		{
-			T t;
-			std::map<std::string, std::string>::iterator it = values.find(key);
-			if(it == values.end())
-			{
-				std::string r = std::string("Parameter missing: ").append(key);
-				throw Dashel::DashelException(DashelException::InvalidTarget, 0, r.c_str());
-			}
-			std::istringstream iss(it->second);
-			iss >> t;
-			return t;
-		}
-
-		//! Get a parameter value
-		const std::string& get(const char *key)
-		{
-			std::map<std::string, std::string>::iterator it = values.find(key);
-			if(it == values.end())
-			{
-				std::string r = std::string("Parameter missing: ").append(key);
-				throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
-			}
-			return it->second;
-		}
-	};
+		std::istringstream iss(it->second);
+		iss >> t;
+		return t;
+	}
+	
 
 	//! Event types that can be waited on.
 	typedef enum {

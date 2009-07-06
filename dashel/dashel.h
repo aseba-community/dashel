@@ -216,6 +216,41 @@ namespace Dashel
 		//! Is the address valid?
 		//bool isValid() const;
 	};
+	
+	//! Parameter set.
+	class ParameterSet
+	{
+	private:
+		std::map<std::string, std::string> values;
+		std::vector<std::string> params;
+
+	public:
+		//! Add values to set.
+		void add(const char *line);
+		
+		//! Add a parameter to a set.
+		/*!
+		* 	@param param name of the parameter
+		* 	@param value value of the parameter or NULL (then parameter will default or pre-existing value) 
+		* 	@param atStart if true, insert parameter at start of the list
+		*/
+		void addParam(const char *param, const char *value = NULL, bool atStart = false);
+		
+		//! Return whether a key is set or not
+		bool isSet(const char *key) const;
+
+		//! Get a parameter value
+		template<typename T> T get(const char *key) const;
+
+		//! Get a parameter value
+		const std::string& get(const char *key) const;
+		
+		//! Get the parameters as string.
+		std::string getString() const;
+		
+		//! Erase the parameter from the set
+		void erase(const char *key);
+	};
 
 	//! A data stream, with low-level (not-endian safe) read/write functions
 	class Stream
@@ -227,16 +262,22 @@ namespace Dashel
 		std::string failReason;
 
 	protected:
-		//! The target name.
-		std::string targetName;
+		//! The target description.
+		ParameterSet target;
+		//! The protocol name.
+		std::string protocolName;
 		
-	public:
+	protected:
+		
+		friend class Hub;
+		
 		//! Constructor.
-		Stream(const std::string& targetName) { this->targetName = targetName; failedFlag = false; }
+		Stream(const std::string& protocolName) : protocolName(protocolName), failedFlag(false) {}
 	
 		//! Virtual destructor, to ensure calls to destructors of sub-classes.
 		virtual ~Stream() {}
-		
+	
+	public:	
 		//! Set stream to failed state
 		/*!	\param s Source of failure
 			\param se System error code
@@ -254,18 +295,21 @@ namespace Dashel
 		*/
 		const std::string &getFailReason() const { return failReason; }
 		
+		//! Returns the protocol name of the stream.
+		const std::string &getProtocolName() const { return protocolName; }
+		
 		//!	Returns the name of the target.
 		/*!	The name of the target contains all parameters and the protocol name.
 		
 			\return Name of the target
 		*/
-		const std::string &getTargetName() const { return targetName; }
+		std::string getTargetName() const { return protocolName + ":" + target.getString(); }
 		
 		//! Returns the value of a parameter extracted from the target.
 		/*! \param param the name of the parameter
 			\return A string containing the parameter.
 		*/
-		const std::string &getTargetParameter(const char *param) const;
+		const std::string &getTargetParameter(const char *param) const { return target.get(param); }
 		
 		//!	Write data to the stream.
 		/*!	Writes all requested data to the stream, blocking until all the data has been written, or 
@@ -330,7 +374,7 @@ namespace Dashel
 	{
 	public:
 		//! Constructor
-		PacketStream(const std::string& targetName) : Stream(targetName) { }
+		PacketStream(const std::string& protocolName) : Stream(protocolName) { }
 	
 		//! Send all written data to an IP address in a single packet.
 		/*!

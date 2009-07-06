@@ -187,11 +187,89 @@ namespace Dashel
 		return buf.str();
 	}
 	
-	const std::string &Stream::getTargetParameter(const char *param) const
+	void ParameterSet::add(const char *line)
 	{
-		ParameterSet ps;
-		ps.add(targetName.c_str());
-		return ps.get(param);
+		char *lc = strdup(line);
+		int spc = 0;
+		char *param;
+		bool storeParams = (params.size() == 0);
+		char *protocolName = strtok(lc, ":");
+		
+		// Do nothing with this.
+		assert(protocolName);
+		
+		while((param = strtok(NULL, ";")) != NULL)
+		{
+			char *sep = strchr(param, '=');
+			if(sep)
+			{
+				*sep++ = 0;
+				values[param] = sep;
+				if (storeParams)
+					params.push_back(param);
+			}
+			else
+			{
+				if (storeParams)
+					params.push_back(param);
+				values[params[spc]] = param;
+			}
+			++spc;
+		}
+		
+		free(lc);
+	}
+	
+	void ParameterSet::addParam(const char *param, const char *value, bool atStart)
+	{
+		if (atStart)
+			params.insert(params.begin(), 1, param);
+		else
+			params.push_back(param);
+		
+		if (value)
+			values[param] = value;
+	}
+	
+	bool ParameterSet::isSet(const char *key) const
+	{
+		return (values.find(key) != values.end());
+	}
+
+	const std::string& ParameterSet::get(const char *key) const
+	{
+		std::map<std::string, std::string>::const_iterator it = values.find(key);
+		if(it == values.end())
+		{
+			std::string r = std::string("Parameter missing: ").append(key);
+			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
+		}
+		return it->second;
+	}
+	
+	std::string ParameterSet::getString() const
+	{
+		std::ostringstream oss;
+		std::vector<std::string>::const_iterator i = params.begin();
+		while (true)
+		{
+			oss << *i << "=" << values.find(*i)->second;
+			if (++i == params.end())
+				break;
+			oss << ";";
+		}
+		return oss.str();
+	}
+	
+	void ParameterSet::erase(const char *key)
+	{
+		std::vector<std::string>::iterator i = std::find(params.begin(), params.end(), key);
+		if (i != params.end())
+			params.erase(i);
+		
+		std::map<std::string, std::string>::iterator j = values.find(key);
+		if (j != values.end())
+			values.erase(j);
 	}
 	
 	

@@ -235,8 +235,8 @@ namespace Dashel
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		SelectableStream(const string& targetName) : 
-			Stream(targetName),
+		SelectableStream(const string& protocolName) : 
+			Stream(protocolName),
 			fd(-1),
 			writeOnly(false)
 		{
@@ -267,9 +267,9 @@ namespace Dashel
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		DisconnectableStream(const string& targetName) :
-			Stream(targetName),
-			SelectableStream(targetName),
+		DisconnectableStream(const string& protocolName) :
+			Stream(protocolName),
+			SelectableStream(protocolName),
 			recvBufferPos(0),
 			recvBufferSize(0)
 		{
@@ -298,17 +298,16 @@ namespace Dashel
 	public:
 		//! Create a socket stream to the following destination
 		SocketStream(const string& targetName) :
-			Stream(targetName),
-			DisconnectableStream(targetName)
+			Stream("tcp"),
+			DisconnectableStream("tcp")
 			#ifndef TCP_CORK
 			,sendBuffer(SEND_BUFFER_SIZE_INITIAL)
 			#endif
 		{
-			ParameterSet ps;
-			ps.add("tcp:host;port;sock=-1");
-			ps.add(targetName.c_str());
+			target.add("tcp:host;port;connectionPort=-1;sock=-1");
+			target.add(targetName.c_str());
 
-			fd = ps.get<int>("sock");
+			fd = target.get<int>("sock");
 			if (fd < 0)
 			{
 				// create socket
@@ -316,7 +315,7 @@ namespace Dashel
 				if (fd < 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
 				
-				IPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
+				IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
 				
 				// connect
 				sockaddr_in addr;
@@ -327,12 +326,13 @@ namespace Dashel
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot connect to remote host.");
 				
 				// overwrite target name with a canonical one
-				this->targetName = remoteAddress.format();
+				target.add(remoteAddress.format().c_str());
+				target.erase("connectionPort");
 			}
 			else
 			{
 				// remove file descriptor information from target name
-				this->targetName.erase(this->targetName.rfind(";sock="));
+				target.erase("sock");
 			}
 			
 			// setup TCP Cork for delayed sending
@@ -493,11 +493,10 @@ namespace Dashel
 			Stream(targetName),
 			SelectableStream(targetName)
 		{
-			ParameterSet ps;
-			ps.add("tcpin:port=5000;address=0.0.0.0");
-			ps.add(targetName.c_str());
+			target.add("tcpin:port=5000;address=0.0.0.0");
+			target.add(targetName.c_str());
 			
-			IPV4Address bindAddress(ps.get("address"), ps.get<int>("port"));
+			IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
 			
 			// create socket
 			fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -538,19 +537,18 @@ namespace Dashel
 	public:
 		//! Create as UDP socket stream on a specific port
 		UDPSocketStream(const string& targetName) :
-			Stream(targetName),
-			MemoryPacketStream(targetName),
-			SelectableStream(targetName),
+			Stream("udp"),
+			MemoryPacketStream("udp"),
+			SelectableStream("udp"),
 			selectWasCalled(false)
 		{
-			ParameterSet ps;
-			ps.add("udp:port=5000;address=0.0.0.0;sock=-1");
-			ps.add(targetName.c_str());
+			target.add("udp:port=5000;address=0.0.0.0;sock=-1");
+			target.add(targetName.c_str());
 
-			fd = ps.get<int>("sock");
+			fd = target.get<int>("sock");
 			if (fd < 0)
 			{
-				IPV4Address bindAddress(ps.get("address"), ps.get<int>("port"));
+				IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
 				
 				// create socket
 				fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -568,7 +566,7 @@ namespace Dashel
 			else
 			{
 				// remove file descriptor information from target name
-				this->targetName.erase(this->targetName.rfind(";sock="));
+				target.erase("sock");
 			}
 			
 			// enable broadcast
@@ -614,9 +612,9 @@ namespace Dashel
 	{
 	public:
 		//! Create the stream and associates a file descriptor
-		FileDescriptorStream(const string& targetName) :
-			Stream(targetName),
-			DisconnectableStream(targetName)
+		FileDescriptorStream(const string& protocolName) :
+			Stream(protocolName),
+			DisconnectableStream(protocolName)
 		{ }
 		
 		virtual void write(const void *data, const size_t size)
@@ -728,14 +726,13 @@ namespace Dashel
 	public:
 		//! Parse the target name and create the corresponding file stream
 		FileStream(const string& targetName) :
-			Stream(targetName),
-			FileDescriptorStream(targetName)
+			Stream("file"),
+			FileDescriptorStream("file")
 		{
-			ParameterSet ps;
-			ps.add("file:name;mode=read");
-			ps.add(targetName.c_str());
-			std::string name = ps.get("name");
-			std::string mode = ps.get("mode");
+			target.add("file:name;mode=read");
+			target.add(targetName.c_str());
+			std::string name = target.get("name");
+			std::string mode = target.get("mode");
 			
 			// open file
 			if (mode == "read")
@@ -764,22 +761,26 @@ namespace Dashel
 	public:
 		//! Parse the target name and create the corresponding serial stream
 		SerialStream(const string& targetName) :
-			Stream(targetName),
-			FileDescriptorStream(targetName)
+			Stream("ser"),
+			FileDescriptorStream("ser")
 		{
-			ParameterSet ps;
-			ps.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
-			ps.add(targetName.c_str());
+			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
+			target.add(targetName.c_str());
 			string devFileName;
 			
-			if (ps.isSet("device"))
+			if (target.isSet("device"))
 			{
-				devFileName = ps.get("device");
+				target.addParam("device", NULL, true);
+				target.erase("port");
+				
+				devFileName = target.get("device");
 			}
 			else
 			{
+				target.erase("device");
+				
 				std::map<int, std::pair<std::string, std::string> > ports = SerialPortEnumerator::getPorts();
-				std::map<int, std::pair<std::string, std::string> >::const_iterator it = ports.find(ps.get<int>("port"));
+				std::map<int, std::pair<std::string, std::string> >::const_iterator it = ports.find(target.get<int>("port"));
 				if (it != ports.end())
 				{
 					devFileName = it->first;
@@ -801,7 +802,7 @@ namespace Dashel
 			
 			newtio.c_cflag |= CLOCAL;			// ignore modem control lines.
 			newtio.c_cflag |= CREAD;			// enable receiver.
-			switch (ps.get<int>("bits"))		// Set amount of bits per character
+			switch (target.get<int>("bits"))		// Set amount of bits per character
 			{
 				case 5: newtio.c_cflag |= CS5; break;
 				case 6: newtio.c_cflag |= CS6; break;
@@ -809,22 +810,22 @@ namespace Dashel
 				case 8: newtio.c_cflag |= CS8; break;
 				default: throw DashelException(DashelException::InvalidTarget, 0, "Invalid number of bits per character, must be 5, 6, 7, or 8.");
 			}
-			if (ps.get("stop") == "2")
+			if (target.get("stop") == "2")
 				newtio.c_cflag |= CSTOPB;		// Set two stop bits, rather than one.
-			if (ps.get("fc") == "hard")
+			if (target.get("fc") == "hard")
 				newtio.c_cflag |= CRTSCTS;		// enable hardware flow control
-			if (ps.get("parity") != "none")
+			if (target.get("parity") != "none")
 			{
 				newtio.c_cflag |= PARENB;		// enable parity generation on output and parity checking for input.
-				if (ps.get("parity") == "odd")
+				if (target.get("parity") == "odd")
 					newtio.c_cflag |= PARODD;	// parity for input and output is odd.
 			}
 			
 #ifdef MACOSX
-			if (cfsetspeed(&newtio,ps.get<int>("baud")) != 0)
+			if (cfsetspeed(&newtio,target.get<int>("baud")) != 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Invalid baud rate.");
 #else
-			switch (ps.get<int>("baud"))
+			switch (target.get<int>("baud"))
 			{
 				case 50: newtio.c_cflag |= B50; break;
 				case 75: newtio.c_cflag |= B75; break;
