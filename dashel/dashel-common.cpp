@@ -251,7 +251,7 @@ namespace Dashel
 	{
 		std::ostringstream oss;
 		std::vector<std::string>::const_iterator i = params.begin();
-		while (true)
+		while (i != params.end())
 		{
 			oss << *i << "=" << values.find(*i)->second;
 			if (++i == params.end())
