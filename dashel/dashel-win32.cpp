@@ -1,7 +1,7 @@
 /*
 	Dashel
-	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007 -- 2008:
+	A cross-platform DAta Stream Helper Encatargetulation Library
+	Copyright (C) 2007 -- 2009:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -73,7 +73,7 @@
 #include "dashel-private.h"
 
 /*!	\file dashel-win32.cpp
-	\brief Win32 implementation of Dashel, A cross-platform DAta Stream Helper Encapsulation Library
+	\brief Win32 implementation of Dashel, A cross-platform DAta Stream Helper Encatargetulation Library
 */
 namespace Dashel
 {
@@ -291,7 +291,7 @@ namespace Dashel
 		
 	public:
 		//! Constructor.
-		WaitableStream(const std::string& params) : Stream(params) { }
+		WaitableStream(const std::string& protocolName) : Stream(protocolName) { }
 
 		//! Destructor.
 		/*! Releases all allocated handles.
@@ -325,15 +325,14 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		SocketServerStream(const std::string& params) : Stream(params), WaitableStream(params)
+		SocketServerStream(const std::string& params) : Stream("tcpin"), WaitableStream("tcpin")
 		{ 
-			ParameterSet ps;
-			ps.add("tcpin:port=5000;address=0.0.0.0");
-			ps.add(params.c_str());
+			target.add("tcpin:port=5000;address=0.0.0.0");
+			target.add(params.c_str());
 
 			startWinSock();
 
-			IPV4Address bindAddress(ps.get("address"), ps.get<int>("port"));
+			IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
 			
 			// Create socket.
 			sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -420,10 +419,9 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		StdinStream(const std::string& params) : Stream(params), WaitableStream(params)
+		StdinStream(const std::string& params) : Stream("stdin"), WaitableStream("stdin")
 		{ 
-			ParameterSet ps;
-			ps.add(params.c_str());
+			target.add(params.c_str());
 
 			if((hf = GetStdHandle(STD_INPUT_HANDLE)) == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open standard input.");
@@ -519,10 +517,9 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		StdoutStream(const std::string& params) : Stream(params), WaitableStream(params)
+		StdoutStream(const std::string& params) : Stream("stdout"), WaitableStream("stdout")
 		{ 
-			ParameterSet ps;
-			ps.add(params.c_str());
+			target.add(params.c_str());
 
 			if((hf = GetStdHandle(STD_OUTPUT_HANDLE)) == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open standard output.");
@@ -605,7 +602,7 @@ namespace Dashel
 		//! Create a blank stream.
 		/*! This constructor is used only by derived classes that initialize differently.
 		*/
-		FileStream(const std::string& params, bool dummy) : Stream(params), WaitableStream(params) { }
+		FileStream(const std::string& protocolName, bool dummy) : Stream(protocolName), WaitableStream(protocolName) { }
 
 		//! Start non-blocking read on stream to get notifications when data arrives.
 		void startStream(EvType et = EvData)
@@ -627,13 +624,12 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		FileStream(const std::string& params) : Stream(params), WaitableStream(params)
+		FileStream(const std::string& params) : Stream("file"), WaitableStream("file")
 		{ 
-			ParameterSet ps;
-			ps.add("file:name;mode=read");
-			ps.add(params.c_str());
-			std::string name = ps.get("name");
-			std::string mode = ps.get("mode");
+			target.add("file:name;mode=read");
+			target.add(params.c_str());
+			std::string name = target.get("name");
+			std::string mode = target.get("mode");
 
 			hf = NULL;
 			if (mode == "read")
@@ -654,7 +650,6 @@ namespace Dashel
 			}
 			if(hf == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open file.");
-
 
 			hEOF = createEvent(EvClosed);
 		}
@@ -907,23 +902,31 @@ namespace Dashel
 		//! Create the stream and associates a file descriptor
 		/*! \param params Parameter string.
 		*/
-		SerialStream(const std::string& params) : Stream(params), FileStream(params, true)
+		SerialStream(const std::string& params) : Stream("ser"), FileStream("ser", true)
 		{ 
-			ParameterSet ps;
-			ps.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
-			ps.add(params.c_str());
+			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
+			target.add(params.c_str());
 
 			std::string name;
-			if (ps.isSet("device"))
-				name = ps.get("device");
+			if (target.isSet("device"))
+			{
+				target.addParam("device", NULL, true);
+				target.erase("port");
+				
+				name = target.get("device");
+			}
 			else
-				name = std::string("\\\\.\\COM").append(ps.get("port"));
+			{
+				target.erase("device");
+				
+				name = std::string("\\\\.\\COM").append(target.get("port"));
+			}
 
 			hf = CreateFile(name.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 			if(hf == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open serial port.");
 
-			buildDCB(hf, ps.get<int>("baud"), ps.get<int>("bits"), ps.get("parity"), ps.get("stop"), ps.get("fc"));
+			buildDCB(hf, target.get<int>("baud"), target.get<int>("bits"), target.get("parity"), target.get("stop"), target.get("fc"));
 
 			startStream(EvPotentialData);
 		}
@@ -961,13 +964,12 @@ namespace Dashel
 		//! Create the stream and associates a file descriptor
 		/*! \param params Parameter string.
 		*/
-		SocketStream(const std::string& params) : Stream(params), WaitableStream(params)
+		SocketStream(const std::string& params) : Stream("tcp"), WaitableStream("tcp")
 		{ 
-			ParameterSet ps;
-			ps.add("tcp:host;port;sock=0");
-			ps.add(params.c_str());
+			target.add("tcp:host;port;connectionPort=-1;sock=0");
+			target.add(params.c_str());
 
-			sock = ps.get<SOCKET>("sock");
+			sock = target.get<SOCKET>("sock");
 			if(!sock)
 			{
 				startWinSock();
@@ -977,7 +979,7 @@ namespace Dashel
 				if (sock == SOCKET_ERROR)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
 			
-				IPV4Address remoteAddress(ps.get("host"), ps.get<int>("port"));
+				IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
 				// connect
 				sockaddr_in addr;
 				addr.sin_family = AF_INET;
@@ -985,6 +987,15 @@ namespace Dashel
 				addr.sin_addr.s_addr = htonl(remoteAddress.address);
 				if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot connect to remote host.");
+				
+				// overwrite target name with a canonical one
+				target.add(remoteAddress.format().c_str());
+				target.erase("connectionPort");
+			}
+			else
+			{
+				// remove file descriptor information from target name
+				target.erase("sock");
 			}
 
 			hev2 = createEvent(EvData);
@@ -1028,7 +1039,6 @@ namespace Dashel
 				}
 			}
 		}
-
 
 		virtual void write(const void *data, const size_t size)
 		{
@@ -1127,25 +1137,24 @@ namespace Dashel
 	public:
 		//! Create as UDP socket stream on a specific port
 		UDPSocketStream(const std::string& targetName) :
-			Stream(targetName),
-			MemoryPacketStream(targetName),
-			WaitableStream(targetName)
+			Stream("udp"),
+			MemoryPacketStream("udp"),
+			WaitableStream("udp")
 		{
-			ParameterSet ps;
-			ps.add("udp:port=5000;address=0.0.0.0;sock=0");
-			ps.add(targetName.c_str());
-
-			sock = ps.get<SOCKET>("sock");
+			target.add("udp:port=5000;address=0.0.0.0;sock=0");
+			target.add(targetName.c_str());
+			
+			sock = target.get<SOCKET>("sock");
 			if(!sock)
 			{
 				startWinSock();
-
+				
 				// create socket
 				sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				if (sock == SOCKET_ERROR)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
-
-				IPV4Address bindAddress(ps.get("address"), ps.get<int>("port"));
+				
+				IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
 				
 				// bind
 				sockaddr_in addr;
@@ -1155,11 +1164,16 @@ namespace Dashel
 				if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
 			}
+			else
+			{
+				// remove file descriptor information from target name
+				target.erase("sock");
+			}
 			
 			// enable broadcast
 			int broadcastPermission = 1;
 			setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (const char*)&broadcastPermission, sizeof(broadcastPermission));
-
+			
 			// Create and register event.
 			hev = createEvent(EvData);
 			

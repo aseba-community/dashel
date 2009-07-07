@@ -1,5 +1,5 @@
 DaSHEL, a cross-platform DAta Stream Helper Encapsulation Library
-Copyright (C) 2007 -- 2008:
+Copyright (C) 2007 -- 2009:
 	
 	Stephane Magnenat <stephane at magnenat dot net>
 		(http://stephane.magnenat.net)

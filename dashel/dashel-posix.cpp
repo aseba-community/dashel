@@ -1,7 +1,7 @@
 /*
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007 -- 2008:
+	Copyright (C) 2007 -- 2009:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -490,8 +490,8 @@ namespace Dashel
 	public:
 		//! Create the stream and associates a file descriptor
 		SocketServerStream(const std::string& targetName) :
-			Stream(targetName),
-			SelectableStream(targetName)
+			Stream("tcpin"),
+			SelectableStream("tcpin")
 		{
 			target.add("tcpin:port=5000;address=0.0.0.0");
 			target.add(targetName.c_str());
@@ -544,16 +544,16 @@ namespace Dashel
 		{
 			target.add("udp:port=5000;address=0.0.0.0;sock=-1");
 			target.add(targetName.c_str());
-
+			
 			fd = target.get<int>("sock");
 			if (fd < 0)
 			{
-				IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
-				
 				// create socket
 				fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				if (fd < 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
+				
+				IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
 				
 				// bind
 				sockaddr_in addr;
