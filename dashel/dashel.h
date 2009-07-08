@@ -272,7 +272,7 @@ namespace Dashel
 		friend class Hub;
 		
 		//! Constructor.
-		Stream(const std::string& protocolName) : protocolName(protocolName), failedFlag(false) {}
+		Stream(const std::string& protocolName) : failedFlag(false), protocolName(protocolName) {}
 	
 		//! Virtual destructor, to ensure calls to destructors of sub-classes.
 		virtual ~Stream() {}
