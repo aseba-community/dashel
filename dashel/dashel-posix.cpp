@@ -753,6 +753,11 @@ namespace Dashel
 					throw DashelException(DashelException::ConnectionFailed, errno, errorMessage.c_str());
 				}
 			}
+			else
+			{
+				// remove file descriptor information from target name
+				target.erase("fd");
+			}
 		}
 	};
 	
