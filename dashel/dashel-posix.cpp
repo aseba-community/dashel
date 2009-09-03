@@ -245,7 +245,8 @@ namespace Dashel
 		
 		virtual ~SelectableStream()
 		{
-			if (fd >= 0)
+			// on POSIX, do not close stdin, stdout, nor stderr
+			if (fd >= 3)
 				close(fd);
 		}
 		
