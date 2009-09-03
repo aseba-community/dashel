@@ -729,25 +729,28 @@ namespace Dashel
 			Stream("file"),
 			FileDescriptorStream("file")
 		{
-			target.add("file:name;mode=read");
+			target.add("file:name;mode=read;fd=-1");
 			target.add(targetName.c_str());
-			std::string name = target.get("name");
-			std::string mode = target.get("mode");
-			
-			// open file
-			if (mode == "read")
-				fd = open(name.c_str(), O_RDONLY);
-			else if (mode == "write")
-				fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP), writeOnly = true;
-			else if (mode == "readwrite")
-				fd = open(name.c_str(), O_RDWR);
-			else
- 				throw DashelException(DashelException::InvalidTarget, 0, "Invalid file mode.");
-			
-			if (fd == -1)
+			fd = target.get<int>("fd");
+			if (fd < 0)
 			{
-				string errorMessage = "Cannot open file " + name + " for " + mode + ".";
-				throw DashelException(DashelException::ConnectionFailed, errno, errorMessage.c_str());
+				const std::string name = target.get("name");
+				const std::string mode = target.get("mode");
+				
+				// open file
+				if (mode == "read")
+					fd = open(name.c_str(), O_RDONLY);
+				else if (mode == "write")
+					fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP), writeOnly = true;
+				else if (mode == "readwrite")
+					fd = open(name.c_str(), O_RDWR);
+				else
+					throw DashelException(DashelException::InvalidTarget, 0, "Invalid file mode.");
+				if (fd == -1)
+				{
+					string errorMessage = "Cannot open file " + name + " for " + mode + ".";
+					throw DashelException(DashelException::ConnectionFailed, errno, errorMessage.c_str());
+				}
 			}
 		}
 	};
@@ -968,9 +971,9 @@ namespace Dashel
 		if(proto == "file")
 			s = new FileStream(target);
 		if(proto == "stdin")
-			s = new FileStream("file:/dev/stdin;read");
+			s = new FileStream("file:name=/dev/stdin;mode=read;fd=0");
 		if(proto == "stdout")
-			s = new FileStream("file:/dev/stdout;write");
+			s = new FileStream("file:name=/dev/stdout;mode=write;fd=1");
 		if(proto == "ser")
 			s = new SerialStream(target);
 		if(proto == "tcpin")
