@@ -465,7 +465,7 @@ namespace Dashel
 			
 			\param stream stream to the target
 		*/
-		virtual void connectionCreated(Stream *stream) { }
+		virtual void connectionCreated(Stream * /* stream */) { }
 		
 		/**
 			Called when data is available for reading on the stream.
@@ -476,7 +476,7 @@ namespace Dashel
 			
 			\param stream stream to the target
 		*/
-		virtual void incomingData(Stream *stream) { }
+		virtual void incomingData(Stream * /* stream */) { }
 		
 		/**
 			Called when target closes connection.
@@ -488,7 +488,7 @@ namespace Dashel
 			\param stream stream to the target.
 			\param abnormal whether the connection was closed during step (abnormal == false) or when an operation was performed (abnormal == true)
 		*/
-		virtual void connectionClosed(Stream *stream, bool abnormal) { }
+		virtual void connectionClosed(Stream * /* stream */, bool /* abnormal */) { }
 	};
 }
 
