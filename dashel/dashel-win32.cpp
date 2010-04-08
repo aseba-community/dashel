@@ -322,10 +322,14 @@ namespace Dashel
 		//! The real data event handle.
 		HANDLE hev;
 
+		//!< Whether Dashel should try to resolve the peer's hostname of incoming TCP connections
+		const bool resolveIncomingNames;
+
 	public:
 
 		//! Create the stream and associates a file descriptor
-		SocketServerStream(const std::string& params) : Stream("tcpin"), WaitableStream("tcpin")
+		SocketServerStream(const std::string& params, const bool resolveIncomingNames) : Stream("tcpin"), WaitableStream("tcpin"),
+			resolveIncomingNames(resolveIncomingNames)
 		{ 
 			target.add("tcpin:port=5000;address=0.0.0.0");
 			target.add(params.c_str());
@@ -386,7 +390,7 @@ namespace Dashel
 				}
 				
 				// create stream
-				std::string ls = IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
+				std::string ls = IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format(resolveIncomingNames);
 				
 				std::ostringstream buf;
 				buf << ";connectionPort=";
@@ -1218,7 +1222,8 @@ namespace Dashel
 		}
 	};
 
-	Hub::Hub()
+	Hub::Hub(const bool resolveIncomingNames):
+		resolveIncomingNames(resolveIncomingNames)
 	{
 		hTerminate = CreateEvent(NULL, TRUE, FALSE, NULL);
 	}
@@ -1248,7 +1253,7 @@ namespace Dashel
 		if(proto == "ser")
 			s = new SerialStream(target);
 		if(proto == "tcpin")
-			s = new SocketServerStream(target);
+			s = new SocketServerStream(target, resolveIncomingNames);
 		if(proto == "tcp")
 			s = new SocketStream(target);
 		if(proto == "udp")
@@ -1270,12 +1275,12 @@ namespace Dashel
 		return s;
 	}
 	
-	void Hub::run(void)
+	void Hub::run()
 	{
 		while(step(-1));
 	}
 	
-	bool Hub::step(int timeout)
+	bool Hub::step(const int timeout)
 	{
 		HANDLE hEvs[64] = { hTerminate };
 		WaitableStream *strs[64] = { NULL };

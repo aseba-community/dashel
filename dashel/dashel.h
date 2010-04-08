@@ -208,7 +208,10 @@ namespace Dashel
 		bool operator<(const IPV4Address& o) const;
 		
 		//! Return Dashel string form
-		std::string format() const;
+		/*!
+			@param resolveName whether we should attempt resolving the host name of the address
+		*/
+		std::string format(const bool resolveName = true) const;
 		
 		//! Return the hostname corresponding to the address
 		std::string hostname() const;
@@ -408,10 +411,13 @@ namespace Dashel
 	
 	protected:
 		StreamsSet dataStreams;		//!< All our streams that transfer data (in opposition to streams that just listen for data).
+		const bool resolveIncomingNames; //!< Whether Dashel should try to resolve the peer's hostname of incoming TCP connections
 	
 	public:
-		//! Constructor.
-		Hub();
+		/** Constructor.
+			\param resolveIncomingNames if true, try to resolve the peer's hostname of incoming TCP connections
+		*/
+		Hub(const bool resolveIncomingNames = true);
 	
 		//! Destructor, closes all connections.
 		virtual ~Hub();
@@ -433,14 +439,15 @@ namespace Dashel
 			If the stream is not present in the Hub, it is deleted nevertheless.
 			Note that connectionClosed() is not called by closeStream() and that
 			you must not call closeStream(s) from inside connectionClosed(s) for
-			the same s.
+			the same stream.
 			
 			\param stream stream to remove
 		*/
 		void closeStream(Stream* stream);
 		
-		//! Runs and returns only when an external event requests the application to stop.
-		void run(void);
+		/** Runs and returns only when an external event requests the application to stop.
+		*/
+		void run();
 		
 		/**
 			Waits for data from the transfers streams or connections from the listening streams.
@@ -449,7 +456,7 @@ namespace Dashel
 			\param timeout if -1, waits until data arrive. If 0, do not wait, just poll for activity. If positive, waits at maximum timeout ms.
 			\return false if stop() was called or the application was requested to terminate, true otherwise.
 		*/
-		bool step(int timeout = 0);
+		bool step(const int timeout = 0);
 		
 		//! Stops running, subclasses or external code may call this function, that is the only thread-safe function of the Hub
 		void stop();

@@ -167,23 +167,24 @@ namespace Dashel
 		}
 	}
 	
-	std::string IPV4Address::format() const
+	std::string IPV4Address::format(const bool resolveName) const
 	{
 		std::ostringstream buf;
 		unsigned a2 = htonl(address);
-		struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
 		
-		if (he == NULL)
+		if (resolveName)
 		{
-			struct in_addr addr;
-			addr.s_addr = a2;
-			buf << "tcp:host=" << inet_ntoa(addr) << ";port=" << port;
-		}
-		else
-		{
-			buf << "tcp:host=" << he->h_name << ";port=" << port;
+			struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
+			if (he == NULL)
+			{
+				buf << "tcp:host=" << he->h_name << ";port=" << port;
+				return buf.str();
+			}
 		}
 		
+		struct in_addr addr;
+		addr.s_addr = a2;
+		buf << "tcp:host=" << inet_ntoa(addr) << ";port=" << port;
 		return buf.str();
 	}
 	

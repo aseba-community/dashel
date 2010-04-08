@@ -939,7 +939,8 @@ namespace Dashel
 	
 	// Hub
 	
-	Hub::Hub()
+	Hub::Hub(const bool resolveIncomingNames):
+		resolveIncomingNames(resolveIncomingNames)
 	{
 		int *terminationPipes = new int[2];
 		if (pipe(terminationPipes) != 0)
@@ -1005,12 +1006,12 @@ namespace Dashel
 		return s;
 	}
 	
-	void Hub::run(void)
+	void Hub::run()
 	{
 		while (step(-1));
 	}
 	
-	bool Hub::step(int timeout)
+	bool Hub::step(const int timeout)
 	{
 		bool firstPoll = true;
 		bool wasActivity = false;
@@ -1123,7 +1124,7 @@ namespace Dashel
 						
 						// create a target stream using the new file descriptor from accept
 						ostringstream targetName;
-						targetName << IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format();
+						targetName << IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format(resolveIncomingNames);
 						targetName << ";connectionPort=";
 						targetName << atoi(serverStream->getTargetParameter("port").c_str());
 						targetName << ";sock=";
