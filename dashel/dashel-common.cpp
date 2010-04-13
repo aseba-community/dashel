@@ -175,7 +175,7 @@ namespace Dashel
 		if (resolveName)
 		{
 			struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
-			if (he == NULL)
+			if (he != NULL)
 			{
 				buf << "tcp:host=" << he->h_name << ";port=" << port;
 				return buf.str();
