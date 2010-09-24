@@ -948,6 +948,8 @@ namespace Dashel
 			abort();
 		hTerminate = terminationPipes;
 		
+		streamsLock = new pthread_mutex_t;
+		
 		pthread_mutex_init((pthread_mutex_t*)streamsLock, NULL);
 
 		// commented because we let the users manage the signal themselves
@@ -966,6 +968,10 @@ namespace Dashel
 		
 		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 			delete *it;
+		
+		pthread_mutex_destroy((pthread_mutex_t*)streamsLock);
+		
+		delete (pthread_mutex_t*) streamsLock;
 	}
 	
 	Stream* Hub::connect(const std::string &target)
