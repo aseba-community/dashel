@@ -132,9 +132,9 @@ namespace Dashel
 	class Stream;
 	
 	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.0.2"
+	#define DASHEL_VERSION "1.0.3"
 	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10002
+	#define DASHEL_VERSION_INT 10003
 	
 	//! The one size fits all exception for streams.
 	/*!
@@ -409,6 +409,7 @@ namespace Dashel
 		
 	private:
 		void *hTerminate;			//!< Set when this thing goes down.
+		void *streamsLock;			//!< Platform-dependant mutex to protect access to streams
 		StreamsSet streams; 		//!< All our streams.
 	
 	protected:
@@ -462,6 +463,16 @@ namespace Dashel
 		
 		//! Stops running, subclasses or external code may call this function, that is the only thread-safe function of the Hub
 		void stop();
+		
+		/** Block any hub processing so another thread can access the streams safely.
+			Currently only implemented on POSIX platform, no-op on others.
+		 */
+		void lock();
+		
+		/** Release the lock aquired by lock().
+			Currently only implemented on POSIX platform, no-op on others.
+		*/
+		void unlock();
 
 	protected:
 		
@@ -471,6 +482,7 @@ namespace Dashel
 			If the stream is closed during this method, an exception occurs: the caller is responsible to handle it.
 			The stream is already inserted in the stream list when this function is called.
 			Subclass can implement this method.
+			Called with the stream lock held.
 			
 			\param stream stream to the target
 		*/
@@ -482,6 +494,7 @@ namespace Dashel
 			method and calls connectionClosed(); objects dynamically allocated must thus be handled
 			with auto_ptr.
 			If step() is used, subclass must implement this method and call read at least once.
+			Called with the stream lock held.
 			
 			\param stream stream to the target
 		*/
@@ -493,6 +506,7 @@ namespace Dashel
 			You must not call closeStream(stream) from within this method for the same stream as the
 			one passed as parameter.
 			Subclass can implement this method.
+			Called with the stream lock held.
 			
 			\param stream stream to the target.
 			\param abnormal whether the connection was closed during step (abnormal == false) or when an operation was performed (abnormal == true)

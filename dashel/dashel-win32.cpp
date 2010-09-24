@@ -1361,6 +1361,14 @@ namespace Dashel
 		}
 		while(true);
 	}
+	
+	void Hub::lock()
+	{
+	}
+	
+	void Hub::unlock()
+	{
+	}
 
 	void Hub::stop()
 	{

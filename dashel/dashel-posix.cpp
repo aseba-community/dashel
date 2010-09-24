@@ -58,6 +58,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <pthread.h>
 
 #ifdef __APPLE__
 #define MACOSX
@@ -947,6 +948,8 @@ namespace Dashel
 			abort();
 		hTerminate = terminationPipes;
 		
+		pthread_mutex_init((pthread_mutex_t*)streamsLock, NULL);
+
 		// commented because we let the users manage the signal themselves
 		//allHubs.insert(this);
 	}
@@ -997,12 +1000,15 @@ namespace Dashel
 			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
 		
+		/* The caller must have the stream lock held */
+		
 		streams.insert(s);
 		if (proto != "tcpin")
 		{
 			dataStreams.insert(s);
 			connectionCreated(s);
 		}
+		
 		return s;
 	}
 	
@@ -1016,6 +1022,9 @@ namespace Dashel
 		bool firstPoll = true;
 		bool wasActivity = false;
 		bool runInterrupted = false;
+		
+		pthread_mutex_lock((pthread_mutex_t*)streamsLock);
+		
 		do
 		{
 			wasActivity = false;
@@ -1045,6 +1054,9 @@ namespace Dashel
 			// do poll and check for error
 			int thisPollTimeout = firstPoll ? timeout : 0;
 			firstPoll = false;
+			
+			pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
+			
 			#ifndef USE_POLL_EMU
 			int ret = poll(&pollFdsArray[0], pollFdsArray.size(), thisPollTimeout);
 			#else
@@ -1052,6 +1064,8 @@ namespace Dashel
 			#endif
 			if (ret < 0)
 				throw DashelException(DashelException::SyncError, errno, "Error during poll.");
+			
+			pthread_mutex_lock((pthread_mutex_t*)streamsLock);
 			
 			// check streams for errors
 			for (i = 0; i < streamsCount; i++)
@@ -1196,7 +1210,19 @@ namespace Dashel
 		}
 		while (wasActivity && !runInterrupted);
 		
+		pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
+		
 		return !runInterrupted;
+	}
+	
+	void Hub::lock()
+	{
+		pthread_mutex_lock((pthread_mutex_t*)streamsLock);
+	}
+	
+	void Hub::unlock()
+	{
+		pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
 	}
 	
 	void Hub::stop()
