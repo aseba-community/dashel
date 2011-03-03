@@ -859,7 +859,7 @@ namespace Dashel
 			}
 
 			dcb.fOutxDsrFlow = FALSE;
-			dcb.fDtrControl = DTR_CONTROL_DISABLE;
+			dcb.fDtrControl = DTR_CONTROL_ENABLE;
 			dcb.fDsrSensitivity = FALSE;
 			dcb.fBinary = TRUE;
 			dcb.fParity = TRUE;
