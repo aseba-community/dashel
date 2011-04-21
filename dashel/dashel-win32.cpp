@@ -679,6 +679,7 @@ namespace Dashel
 				memset(&o, 0, sizeof(o));
 
 				o.Offset = writeOffset;
+                                o.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 				// Blocking write.
 				BOOL r = WriteFile(hf, ptr, left, &len, &o);
