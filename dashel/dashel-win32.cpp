@@ -59,14 +59,8 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <setupapi.h>
-
-
-#ifdef _MSC_VER
-	#include <comdef.h>
-	#include <Wbemidl.h>
-//#else
-//	#include "Wbemidl.h"
-#endif // _MSC_VER
+#include <devguid.h>
+#include <regstr.h>
 
 #pragma warning(disable:4996)
 
@@ -107,135 +101,73 @@ namespace Dashel
 	{
 		std::map<int, std::pair<std::string, std::string> > ports;
 
-		#ifndef _MSC_VER
+		// Mainly based on http://support.microsoft.com/kb/259695
+		HDEVINFO hDevInfo;
+		SP_DEVINFO_DATA DeviceInfoData;
+		DWORD i;
+		char* co;
+		char dcn[1024];
 		
-		// Oldschool technique - returns too many ports...
-		DWORD n, p;
-		EnumPorts(NULL, 1, NULL, 0, &n, &p);
-		PORT_INFO_1 *d = (PORT_INFO_1*)alloca(n);
-		if(!d)
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Could not allocate buffer for port devices.");
-		if(!EnumPorts(NULL, 1, (LPBYTE)d, n, &n, &p))
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices.");
+		// Create a HDEVINFO with all present ports.
+		hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_PORTS, 0, 0, DIGCF_PRESENT );
 
-		for(n = 0; n < p; ++n)
+		if (hDevInfo == INVALID_HANDLE_VALUE)
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot list serial port devices.");
+
+		// Enumerate through all devices in Set.
+		DeviceInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+		for (i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &DeviceInfoData); i++)
 		{
-			if(!strncmp(d[n].pName, "COM", 3))
+			DWORD DataT;
+			LPTSTR buffer = NULL;
+			DWORD buffersize = 0;
+
+			// Call function with null to begin with, then use the returned buffer size (doubled) to Alloc the buffer. Keep calling until
+			// success or an unknown failure.
+			// Double the returned buffersize to correct for underlying legacy CM functions that return an incorrect buffersize value on 
+			// DBCS/MBCS systems.
+			while (!SetupDiGetDeviceRegistryProperty(hDevInfo, &DeviceInfoData, SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buffer, buffersize, &buffersize))
 			{
-				int v = atoi(&d[n].pName[3]);
+				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+				{
+					// Change the buffer size.
+					if (buffer)
+						LocalFree(buffer);
+					// Double the size to avoid problems on 
+					// W2k MBCS systems per KB 888609. 
+					buffer = (LPTSTR)LocalAlloc(LPTR,buffersize * 2);
+				}
+				else
+					throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port properties.");
+			}
+
+			// Filter to get only the COMx ports
+			if((co = strstr(buffer, "(COM")))
+			{
+				strcpy(dcn, co+1);
+				strtok(dcn, ")");
+
+				int v = atoi(&dcn[3]);
+
 				if(v > 0 && v < 256)
 				{
-					ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (d[n].pName, d[n].pName)));
+					std::string name = std::string("\\\\.\\").append(dcn);
+					ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (name, buffer)));
 				}
 			}
-		}
-		
-		#else // _MSC_VER 
-		
-		// Newschool technique - OK behaviour now...
-		// WMI should be able to return everything, but everything we are looking for is probably well
-		// lost in the namespaces.
-		HRESULT hr;
-	    hr = CoInitializeEx(0, COINIT_MULTITHREADED); 
-		if(hr == RPC_E_CHANGED_MODE)
-		{
-			hr = CoInitializeEx(0, COINIT_APARTMENTTHREADED); 
-			if(FAILED(hr))
-				throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not start COM with apartment thread model either).");
-		}
-	    else if(FAILED(hr))
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not start COM).");
-	    hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
-	    if(FAILED(hr))
-		{
-	        CoUninitialize();
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not setup COM security).");
+
+
+			if (buffer)
+				LocalFree(buffer);
 		}
 
-		IWbemLocator *pLoc = NULL;
-		hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID *) &pLoc);
-	    if(FAILED(hr))
-		{
-	        CoUninitialize();
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not create WBEM locator).");
-		} 
+		// Error ?
+		if ( GetLastError()!=NO_ERROR && GetLastError()!=ERROR_NO_MORE_ITEMS )
+			throw DashelException(DashelException::EnumerationError, GetLastError(), "Error while enumerating serial port devices.");
 
-		IWbemServices *pSvc = NULL;
-		hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\CIMV2"), NULL, NULL, 0, NULL, 0, 0, &pSvc);
-	    if(FAILED(hr))
-		{
-			pLoc->Release();
-	        CoUninitialize();
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not connect to root of CIMV2).");
-		} 
-    
-		hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
-	    if(FAILED(hr))
-		{
-			pSvc->Release();
-			pLoc->Release();
-	        CoUninitialize();
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not set proxy blanket).");
-		} 
+		// Cleanup
+		SetupDiDestroyDeviceInfoList(hDevInfo);
 
-		IEnumWbemClassObject* pEnumerator = NULL;
-		hr = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM Win32_PnPEntity WHERE ClassGuid=\"{4D36E978-E325-11CE-BFC1-08002BE10318}\""), WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &pEnumerator);
-	    if(FAILED(hr))
-		{
-			pSvc->Release();
-			pLoc->Release();
-	        CoUninitialize();
-			throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port devices (could not execute WBEM query).");
-		} 
-
-		IWbemClassObject *pclsObj;
-		ULONG uReturn = 0;
-		while (pEnumerator)
-		{
-			HRESULT hr = pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
-			if(0 == uReturn)
-				break;
-
-			VARIANT vtProp;
-			VariantInit(&vtProp);
-			char dn[1024], dcn[1024], *co;
-
-			// Get the value of the Name property
-			hr = pclsObj->Get(L"Caption", 0, &vtProp, 0, 0);
-			if(!FAILED(hr))
-			{
-				WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dn, 1024, NULL, NULL);
-				VariantClear(&vtProp);
-
-				//hr = pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
-				//WideCharToMultiByte(CP_UTF8, 0, vtProp.bstrVal, -1, dcn, 1024, NULL, NULL);
-				//VariantClear(&vtProp);
-
-				if((co = strstr(dn, "(COM")))
-				{
-					strcpy(dcn, co+1);
-					strtok(dcn, ")");
-
-					int v = atoi(&dcn[3]);
-
-					if(v > 0 && v < 256)
-					{
-						std::string name = std::string("\\\\.\\").append(dcn);
-						ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (name, dn)));
-					}
-				}
-			}
-			pclsObj->Release();
-			pclsObj = NULL;
-		}
-
-		pSvc->Release();
-		pLoc->Release();
-		pEnumerator->Release();
-		CoUninitialize();
-		
-		#endif // _MSC_VER
-		
 		return ports;
 	};
 

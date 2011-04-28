@@ -5,7 +5,7 @@ project(dashel)
 # libraries
 if (WIN32)
 	set(DASHEL_SOURCES dashel/dashel-win32.cpp dashel/dashel-common.cpp)
-	set(EXTRA_LIBS winspool ws2_32)
+	set(EXTRA_LIBS winspool ws2_32 setupapi)
 else (WIN32)
 	set(DASHEL_SOURCES dashel/dashel-posix.cpp dashel/dashel-common.cpp)
 	if (APPLE)
