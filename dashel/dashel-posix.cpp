@@ -74,6 +74,12 @@
 	#include <IOKit/serial/IOSerialKeys.h>
 #endif
 
+#ifdef USE_LIBUDEV
+extern "C" {
+	#include <libudev.h>
+}
+#endif
+
 #ifdef USE_HAL
 	#include <hal/libhal.h>
 #endif
@@ -172,6 +178,58 @@ namespace Dashel
 		IOObjectRelease(matchingServices);
 
 			
+#elif defined(USE_LIBUDEV)
+
+		struct udev *udev;
+		struct udev_enumerate *enumerate;
+		struct udev_list_entry *devices, *dev_list_entry;
+		struct udev_device *dev;
+		int index = 0;
+
+		udev = udev_new();
+		if(!udev)
+			throw DashelException(DashelException::EnumerationError, 0, "Cannot create udev context");
+
+		enumerate = udev_enumerate_new(udev);
+		udev_enumerate_add_match_subsystem(enumerate, "tty");
+		udev_enumerate_scan_devices(enumerate);
+		devices = udev_enumerate_get_list_entry(enumerate);
+
+		udev_list_entry_foreach(dev_list_entry, devices) {
+			const char *sysfs_path;
+			struct udev_device *pdev;
+			struct udev_device *usb_dev;
+			const char * path;
+
+			/* Get sysfs path and create the udev device */
+			sysfs_path = udev_list_entry_get_name(dev_list_entry);
+			dev = udev_device_new_from_syspath(udev, sysfs_path);
+
+			// Non-physical port have no parents.
+			pdev = udev_device_get_parent(dev);
+			if(pdev) {
+				ostringstream oss;
+
+				path = udev_device_get_devnode(dev);
+
+				// Check if usb, if yes get the device name
+				usb_dev = udev_device_get_parent_with_subsystem_devtype(dev,"usb","usb_device");
+				if(usb_dev)
+					oss << udev_device_get_sysattr_value(usb_dev,"product");
+				else
+					oss << "Serial Port";
+
+				oss << " (" << path << ")";
+
+				ports[index++] = std::make_pair<std::string, std::string>(path,oss.str());
+			}
+			udev_device_unref(dev);
+		}
+		
+		udev_enumerate_unref(enumerate);
+
+		udev_unref(udev);
+
 #elif defined(USE_HAL)
 
 		// use HAL to enumerates devices
