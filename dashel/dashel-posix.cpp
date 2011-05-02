@@ -197,20 +197,30 @@ namespace Dashel
 
 		udev_list_entry_foreach(dev_list_entry, devices) {
 			const char *sysfs_path;
-			struct udev_device *pdev;
 			struct udev_device *usb_dev;
 			const char * path;
+			struct stat st;
+			unsigned int maj,min;
 
 			/* Get sysfs path and create the udev device */
 			sysfs_path = udev_list_entry_get_name(dev_list_entry);
 			dev = udev_device_new_from_syspath(udev, sysfs_path);
 
-			// Non-physical port have no parents.
-			pdev = udev_device_get_parent(dev);
-			if(pdev) {
-				ostringstream oss;
+			// Some sanity check
+			path = udev_device_get_devnode(dev);
+			if(stat(path, &st)) 
+				throw DashelException(DashelException::EnumerationError, 0, "Cannot stat serial port");
+			
+			if(!S_ISCHR(st.st_mode))
+				throw DashelException(DashelException::EnumerationError, 0, "Serial port is not character device");
 
-				path = udev_device_get_devnode(dev);
+			// Get the major/minor number
+			maj = major(st.st_rdev);
+			min = minor(st.st_rdev);
+
+			// Ignore all the non physical ports
+			if(!(maj == 2 || (maj == 4 && min < 64) || maj == 3 || maj == 5)) {
+				ostringstream oss;
 
 				// Check if usb, if yes get the device name
 				usb_dev = udev_device_get_parent_with_subsystem_devtype(dev,"usb","usb_device");
