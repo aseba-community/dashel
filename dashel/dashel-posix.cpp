@@ -649,7 +649,7 @@ namespace Dashel
 		
 		virtual void receive(IPV4Address& source)
 		{
-			unsigned char buf[4006];
+			unsigned char buf[4096];
 			sockaddr_in addr;
 			socklen_t addrLen = sizeof(addr);
 			ssize_t recvCount = recvfrom(fd, buf, 4096, 0, (struct sockaddr *)&addr, &addrLen);
@@ -1243,7 +1243,9 @@ namespace Dashel
 			if (pollFdsArray[i].revents)
 			{
 				char c;
-				read(pollFdsArray[i].fd, &c, 1);
+				const ssize_t ret = read(pollFdsArray[i].fd, &c, 1);
+				if (ret != 1)
+					abort(); // poll did notify us that there was something to read, but we did not read anything, this is a bug
 				runInterrupted = true;
 			}
 			
@@ -1293,6 +1295,8 @@ namespace Dashel
 	{
 		int *terminationPipes = (int*)hTerminate;
 		char c = 0;
-		write(terminationPipes[1], &c, 1);
+		const ssize_t ret = write(terminationPipes[1], &c, 1);
+		if (ret != 1)
+			throw DashelException(DashelException::IOError, ret, "Cannot write to termination pipe.");
 	}
 }
