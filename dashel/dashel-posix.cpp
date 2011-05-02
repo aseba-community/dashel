@@ -850,12 +850,38 @@ namespace Dashel
 			{
 				target.addParam("device", NULL, true);
 				target.erase("port");
+				target.erase("name");
 				
 				devFileName = target.get("device");
 			}
-			else
+			else if (target.isSet("name"))
+			{
+				target.addParam("name", NULL, true);
+				target.erase("port");
+				target.erase("device");
+
+				// Enumerates the ports
+				std::string name = target.get("name");
+				std::map<int, std::pair<std::string, std:: string> > ports = SerialPortEnumerator::getPorts();
+
+				// Iterate on all ports to found one with "name" in its description
+				std::map<int, std::pair<std::string, std:: string> >::iterator it;
+				for (it = ports.begin(); it != ports.end(); it++)
+				{
+					if (it->second.second.find(name) != std::string::npos)
+					{
+						devFileName = it->second.first;
+						std::cout << "Found " << name << " on port " << devFileName << std::endl;
+						break;
+					}
+				}
+				if (devFileName.size() == 0)
+					throw DashelException(DashelException::ConnectionFailed, 0, "The specified name could not be find among the serial ports.");
+			}
+			else // port
 			{
 				target.erase("device");
+				target.erase("name");
 				
 				std::map<int, std::pair<std::string, std::string> > ports = SerialPortEnumerator::getPorts();
 				std::map<int, std::pair<std::string, std::string> >::const_iterator it = ports.find(target.get<int>("port"));

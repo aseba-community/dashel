@@ -844,22 +844,46 @@ namespace Dashel
 			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
 			target.add(params.c_str());
 
-			std::string name;
+			std::string devName;
 			if (target.isSet("device"))
 			{
 				target.addParam("device", NULL, true);
 				target.erase("port");
 				
-				name = target.get("device");
+				devName = target.get("device");
+			}
+			else if (target.isSet("name"))
+			{
+				target.addParam("name", NULL, true);
+				target.erase("port");
+				target.erase("device");
+
+				// Enumerates the ports
+				std::string name = target.get("name");
+				std::map<int, std::pair<std::string, std:: string> > ports = SerialPortEnumerator::getPorts();
+
+				// Iterate on all ports to found one with "name" in its description
+				std::map<int, std::pair<std::string, std:: string> >::iterator it;
+				for (it = ports.begin(); it != ports.end(); it++)
+				{
+					if (it->second.second.find(name) != std::string::npos)
+					{
+						devName = it->second.first;
+						std::cout << "Found " << name << " on port " << devName << std::endl;
+						break;
+					}
+				}
+				if (devName.size() == 0)
+					throw DashelException(DashelException::ConnectionFailed, 0, "The specified name could not be find among the serial ports.");
 			}
 			else
 			{
 				target.erase("device");
 				
-				name = std::string("\\\\.\\COM").append(target.get("port"));
+				devName = std::string("\\\\.\\COM").append(target.get("port"));
 			}
 
-			hf = CreateFile(name.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+			hf = CreateFile(devName.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 			if(hf == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open serial port.");
 
