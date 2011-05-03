@@ -61,6 +61,7 @@
 #include <setupapi.h>
 #include <devguid.h>
 #include <regstr.h>
+#include <winnls.h>
 
 #pragma warning(disable:4996)
 
@@ -106,7 +107,7 @@ namespace Dashel
 		SP_DEVINFO_DATA DeviceInfoData;
 		DWORD i;
 		char* co;
-		char dcn[1024];
+		char dn[1024], dcn[1024];
 		
 		// Create a HDEVINFO with all present ports.
 		hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_PORTS, 0, 0, DIGCF_PRESENT );
@@ -126,7 +127,7 @@ namespace Dashel
 			// success or an unknown failure.
 			// Double the returned buffersize to correct for underlying legacy CM functions that return an incorrect buffersize value on 
 			// DBCS/MBCS systems.
-			while (!SetupDiGetDeviceRegistryProperty(hDevInfo, &DeviceInfoData, SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buffer, buffersize, &buffersize))
+			while (!SetupDiGetDeviceRegistryPropertyW(hDevInfo, &DeviceInfoData, SPDRP_FRIENDLYNAME, &DataT, (PBYTE)buffer, buffersize, &buffersize))
 			{
 				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 				{
@@ -141,8 +142,10 @@ namespace Dashel
 					throw DashelException(DashelException::EnumerationError, GetLastError(), "Cannot get serial port properties.");
 			}
 
+			WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)buffer, -1, dn, 1024, NULL, NULL);
+
 			// Filter to get only the COMx ports
-			if((co = strstr(buffer, "(COM")))
+			if((co = strstr(dn, "(COM")))
 			{
 				strcpy(dcn, co+1);
 				strtok(dcn, ")");
@@ -152,7 +155,7 @@ namespace Dashel
 				if(v > 0 && v < 256)
 				{
 					std::string name = std::string("\\\\.\\").append(dcn);
-					ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (name, buffer)));
+					ports.insert(std::pair<int, std::pair<std::string, std::string> >(v, std::pair<std::string, std::string> (name, dn)));
 				}
 			}
 
