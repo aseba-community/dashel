@@ -1,5 +1,5 @@
 DaSHEL, a cross-platform DAta Stream Helper Encapsulation Library
-Copyright (C) 2007 -- 2009:
+Copyright (C) 2007 -- 2011:
 	
 	Stephane Magnenat <stephane at magnenat dot net>
 		(http://stephane.magnenat.net)
@@ -51,6 +51,9 @@ If you are on Unix and lazy, and just want to compile Dashel without any
 additional thinking, try the following commands in Dashel sources directory:
 	cmake . && make
 If this does not work, then read the aforementioned web page.
+
+Optionally, on Linux, to enumerate serial ports properly, you can install libudev:
+	libudev (http://www.kernel.org/pub/linux/utils/kernel/hotplug/libudev/)
 
 If you still have some problem to compile Dashel after reading the relevant
 documentation, feel free to post your question on our development mailing
