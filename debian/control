@@ -1,9 +1,9 @@
 Source:libdashel
-Maintainer: Stephane Magnenat <stephane@nospam.magnenant.net>
+Maintainer: Stephane Magnenat <stephane@nospam.magnenat.net>
 Section:devel
 Priority:optional
 Standards-Version: 3.7.2
-Build-Depends: cmake (>= 2.6)
+Build-Depends: cmake (>= 2.6), libudev-dev
 
 Package:libdashel
 Architecture: any

@@ -1,7 +1,7 @@
 /*
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007 -- 2009:
+	Copyright (C) 2007 -- 2011:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -133,9 +133,9 @@ namespace Dashel
 	class Stream;
 	
 	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.0.3"
+	#define DASHEL_VERSION "1.0.4"
 	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10003
+	#define DASHEL_VERSION_INT 10004
 	
 	//! The one size fits all exception for streams.
 	/*!
