@@ -205,6 +205,9 @@ namespace Dashel
 		bool readDone;
 		
 	protected:
+		//! Event for notifying end of stream (i.e. disconnect)
+		HANDLE hEOF;
+
 		//! Create a new event for this stream.
 		/*! \param t Type of event to create.
 		*/
@@ -226,7 +229,10 @@ namespace Dashel
 		
 	public:
 		//! Constructor.
-		WaitableStream(const std::string& protocolName) : Stream(protocolName) { }
+		WaitableStream(const std::string& protocolName) : Stream(protocolName)
+		{
+			hEOF = createEvent(EvClosed);
+		}
 
 		//! Destructor.
 		/*! Releases all allocated handles.
@@ -534,9 +540,6 @@ namespace Dashel
 		//! Flag indicating whether readByte is around.
 		bool readByteAvailable;
 
-		//! Event for notifying end of file (i.e. disconnect)
-		HANDLE hEOF;
-
 	protected:
 		//! Create a blank stream.
 		/*! This constructor is used only by derived classes that initialize differently.
@@ -589,8 +592,6 @@ namespace Dashel
 			}
 			if(hf == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open file.");
-
-			hEOF = createEvent(EvClosed);
 		}
 
 		//! Destructor
@@ -602,7 +603,9 @@ namespace Dashel
 		virtual void write(const void *data, const size_t size)
 		{
 			const char *ptr = (const char *)data;
+			const unsigned int RETRY_LIMIT = 3;
 			DWORD left = (DWORD)size;
+			unsigned int retry = 0;
 
 			// Quick check to make sure nobody is giving us funny 64-bit stuff.
 			assert(left == size);
@@ -625,6 +628,16 @@ namespace Dashel
 					{
 					case ERROR_IO_PENDING:
 						GetOverlappedResult(hf, &o, &len, TRUE);
+						if (len == 0)
+						{
+							if (retry++ >= RETRY_LIMIT)
+							{
+								SetEvent(hEOF);
+								fail(DashelException::IOError, GetLastError(), "Cannot write to file (max retry reached).");
+							}
+							else
+								continue;
+						}
 						ptr += len;
 						left -= len;
 						break;
@@ -908,9 +921,6 @@ namespace Dashel
 		//! Event for real data.
 		HANDLE hev2;
 
-		//! Event for shutdown.
-		HANDLE hev3;
-
 		//! Indicates whether stream is actually ready to read.
 		/*! If a read is attempted when this flag is false, we need to wait for data
 			to arrive, because our user is being cruel and did not wait for the 
@@ -963,7 +973,6 @@ namespace Dashel
 			}
 
 			hev2 = createEvent(EvData);
-			hev3 = createEvent(EvClosed);
 			hev = createEvent(EvPotentialData);
 
 			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
@@ -1284,6 +1293,18 @@ namespace Dashel
 			}
 			else 
 			{
+				// Notify user that something happended.
+				if(ets[r] == EvClosed)
+				{
+					try
+					{
+						connectionClosed(strs[r], false);
+					}
+					catch (DashelException e) { }
+					closeStream(strs[r]);
+					continue;
+				}
+
 				// Notify the stream that its event arrived.
 				strs[r]->notifyEvent(this, ets[r]);
 
@@ -1303,16 +1324,6 @@ namespace Dashel
 						connectionClosed(strs[r], true);
 						closeStream(strs[r]);
 					}
-				}
-				// Notify user that something happended.
-				if(ets[r] == EvClosed)
-				{
-					try
-					{
-						connectionClosed(strs[r], false);
-					}
-					catch (DashelException e) { }
-					closeStream(strs[r]);
 				}
 			}
 
