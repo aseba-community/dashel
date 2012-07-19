@@ -155,6 +155,7 @@ namespace Dashel
 			{
 				std::string path;
 				char cStr[255];
+				std::string name;
 				
 				bool res = CFStringGetCString((CFStringRef) bsdPathAsCFString, cStr, 255, kCFStringEncodingUTF8);
 				if(res)
@@ -164,9 +165,20 @@ namespace Dashel
 				
 				CFRelease(bsdPathAsCFString);
 				
-				// add path to the port list
-				//FIXME: we should pass a user-friendly name here.
-				ports[index++] = std::make_pair<std::string, std::string>(path, path);
+				CFTypeRef fn = IORegistryEntrySearchCFProperty(modemService, kIOServicePlane, CFSTR("USB Product Name"), kCFAllocatorDefault,
+										kIORegistryIterateRecursively | kIORegistryIterateParents);
+				if(fn) {
+					res = CFStringGetCString((CFStringRef) fn, cStr, 255, kCFStringEncodingUTF8);
+					if(res) 
+						name = cStr;
+					else
+						throw DashelException(DashelException::EnumerationError, 0, "CFStringGetString failed");
+
+					CFRelease(fn);
+				} else 
+					name = "Serial Port";
+				name = name + " (" + path + ")";
+				ports[index++] = std::make_pair<std::string, std::string>(path, name);
 			}
 			else
 				throw DashelException(DashelException::EnumerationError, 0, "IORegistryEntryCreateCFProperty returned a NULL path");
