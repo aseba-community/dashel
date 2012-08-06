@@ -1246,7 +1246,10 @@ namespace Dashel
 						socklen_t l = sizeof (targetAddr);
 						int targetFD = accept (stream->fd, (struct sockaddr *)&targetAddr, &l);
 						if (targetFD < 0)
+						{
+							pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
 							throw DashelException(DashelException::SyncError, errno, "Cannot accept new stream.");
+						}
 						
 						// create a target stream using the new file descriptor from accept
 						ostringstream targetName;
