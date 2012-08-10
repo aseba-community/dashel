@@ -1289,6 +1289,7 @@ namespace Dashel
 			if(r == 0)
 			{
 				// Quit
+				ResetEvent(hTerminate);
 				return false;
 			}
 			else 
