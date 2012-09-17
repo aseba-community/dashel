@@ -113,6 +113,20 @@ namespace Dashel
 		return t;
 	}
 	
+	//! Create an instance of stream type C, passing target to its constructor
+	template<typename C>
+	Stream* createInstance(const std::string& target, const Hub& hub)
+	{
+		return new C(target);
+	}
+	
+	//! Create an instance of stream type C, passing target to its constructor
+	template<typename C>
+	Stream* createInstanceWithHub(const std::string& target, const Hub& hub)
+	{
+		return new C(target, hub);
+	}
+	
 
 	//! Event types that can be waited on.
 	typedef enum {

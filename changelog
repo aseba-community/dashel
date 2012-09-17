@@ -1,1 +1,3 @@
-* Initial release
+2021-09-17, version 1.0.5:
+
+	* Mechanism to add new stream types at run time

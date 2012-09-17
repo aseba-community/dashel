@@ -133,9 +133,9 @@ namespace Dashel
 	class Stream;
 	
 	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.0.4"
+	#define DASHEL_VERSION "1.0.5"
 	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10004
+	#define DASHEL_VERSION_INT 10005
 	
 	//! The one size fits all exception for streams.
 	/*!
@@ -415,6 +415,8 @@ namespace Dashel
 	
 	protected:
 		StreamsSet dataStreams;		//!< All our streams that transfer data (in opposition to streams that just listen for data).
+	
+	public:
 		const bool resolveIncomingNames; //!< Whether Dashel should try to resolve the peer's hostname of incoming TCP connections
 	
 	public:
@@ -514,6 +516,30 @@ namespace Dashel
 		*/
 		virtual void connectionClosed(Stream * /* stream */, bool /* abnormal */) { }
 	};
+	
+	//! Registry of constructors to a stream, to add new stream types dynamically
+	struct StreamTypeRegistry
+	{
+		//! A function which creates an instance of a stream
+		typedef Stream* (*CreatorFunc)(const std::string& target, const Hub& hub);
+		
+		StreamTypeRegistry();
+		
+		void reg(const std::string& proto, const CreatorFunc func);
+		
+		Stream* create(const std::string& proto, const std::string& target, const Hub& hub) const;
+		
+		std::string list() const;
+		
+	protected:
+		//! a map of stream type names to constructors and arguments
+		typedef std::map<std::string, CreatorFunc> CreatorMap;
+		//! streams that can be created
+		CreatorMap creators;
+	};
+	
+	//! The registry of all known stream types
+	extern StreamTypeRegistry streamTypeRegistry;
 }
 
 #endif

@@ -842,6 +842,22 @@ namespace Dashel
 		}
 	};
 	
+	//! Standard input stream, simply a FileStream with a specific target
+	struct StdinStream: public FileStream
+	{
+		StdinStream(const string& targetName):
+			Stream("file"),
+			FileStream("file:name=/dev/stdin;mode=read;fd=0") {}
+	};
+	
+	//! Standard output stream, simply a FileStream with a specific target
+	struct StdoutStream: public FileStream
+	{
+		StdoutStream(const string& targetName):
+			Stream("file"),
+			FileStream("file:name=/dev/stdout;mode=write;fd=1") {}
+	};
+	
 	//! Stream for serial port, in addition to FileDescriptorStream, save old state of serial port
 	class SerialStream: public FileDescriptorStream
 	{
@@ -1088,27 +1104,14 @@ namespace Dashel
 			throw DashelException(DashelException::InvalidTarget, 0, "No protocol specified in target.");
 		proto = target.substr(0, c);
 		params = target.substr(c+1);
-
-		SelectableStream *s = NULL;
-		if(proto == "file")
-			s = new FileStream(target);
-		if(proto == "stdin")
-			s = new FileStream("file:name=/dev/stdin;mode=read;fd=0");
-		if(proto == "stdout")
-			s = new FileStream("file:name=/dev/stdout;mode=write;fd=1");
-		if(proto == "ser")
-			s = new SerialStream(target);
-		if(proto == "tcpin")
-			s = new SocketServerStream(target);
-		if(proto == "tcp")
-			s = new SocketStream(target);
-		if(proto == "udp")
-			s = new UDPSocketStream(target);
 		
+		SelectableStream *s(dynamic_cast<SelectableStream*>(streamTypeRegistry.create(proto, target, *this)));
 		if(!s)
 		{
 			std::string r = "Invalid protocol in target: ";
-			r = r.append(proto);
+			r += proto;
+			r += ", known protocol are: ";
+			r += streamTypeRegistry.list();
 			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
 		
@@ -1350,4 +1353,17 @@ namespace Dashel
 		if (ret != 1)
 			throw DashelException(DashelException::IOError, ret, "Cannot write to termination pipe.");
 	}
+	
+	StreamTypeRegistry::StreamTypeRegistry()
+	{
+		reg("file", &createInstance<FileStream>);
+		reg("stdin", &createInstance<StdinStream>);
+		reg("stdout", &createInstance<StdoutStream>);
+		reg("ser", &createInstance<SerialStream>);
+		reg("tcpin", &createInstance<SocketServerStream>);
+		reg("tcp", &createInstance<SocketStream>);
+		reg("udp", &createInstance<UDPSocketStream>);
+	}
+	
+	StreamTypeRegistry streamTypeRegistry;
 }

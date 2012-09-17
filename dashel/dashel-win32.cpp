@@ -269,8 +269,8 @@ namespace Dashel
 	public:
 
 		//! Create the stream and associates a file descriptor
-		SocketServerStream(const std::string& params, const bool resolveIncomingNames) : Stream("tcpin"), WaitableStream("tcpin"),
-			resolveIncomingNames(resolveIncomingNames)
+		SocketServerStream(const std::string& params, const Hub& hub) : Stream("tcpin"), WaitableStream("tcpin"),
+			resolveIncomingNames(hub.resolveIncomingNames)
 		{ 
 			target.add("tcpin:port=5000;address=0.0.0.0");
 			target.add(params.c_str());
@@ -1212,26 +1212,13 @@ namespace Dashel
 		proto = target.substr(0, c);
 		params = target.substr(c+1);
 
-		WaitableStream *s = NULL;
-		if(proto == "file")
-			s = new FileStream(target);
-		if(proto == "stdin")
-			s = new StdinStream(target);
-		if(proto == "stdout")
-			s = new StdoutStream(target);
-		if(proto == "ser")
-			s = new SerialStream(target);
-		if(proto == "tcpin")
-			s = new SocketServerStream(target, resolveIncomingNames);
-		if(proto == "tcp")
-			s = new SocketStream(target);
-		if(proto == "udp")
-			s = new UDPSocketStream(target);
-		
+		WaitableStream *s(dynamic_cast<WaitableStream*>(streamTypeRegistry.create(proto, target, *this)));
 		if(!s)
 		{
 			std::string r = "Invalid protocol in target: ";
-			r = r.append(proto);
+			r += proto;
+			r += ", known protocol are: ";
+			r += streamTypeRegistry.list();
 			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
 		
@@ -1347,5 +1334,16 @@ namespace Dashel
 		SetEvent(hTerminate);
 	}
 
-
+	StreamTypeRegistry::StreamTypeRegistry()
+	{
+		reg("file", &createInstance<FileStream>);
+		reg("stdin", &createInstance<StdinStream>);
+		reg("stdout", &createInstance<StdoutStream>);
+		reg("ser", &createInstance<SerialStream>);
+		reg("tcpin", &createInstanceWithHub<SocketServerStream>);
+		reg("tcp", &createInstance<SocketStream>);
+		reg("udp", &createInstance<UDPSocketStream>);
+	}
+	
+	StreamTypeRegistry streamTypeRegistry;
 }

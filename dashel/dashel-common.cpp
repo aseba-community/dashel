@@ -295,5 +295,33 @@ namespace Dashel
 		dataStreams.erase(stream);
 		delete stream;
 	}
+	
+	void StreamTypeRegistry::reg(const std::string& proto, const CreatorFunc func)
+	{
+		creators[proto] = func;
+	}
+	
+	Stream* StreamTypeRegistry::create(const std::string& proto, const std::string& target, const Hub& hub) const
+	{
+		typedef CreatorMap::const_iterator ConstIt;
+		ConstIt it(creators.find(proto));
+		if (it == creators.end())
+			return 0;
+		const CreatorFunc& creatorFunc(it->second);
+		return creatorFunc(target, hub);
+	}
+	
+	std::string StreamTypeRegistry::list() const
+	{
+		std::string s;
+		for (CreatorMap::const_iterator it = creators.begin(); it != creators.end();)
+		{
+			s += it->first;
+			++it;
+			if (it != creators.end())
+				s += ", ";
+		}
+		return s;
+	}
 }
 
