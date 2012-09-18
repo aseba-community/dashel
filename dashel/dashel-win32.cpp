@@ -72,6 +72,14 @@
 */
 namespace Dashel
 {
+	//! Event types that can be waited on.
+	typedef enum {
+		EvData,				//!< Data available.
+		EvPotentialData,	//!< Maybe some data or maybe not.
+		EvClosed,			//!< Closed by remote.
+		EvConnect,			//!< Incoming connection detected.
+	} EvType;
+	
 	//! Asserts a dynamic cast.	Similar to the one in boost/cast.hpp
 	template<typename Derived, typename Base>
 	inline Derived polymorphic_downcast(Base base)

@@ -110,14 +110,6 @@ namespace Dashel
 		iss >> t;
 		return t;
 	}
-
-	//! Event types that can be waited on.
-	typedef enum {
-		EvData,				//!< Data available.
-		EvPotentialData,	//!< Maybe some data or maybe not.
-		EvClosed,			//!< Closed by remote.
-		EvConnect,			//!< Incoming connection detected.
-	} EvType;
 }
 
 #endif
