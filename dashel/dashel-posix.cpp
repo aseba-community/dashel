@@ -1349,5 +1349,5 @@ namespace Dashel
 		reg("udp", &createInstance<UDPSocketStream>);
 	}
 	
-	StreamTypeRegistry streamTypeRegistry;
+	StreamTypeRegistry __attribute__((init_priority(1000))) streamTypeRegistry;
 }
