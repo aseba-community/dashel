@@ -38,8 +38,6 @@
 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-// stdin: tcp:host=localhost;
-
 #ifndef INCLUDED_DASHEL_PRIVATE_H
 #define INCLUDED_DASHEL_PRIVATE_H
 
@@ -112,21 +110,6 @@ namespace Dashel
 		iss >> t;
 		return t;
 	}
-	
-	//! Create an instance of stream type C, passing target to its constructor
-	template<typename C>
-	Stream* createInstance(const std::string& target, const Hub& hub)
-	{
-		return new C(target);
-	}
-	
-	//! Create an instance of stream type C, passing target to its constructor
-	template<typename C>
-	Stream* createInstanceWithHub(const std::string& target, const Hub& hub)
-	{
-		return new C(target, hub);
-	}
-	
 
 	//! Event types that can be waited on.
 	typedef enum {

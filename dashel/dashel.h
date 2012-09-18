@@ -523,12 +523,16 @@ namespace Dashel
 		//! A function which creates an instance of a stream
 		typedef Stream* (*CreatorFunc)(const std::string& target, const Hub& hub);
 		
+		//! Register known stream types, implemented in different platform-specific files
 		StreamTypeRegistry();
 		
+		//! Register a new stream type
 		void reg(const std::string& proto, const CreatorFunc func);
 		
+		//! Create a stream of a given type, return 0 if type does not exist
 		Stream* create(const std::string& proto, const std::string& target, const Hub& hub) const;
 		
+		//! Return list of stream types
 		std::string list() const;
 		
 	protected:
@@ -537,6 +541,20 @@ namespace Dashel
 		//! streams that can be created
 		CreatorMap creators;
 	};
+	
+	//! Create an instance of stream type C, passing target to its constructor
+	template<typename C>
+	Stream* createInstance(const std::string& target, const Hub& hub)
+	{
+		return new C(target);
+	}
+	
+	//! Create an instance of stream type C, passing target to its constructor
+	template<typename C>
+	Stream* createInstanceWithHub(const std::string& target, const Hub& hub)
+	{
+		return new C(target, hub);
+	}
 	
 	//! The registry of all known stream types
 	extern StreamTypeRegistry streamTypeRegistry;

@@ -14,9 +14,11 @@ endif (UDEV_INCLUDE_DIR AND UDEV_LIBS)
 # libraries
 if (WIN32)
 	set(DASHEL_SOURCES dashel/dashel-win32.cpp dashel/dashel-common.cpp)
+	set(DASHEL_INSTALL_HEADER dashel/dashel.h)
 	set(EXTRA_LIBS winspool ws2_32 setupapi)
 else (WIN32)
 	set(DASHEL_SOURCES dashel/dashel-posix.cpp dashel/dashel-common.cpp)
+	set(DASHEL_INSTALL_HEADER dashel/dashel.h dashel/dashel-posix.h)
 	if (APPLE)
 		set(DASHEL_SOURCES ${DASHEL_SOURCES} dashel/poll_emu.c)
 		find_library(COREFOUNDATION_LIBRARY CoreFoundation)
@@ -45,7 +47,7 @@ endif (WIN32)
 add_library(dashel ${DASHEL_SOURCES})
 
 # install target
-install(FILES dashel/dashel.h
+install(FILES ${DASHEL_INSTALL_HEADER}
         DESTINATION include/dashel)
 install(TARGETS dashel
         LIBRARY DESTINATION lib

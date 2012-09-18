@@ -23,6 +23,7 @@ binary-arch: build
 	cp debian/changelog debian/tmp/usr/share/doc/libdashel/changelog.debian
 	cp debian/copyright debian/tmp/usr/share/doc/libdashel
 	cp dashel/dashel.h debian/tmp/usr/include/dashel
+	cp dashel/dashel-posix.h debian/tmp/usr/include/dashel
 	cp debian/build/libdashel.a debian/tmp/usr/lib
 	chown -R root.root debian/tmp
 	chmod -R o-s,go=u,go-ws debian/tmp

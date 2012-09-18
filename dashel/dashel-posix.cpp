@@ -91,6 +91,7 @@ extern "C" {
 #endif
 
 #include "dashel-private.h"
+#include "dashel-posix.h"
 
 
 
@@ -306,37 +307,20 @@ namespace Dashel
 	
 	#define RECV_BUFFER_SIZE	4096
 
-	//! Stream with a file descriptor that is selectable
-	class SelectableStream: virtual public Stream
+	SelectableStream::SelectableStream(const string& protocolName) : 
+		Stream(protocolName),
+		fd(-1),
+		writeOnly(false)
 	{
-	protected:
-		int fd; //!< associated file descriptor
-		bool writeOnly;	//!< true if we can only write on this stream
-		friend class Hub;
+		
+	}
 	
-	public:
-		//! Create the stream and associates a file descriptor
-		SelectableStream(const string& protocolName) : 
-			Stream(protocolName),
-			fd(-1),
-			writeOnly(false)
-		{
-			
-		}
-		
-		virtual ~SelectableStream()
-		{
-			// on POSIX, do not close stdin, stdout, nor stderr
-			if (fd >= 3)
-				close(fd);
-		}
-		
-		//! If necessary, read a byte and check for disconnection; return true on disconnection, fales otherwise
-		virtual bool receiveDataAndCheckDisconnection() = 0;
-		
-		//! Return true while there is some unread data in the reception buffer
-		virtual bool isDataInRecvBuffer() const = 0;
-	};
+	SelectableStream::~SelectableStream()
+	{
+		// on POSIX, do not close stdin, stdout, nor stderr
+		if (fd >= 3)
+			close(fd);
+	}
 	
 	//! In addition its parent, this stream can also make select return because of the target has disconnected
 	class DisconnectableStream: public SelectableStream
