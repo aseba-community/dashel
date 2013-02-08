@@ -68,7 +68,7 @@
 #include "dashel-private.h"
 
 /*!	\file dashel-win32.cpp
-	\brief Win32 implementation of Dashel, A cross-platform DAta Stream Helper Encatargetulation Library
+	\brief Win32 implementation of Dashel, A cross-platform DAta Stream Helper Encapsulation Library
 */
 namespace Dashel
 {
@@ -1032,7 +1032,7 @@ namespace Dashel
 				
 				if (len == SOCKET_ERROR)
 				{
-					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost on write.");
+					fail(DashelException::ConnectionLost, GetLastError(), "Connection lost on write.");
 				}
 				else
 				{
@@ -1080,7 +1080,7 @@ namespace Dashel
 				if (len == SOCKET_ERROR)
 				{
 					//std::cerr << "socket error" << std::endl;
-					fail(DashelException::ConnectionFailed, GetLastError(), "Connection lost on read.");
+					fail(DashelException::ConnectionLost, GetLastError(), "Connection lost on read.");
 				}
 				else if(len == 0)
 				{
