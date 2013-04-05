@@ -51,6 +51,7 @@ namespace Dashel
 	protected:
 		int fd; //!< associated file descriptor
 		bool writeOnly;	//!< true if we can only write on this stream
+		short pollEvent; //!< the poll event we must react to
 		friend class Hub;
 	
 	public:
