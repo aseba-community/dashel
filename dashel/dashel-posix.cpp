@@ -310,7 +310,8 @@ namespace Dashel
 	SelectableStream::SelectableStream(const string& protocolName) : 
 		Stream(protocolName),
 		fd(-1),
-		writeOnly(false)
+		writeOnly(false),
+		pollEvent(POLLIN)
 	{
 		
 	}
@@ -1141,7 +1142,7 @@ namespace Dashel
 				pollFdsArray[i].fd = stream->fd;
 				pollFdsArray[i].events = 0;
 				if ((!stream->failed()) && (!stream->writeOnly))
-					pollFdsArray[i].events |= POLLIN;
+					pollFdsArray[i].events |= stream->pollEvent;
 				
 				i++;
 			}
@@ -1218,7 +1219,7 @@ namespace Dashel
 					
 					closeStream(stream);
 				}
-				else if (pollFdsArray[i].revents & POLLIN)
+				else if (pollFdsArray[i].revents & stream->pollEvent)
 				{
 					//std::cerr << "POLLIN" << std::endl;
 					wasActivity = true;
