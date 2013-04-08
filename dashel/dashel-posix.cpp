@@ -59,6 +59,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <pthread.h>
+#include <netinet/in.h>
 
 #ifdef __APPLE__
 #define MACOSX
