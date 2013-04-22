@@ -1,3 +1,9 @@
+libdashel (1.0.6) precise; urgency=low
+
+  * new upstream release
+
+ -- Stéphane Magnenat <stephane@nospam.magnenat.net>  Mon, 22 Apr 2013 14:38:21 +0200
+
 libdashel (1.0.5) precise; urgency=low
 
   * new upstream release

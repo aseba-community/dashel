@@ -58,6 +58,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <pthread.h>
 #include <netinet/in.h>
 
@@ -908,9 +909,15 @@ namespace Dashel
 			}
 		
 			fd = open(devFileName.c_str(), O_RDWR);
-			
 			if (fd == -1)
 				throw DashelException(DashelException::ConnectionFailed, 0, "Cannot open serial port.");
+			
+			int lockRes = flock(fd, LOCK_EX|LOCK_NB);
+			if (lockRes != 0)
+			{
+				close(fd);
+				throw DashelException(DashelException::ConnectionFailed, errno, (string("Cannot lock serial port: ") + strerror(errno)).c_str());
+			}
 			
 			struct termios newtio;
 			
