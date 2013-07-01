@@ -625,7 +625,7 @@ namespace Dashel
 				memset(&o, 0, sizeof(o));
 
 				o.Offset = writeOffset;
-                                o.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+				o.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 				// Blocking write.
 				BOOL r = WriteFile(hf, ptr, left, &len, &o);
@@ -661,7 +661,7 @@ namespace Dashel
 					left -= len;
 				}
 			
-				writeOffset += len;	
+				writeOffset += len;
 			}
 		}
 		
@@ -1203,12 +1203,24 @@ namespace Dashel
 		resolveIncomingNames(resolveIncomingNames)
 	{
 		hTerminate = CreateEvent(NULL, TRUE, FALSE, NULL);
+		if (!hTerminate)
+		{
+			std::cerr << "Cannot create hTerminate event, error " << GetLastError() << std::endl;
+			abort();
+		}
+		streamsLock = CreateMutex(NULL, FALSE, NULL);
+		if (!streamsLock)
+		{
+			std::cerr << "Cannot create streamsLock mutex, error " << GetLastError() << std::endl;
+			abort();
+		}
 	}
 	
 	Hub::~Hub()
 	{
 		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 			delete *it;
+		CloseHandle(streamsLock);
 	}
 	
 	Stream* Hub::connect(const std::string &target)
@@ -1229,6 +1241,8 @@ namespace Dashel
 			r += streamTypeRegistry.list();
 			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
+		
+		/* The caller must have the stream lock held */
 		
 		streams.insert(s);
 		if (proto != "tcpin")
@@ -1252,10 +1266,12 @@ namespace Dashel
 		
 		// Wait on all our events.
 		DWORD ms = timeout >= 0 ? timeout : INFINITE;
-
-		// Loop in order to consume all events.
+		
+		// Loop in order to consume all events, mostly within lock, excepted for wait
+		lock();
 		do
 		{
+			// the first object to be waited on is always the hTerminate
 			DWORD hc = 1;
 
 			// Collect all events from all our streams.
@@ -1264,13 +1280,21 @@ namespace Dashel
 				WaitableStream* stream = polymorphic_downcast<WaitableStream*>(*it);
 				for(std::map<EvType,HANDLE>::iterator ei = stream->hEvents.begin(); ei != stream->hEvents.end(); ++ei)
 				{
+					// check array bounds, abort cleanly instead of creating memory trash
+					if (hc == 64)
+					{
+						std::cerr << "Trying to wait on more than 64 events" << std::endl;
+						abort();
+					}
 					strs[hc] = stream;
 					ets[hc] = ei->first;
 					hEvs[hc] = ei->second;
 					hc++;
 				}
 			}
-
+			
+			// Unlock for the wait
+			unlock();
 			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms);
 			
 			// Check for error or timeout.
@@ -1278,6 +1302,9 @@ namespace Dashel
 				throw DashelException(DashelException::SyncError, 0, "Wait failed.");
 			if (r == WAIT_TIMEOUT)
 				return true;
+			
+			// Relock for manipulating streams and calling callbacks
+			lock();
 
 			// Look for what we got.
 			r -= WAIT_OBJECT_0;
@@ -1285,6 +1312,7 @@ namespace Dashel
 			{
 				// Quit
 				ResetEvent(hTerminate);
+				unlock();
 				return false;
 			}
 			else 
@@ -1296,7 +1324,8 @@ namespace Dashel
 					{
 						connectionClosed(strs[r], false);
 					}
-					catch (DashelException e) { }
+					catch (DashelException e)
+					{ }
 					closeStream(strs[r]);
 					continue;
 				}
@@ -1312,9 +1341,13 @@ namespace Dashel
 						strs[r]->readDone = false;
 						incomingData(strs[r]);
 					}
-					catch (DashelException e) { }
+					catch (DashelException e)
+					{ }
 					if(!strs[r]->readDone)
+					{
+						unlock();
 						throw DashelException(DashelException::PreviousIncomingDataNotRead, 0, "Previous incoming data not read.", strs[r]);
+					}
 					if(strs[r]->failed())
 					{
 						connectionClosed(strs[r], true);
@@ -1331,10 +1364,21 @@ namespace Dashel
 	
 	void Hub::lock()
 	{
+		DWORD waitRet = WaitForSingleObject(streamsLock, INFINITE);
+		if (waitRet != WAIT_OBJECT_0)
+		{
+			std::cerr << "Cannot lock mutex, instead got " << std::hex << waitRet << std::endl;
+			abort();
+		}
 	}
 	
 	void Hub::unlock()
 	{
+		if (!ReleaseMutex(streamsLock))
+		{
+			std::cerr << "Cannot unlock mutex, error " << GetLastError() << std::endl;
+			abort();
+		}
 	}
 
 	void Hub::stop()
