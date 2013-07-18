@@ -468,12 +468,10 @@ namespace Dashel
 		void stop();
 		
 		/** Block any hub processing so another thread can access the streams safely.
-			Currently only implemented on POSIX platform, no-op on others.
 		 */
 		void lock();
 		
 		/** Release the lock aquired by lock().
-			Currently only implemented on POSIX platform, no-op on others.
 		*/
 		void unlock();
 
