@@ -1,7 +1,11 @@
 Name:           dashel
-# Update the following line to reflect the source release version you will be
+
+# Update the following lines to reflect the source release version you will be
 # referencing below
-Version:        1.0.7
+%global source_major 1
+%global source_minor 0
+%global source_patch 7
+Version:        %{source_major}.%{source_minor}.%{source_patch}
 
 # Update the following line with the git commit hash of the revision to use
 # for example by running git show-ref -s --tags RELEASE_TAG
@@ -23,28 +27,47 @@ Version:        1.0.7
 # release version (i.e. the "Version:" line above refers to a future
 # source release version), then set the number to 0.0. Otherwise, leave the
 # the number unchanged. It will get bumped when you run rpmdev-bumpspec.
-Release:        3%{?snapshot}%{?dist}
+Release:        4%{?snapshot}%{?dist}
 
 Summary:        A C++ cross-platform data stream helper encapsulation library
+
+%global lib_pkg_name lib%{name}%{source_major}
+
+%if 0%{?suse_version}
+%global buildoutdir build
+%else
+%global buildoutdir .
+%endif
+
+%if 0%{?suse_version}
+License:        BSD-3-Clause
+%else
 License:        BSD
+%endif
 URL:            http://home.gna.org/dashel/
 Source0:        https://github.com/aseba-community/dashel/archive/%{commit}/%{name}-%{version}-%{shortcommit}.tar.gz
 Patch0:         dashel-rpm.patch
 
 BuildRequires: binutils
 BuildRequires: cmake
-BuildRequires: dwz
 BuildRequires: elfutils
 BuildRequires: file
 BuildRequires: gdb
 BuildRequires: glibc-devel
-BuildRequires: glibc-headers
 BuildRequires: kernel-headers
 BuildRequires: libstdc++-devel
-BuildRequires: systemd-devel
+#BuildRequires: systemd-devel
 BuildRequires: doxygen
+BuildRequires: gcc-c++
 
 %description
+No base package is installed.
+
+%package -n %{lib_pkg_name}
+Summary:        A C++ cross-platform data stream helper encapsulation library
+Group: System/Libraries
+
+%description  -n %{lib_pkg_name}
 Dashel is a C++ cross-platform data stream helper encapsulation library. It
 provides a unified access to TCP/UDP sockets, serial ports, console, and
 files streams. It also allows a server application to wait for any activity
@@ -52,7 +75,8 @@ on any combination of these streams.
 
 %package        devel
 Summary:        Development files for %{name}
-Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{lib_pkg_name}%{?_isa} = %{version}-%{release}
+Group: Development/Libraries/C and C++
 
 %description    devel
 The %{name}-devel package contains libraries and header files for
@@ -64,12 +88,13 @@ developing applications that use %{name}.
 %patch0 -p1
 
 %build
-%cmake .
+%cmake 
 make %{?_smp_mflags}
-doxygen
+doxygen %{_builddir}/%{buildsubdir}/Doxyfile
 
 %install
 rm -rf $RPM_BUILD_ROOT
+cd %{buildoutdir}
 make install DESTDIR=$RPM_BUILD_ROOT
 
 %check
@@ -80,17 +105,21 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %postun -p /sbin/ldconfig
 
 
-%files
+%files -n %{lib_pkg_name}
 %doc readme.txt
 %{_libdir}/*.so.*
 
 %files devel
-%doc readme.txt doc/* examples
+%doc readme.txt %{buildoutdir}/doc/* examples
 %{_includedir}/*
 %{_libdir}/*.so
 
 
 %changelog
+* Mon Mar 03 2014 Dean Brettle <dean@brettle.com> - 1.0.7-4
+- Updated spec to build on openSUSE 13.1, RHEL 6, and CentOS 6 via Open Build
+  Service.
+
 * Sat Mar 01 2014 Dean Brettle <dean@brettle.com> - 1.0.7-3
 - Rebased to official 1.0.7 commit.
 - Added RPM building instructions.
