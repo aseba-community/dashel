@@ -27,7 +27,7 @@ Version:        %{source_major}.%{source_minor}.%{source_patch}
 # release version (i.e. the "Version:" line above refers to a future
 # source release version), then set the number to 0.0. Otherwise, leave the
 # the number unchanged. It will get bumped when you run rpmdev-bumpspec.
-Release:        4%{?snapshot}%{?dist}
+Release:        5%{?snapshot}%{?dist}
 
 Summary:        A C++ cross-platform data stream helper encapsulation library
 
@@ -100,9 +100,11 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %check
 #ctest
 
-%post -p /sbin/ldconfig
+%post -n %{lib_pkg_name}
+/sbin/ldconfig
 
-%postun -p /sbin/ldconfig
+%postun -n %{lib_pkg_name}
+/sbin/ldconfig
 
 
 %files -n %{lib_pkg_name}
@@ -116,6 +118,10 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Mar 03 2014 Dean Brettle <dean@brettle.com> - 1.0.7-5
+- Updated spec to run ldconfig when installing and uninstalling libdashel1
+  packages
+
 * Mon Mar 03 2014 Dean Brettle <dean@brettle.com> - 1.0.7-4
 - Updated spec to build on openSUSE 13.1, RHEL 6, and CentOS 6 via Open Build
   Service.
