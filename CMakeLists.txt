@@ -46,12 +46,20 @@ endif (WIN32)
 
 add_library(dashel ${DASHEL_SOURCES})
 
+set(LIB_INSTALL_DIR lib CACHE FILEPATH "Where to install libraries")
+set(LIB_VERSION_MAJOR 1) # Must be bumped for incompatible ABI changes
+set(LIB_VERSION_MINOR 0)
+set(LIB_VERSION_PATCH 7)
+set(LIB_VERSION_STRING ${LIB_VERSION_MAJOR}.${LIB_VERSION_MINOR}.${LIB_VERSION_PATCH})
+set_target_properties(dashel PROPERTIES VERSION ${LIB_VERSION_STRING} 
+                                        SOVERSION ${LIB_VERSION_MAJOR})
+
 # install target
 install(FILES ${DASHEL_INSTALL_HEADER}
         DESTINATION include/dashel)
 install(TARGETS dashel
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION ${LIB_INSTALL_DIR}
+        ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
 )
 
 include_directories(${dashel_SOURCE_DIR})
