@@ -9,14 +9,14 @@ Version:        %{source_major}.%{source_minor}.%{source_patch}
 
 # Update the following line with the git commit hash of the revision to use
 # for example by running git show-ref -s --tags RELEASE_TAG
-%global commit c706942dce2f2df9caf6d12bc851c68b92f8b64f
+%global commit 8fb0d5338a65a2373952cde8c1a959c752e36916
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 # Update the following line to set commit_is_tagged_as_source_release to 0 if
 # and only if the commit hash is not from a git tag for an existing source
 # release (i.e. it is a commit hash for a pre-release or post-release
 # revision). Otherwise set it to 1.
-%global commit_is_tagged_as_source_release 1
+%global commit_is_tagged_as_source_release 0
 %if %{commit_is_tagged_as_source_release} == 0
   %global snapshot .%(date +%%Y%%m%%d)git%{shortcommit}
 %endif
@@ -27,7 +27,7 @@ Version:        %{source_major}.%{source_minor}.%{source_patch}
 # release version (i.e. the "Version:" line above refers to a future
 # source release version), then set the number to 0.0. Otherwise, leave the
 # the number unchanged. It will get bumped when you run rpmdev-bumpspec.
-Release:        5%{?snapshot}%{?dist}
+Release:        6%{?snapshot}%{?dist}
 
 Summary:        A C++ cross-platform data stream helper encapsulation library
 
@@ -45,7 +45,7 @@ License:        BSD-3-Clause
 License:        BSD
 %endif
 URL:            http://home.gna.org/dashel/
-Source0:        https://github.com/aseba-community/dashel/archive/%{commit}/%{name}-%{version}-%{shortcommit}.tar.gz
+Source0:        https://github.com/aseba-community/dashel/archive/%{commit}/%{name}-%{version}-%{commit}.tar.gz
 Patch0:         dashel-rpm.patch
 
 BuildRequires: binutils
@@ -118,6 +118,11 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Apr 28 2014 Dean Brettle <dean@brettle.com> - 1.0.7-6
+- Changed shortcommit to commit in Source0 to help OpenSUSE build server
+  and started basing builds off of commit that is 1.0.7 + RPM fixes + version
+  number fixes.
+
 * Mon Mar 03 2014 Dean Brettle <dean@brettle.com> - 1.0.7-5
 - Updated spec to run ldconfig when installing and uninstalling libdashel1
   packages
