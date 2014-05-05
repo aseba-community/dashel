@@ -27,7 +27,7 @@ Version:        %{source_major}.%{source_minor}.%{source_patch}
 # release version (i.e. the "Version:" line above refers to a future
 # source release version), then set the number to 0.0. Otherwise, leave the
 # the number unchanged. It will get bumped when you run rpmdev-bumpspec.
-Release:        7%{?snapshot}%{?dist}
+Release:        8%{?snapshot}%{?dist}
 
 Summary:        A C++ cross-platform data stream helper encapsulation library
 
@@ -56,7 +56,7 @@ BuildRequires: gdb
 BuildRequires: glibc-devel
 BuildRequires: kernel-headers
 BuildRequires: libstdc++-devel
-BuildRequires: systemd-devel
+BuildRequires: libudev-devel
 BuildRequires: doxygen
 BuildRequires: gcc-c++
 
@@ -118,6 +118,10 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Mon May 05 2014 Dean Brettle <dean@brettle.com> - 1.0.7-8.20140505git8fb0d53
+- Changed systemd-devel to libudev-devel in BuildRequires to accomodate
+  OpenSUSE.
+
 * Mon May 05 2014 Dean Brettle <dean@brettle.com> - 1.0.7-7.20140505git8fb0d53
 - Added systemd-devel as build-requires to get libudev.h.
 
