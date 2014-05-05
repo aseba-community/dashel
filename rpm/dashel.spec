@@ -27,7 +27,7 @@ Version:        %{source_major}.%{source_minor}.%{source_patch}
 # release version (i.e. the "Version:" line above refers to a future
 # source release version), then set the number to 0.0. Otherwise, leave the
 # the number unchanged. It will get bumped when you run rpmdev-bumpspec.
-Release:        8%{?snapshot}%{?dist}
+Release:        9%{?snapshot}%{?dist}
 
 Summary:        A C++ cross-platform data stream helper encapsulation library
 
@@ -118,6 +118,10 @@ make install DESTDIR=$RPM_BUILD_ROOT
 
 
 %changelog
+* Mon May 05 2014 Dean Brettle <dean@brettle.com> - 1.0.7-9.20140505git8fb0d53
+- Added EXTRA_LIBS to dashel's target_link_libraries so that it will link to
+  libudev automatically.
+
 * Mon May 05 2014 Dean Brettle <dean@brettle.com> - 1.0.7-8.20140505git8fb0d53
 - Changed systemd-devel to libudev-devel in BuildRequires to accomodate
   OpenSUSE.

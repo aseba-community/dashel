@@ -45,6 +45,7 @@ else (WIN32)
 endif (WIN32)
 
 add_library(dashel ${DASHEL_SOURCES})
+target_link_libraries(dashel ${EXTRA_LIBS})
 
 set(LIB_INSTALL_DIR lib CACHE FILEPATH "Where to install libraries")
 set(LIB_VERSION_MAJOR 1) # Must be bumped for incompatible ABI changes
