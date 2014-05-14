@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.6)
 
 project(dashel)
 
+option(BUILD_SHARED_LIBS "Build shared instead of static libs" ON)
+
 # libudev
 find_path(UDEV_INCLUDE_DIR libudev.h)
 find_library(UDEV_LIBS udev)
