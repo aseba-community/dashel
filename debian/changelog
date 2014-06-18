@@ -1,3 +1,9 @@
+libdashel (1.0.8) trustly; urgency=medium
+
+  * new upstream release
+
+ -- Stéphane Magnenat <stephane@nospam.magnenat.net>  Wed, 18 Jun 2014 15:12:58 +0200
+
 libdashel (1.0.7) precise; urgency=low
 
   * new upstream release

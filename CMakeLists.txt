@@ -49,6 +49,7 @@ endif (WIN32)
 add_library(dashel ${DASHEL_SOURCES})
 target_link_libraries(dashel ${EXTRA_LIBS})
 
+# dynamic library version
 set(LIB_INSTALL_DIR lib CACHE FILEPATH "Where to install libraries")
 set(LIB_VERSION_MAJOR 1) # Must be bumped for incompatible ABI changes
 set(LIB_VERSION_MINOR 0)
@@ -57,6 +58,10 @@ set(LIB_VERSION_STRING ${LIB_VERSION_MAJOR}.${LIB_VERSION_MINOR}.${LIB_VERSION_P
 set_target_properties(dashel PROPERTIES VERSION ${LIB_VERSION_STRING} 
                                         SOVERSION ${LIB_VERSION_MAJOR})
 
+
+# generate configure file
+configure_file(dashelConfig.cmake.in "${PROJECT_BINARY_DIR}/dashelConfig.cmake" @ONLY)
+  
 # install target
 install(FILES ${DASHEL_INSTALL_HEADER}
         DESTINATION include/dashel)
@@ -64,10 +69,21 @@ install(TARGETS dashel
         LIBRARY DESTINATION ${LIB_INSTALL_DIR}
         ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
 )
+if (WIN32 AND NOT CYGWIN)
+	set(INSTALL_CMAKE_DIR CMake)
+else()
+	if (APPLE)
+		set(INSTALL_CMAKE_DIR dashel.framework/Resources/CMake/)
+	else()
+		set(INSTALL_CMAKE_DIR lib/dashel/CMake)
+	endif()
+endif()
+install(FILES "${PROJECT_BINARY_DIR}/dashelConfig.cmake"
+	DESTINATION "${INSTALL_CMAKE_DIR}" COMPONENT dev)
 
-include_directories(${dashel_SOURCE_DIR})
 
 # examples
+include_directories(${dashel_SOURCE_DIR})
 foreach (example microterm chat portlist udp)
 	add_executable(${example} examples/${example}.cpp)
 	target_link_libraries(${example} dashel ${EXTRA_LIBS})
