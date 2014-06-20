@@ -115,6 +115,7 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %doc readme.txt %{buildoutdir}/doc/* examples
 %{_includedir}/*
 %{_libdir}/*.so
+%{_datadir}/dashel
 %{_datadir}/dashel/*
 
 %changelog
