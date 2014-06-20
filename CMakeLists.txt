@@ -75,7 +75,7 @@ else()
 	if (APPLE)
 		set(INSTALL_CMAKE_DIR dashel.framework/Resources/CMake/)
 	else()
-		set(INSTALL_CMAKE_DIR lib/dashel/CMake)
+		set(INSTALL_CMAKE_DIR share/dashel/CMake)
 	endif()
 endif()
 install(FILES "${PROJECT_BINARY_DIR}/dashelConfig.cmake"

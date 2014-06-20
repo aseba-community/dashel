@@ -27,7 +27,7 @@ Version:        %{source_major}.%{source_minor}.%{source_patch}
 # release version (i.e. the "Version:" line above refers to a future
 # source release version), then set the number to 0.0. Otherwise, leave the
 # the number unchanged. It will get bumped when you run rpmdev-bumpspec.
-Release:        1%{?snapshot}%{?dist}
+Release:        2%{?snapshot}%{?dist}
 
 Summary:        A C++ cross-platform data stream helper encapsulation library
 
@@ -115,9 +115,12 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %doc readme.txt %{buildoutdir}/doc/* examples
 %{_includedir}/*
 %{_libdir}/*.so
-
+%{_datadir}/*
 
 %changelog
+* Fri Jun 20 2014 Dean Brettle <dean@brettle.com> - 1.0.8-2.20140620git68d19e1
+- Added dashelConfig.cmake to -devel package.
+
 * Fri Jun 20 2014 Dean Brettle <dean@brettle.com> - 1.0.8-1.20140620git68d19e1
 - Bumped minor version to sync with upstream.
 
