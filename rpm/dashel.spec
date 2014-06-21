@@ -4,12 +4,12 @@ Name:           dashel
 # referencing below
 %global source_major 1
 %global source_minor 0
-%global source_patch 7
+%global source_patch 8
 Version:        %{source_major}.%{source_minor}.%{source_patch}
 
 # Update the following line with the git commit hash of the revision to use
 # for example by running git show-ref -s --tags RELEASE_TAG
-%global commit 8fb0d5338a65a2373952cde8c1a959c752e36916
+%global commit 68d19e179c454b6b1e8ee610f966e2c13bc76c9e
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 # Update the following line to set commit_is_tagged_as_source_release to 0 if
@@ -27,7 +27,7 @@ Version:        %{source_major}.%{source_minor}.%{source_patch}
 # release version (i.e. the "Version:" line above refers to a future
 # source release version), then set the number to 0.0. Otherwise, leave the
 # the number unchanged. It will get bumped when you run rpmdev-bumpspec.
-Release:        9%{?snapshot}%{?dist}
+Release:        1%{?snapshot}%{?dist}
 
 Summary:        A C++ cross-platform data stream helper encapsulation library
 
@@ -115,9 +115,14 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %doc readme.txt %{buildoutdir}/doc/* examples
 %{_includedir}/*
 %{_libdir}/*.so
-
+%{_datadir}/dashel
+%{_datadir}/dashel/*
 
 %changelog
+* Fri Jun 20 2014 Dean Brettle <dean@brettle.com> - 1.0.8-1.20140620git68d19e1
+- Bumped minor version to sync with upstream.
+- Added dashelConfig.cmake to -devel package.
+
 * Mon May 05 2014 Dean Brettle <dean@brettle.com> - 1.0.7-9.20140505git8fb0d53
 - Added EXTRA_LIBS to dashel's target_link_libraries so that it will link to
   libudev automatically.
