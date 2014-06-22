@@ -18,6 +18,7 @@ binary-arch: build
 	install -d debian/tmp/usr/include/dashel
 	install -d debian/tmp/usr/lib
 	install -d debian/tmp/usr/share/doc/libdashel
+	install -d debian/tmp/usr/share/dashel/CMake
 	strip --strip-unneeded -R .note -R .comment debian/build/libdashel.a
 	cp changelog debian/tmp/usr/share/doc/libdashel/changelog
 	cp debian/changelog debian/tmp/usr/share/doc/libdashel/changelog.debian
@@ -25,6 +26,7 @@ binary-arch: build
 	cp dashel/dashel.h debian/tmp/usr/include/dashel
 	cp dashel/dashel-posix.h debian/tmp/usr/include/dashel
 	cp debian/build/libdashel.a debian/tmp/usr/lib
+	cp debian/build/dashelConfig.cmake debian/tmp/usr/share/dashel/CMake
 	chown -R root.root debian/tmp
 	chmod -R o-s,go=u,go-ws debian/tmp
 	dpkg-gencontrol
