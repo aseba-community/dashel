@@ -248,6 +248,12 @@ namespace Dashel
 		return it->second;
 	}
 	
+	// explicit template specialization of get() for int, unsigned, float and double
+	template<> int ParameterSet::get<int>(const char *key) const;
+	template<> unsigned ParameterSet::get<unsigned>(const char *key) const;
+	template<> float ParameterSet::get<float>(const char *key) const;
+	template<> double ParameterSet::get<double>(const char *key) const;
+	
 	std::string ParameterSet::getString() const
 	{
 		std::ostringstream oss;
