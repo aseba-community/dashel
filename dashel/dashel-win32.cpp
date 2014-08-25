@@ -1,7 +1,7 @@
 /*
 	Dashel
 	A cross-platform DAta Stream Helper Encatargetulation Library
-	Copyright (C) 2007 -- 2013:
+	Copyright (C) 2007 -- 2014:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
