@@ -245,7 +245,8 @@ namespace Dashel
 		//! Return whether a key is set or not
 		bool isSet(const char *key) const;
 
-		//! Get a parameter value
+		//! Get a parameter value.
+		//! Explicitely instanciated for int, unsigned, float and double in the library
 		template<typename T> T get(const char *key) const;
 
 		//! Get a parameter value
