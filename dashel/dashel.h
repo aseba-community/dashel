@@ -445,8 +445,8 @@ namespace Dashel
 			Close a stream, remove it from the Hub, and delete it.
 			If the stream is not present in the Hub, it is deleted nevertheless.
 			Note that connectionClosed() is not called by closeStream() and that
-			you must not call closeStream(s) from inside connectionClosed(s) for
-			the same stream.
+			you must not call closeStream(s) from inside connectionClosed(s) or
+			incomingData(s) for the same stream.
 			
 			\param stream stream to remove
 		*/
