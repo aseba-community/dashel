@@ -952,6 +952,7 @@ namespace Dashel
 #else
 			switch (target.get<int>("baud"))
 			{
+				case 0: newtio.c_cflag |= B0; break;
 				case 50: newtio.c_cflag |= B50; break;
 				case 75: newtio.c_cflag |= B75; break;
 				case 110: newtio.c_cflag |= B110; break;
