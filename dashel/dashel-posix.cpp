@@ -650,7 +650,8 @@ namespace Dashel
 			addr.sin_port = htons(dest.port);;
 			addr.sin_addr.s_addr = htonl(dest.address);
 			
-			if (sendto(fd, sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr *)&addr, sizeof(addr)) != sendBuffer.size())
+			ssize_t sent = sendto(fd, sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr *)&addr, sizeof(addr));
+			if (sent < 0 || static_cast<size_t>(sent) != sendBuffer.size())
 				fail(DashelException::IOError, errno, "UDP Socket write I/O error.");
 			
 			sendBuffer.clear();
