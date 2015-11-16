@@ -107,7 +107,7 @@ namespace Dashel
 			throw Dashel::DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
 		std::istringstream iss(it->second);
-		iss >> t;
+		iss >> std::boolalpha >> t;
 		return t;
 	}
 }

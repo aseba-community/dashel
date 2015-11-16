@@ -793,7 +793,7 @@ namespace Dashel
 			\param parity Parity type.
 			\param stopbits Number of stop bits.
 		*/
-		bool buildDCB(HANDLE sp, int speed, int bits, const std::string& parity, const std::string& stopbits, const std::string& fc)
+		bool buildDCB(HANDLE sp, int speed, int bits, bool dtr, const std::string& parity, const std::string& stopbits, const std::string& fc)
 		{
 			DCB dcb;
 
@@ -818,7 +818,10 @@ namespace Dashel
 			}
 
 			dcb.fOutxDsrFlow = FALSE;
-			dcb.fDtrControl = DTR_CONTROL_ENABLE;
+			if(dtr)
+				dcb.fDtrControl = DTR_CONTROL_ENABLE;
+			else
+				dcb.fDtrControl = DTR_CONTROL_DISABLE;
 			dcb.fDsrSensitivity = FALSE;
 			dcb.fBinary = TRUE;
 			dcb.fParity = TRUE;
@@ -867,7 +870,7 @@ namespace Dashel
 		*/
 		SerialStream(const std::string& params) : Stream("ser"), FileStream("ser", true)
 		{ 
-			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
+			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8;dtr=true");
 			target.add(params.c_str());
 
 			std::string devName;
@@ -913,7 +916,7 @@ namespace Dashel
 			if(hf == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open serial port.");
 
-			buildDCB(hf, target.get<int>("baud"), target.get<int>("bits"), target.get("parity"), target.get("stop"), target.get("fc"));
+			buildDCB(hf, target.get<int>("baud"), target.get<int>("bits"), target.get<bool>("dtr"), target.get("parity"), target.get("stop"), target.get("fc"));
 
 			startStream(EvPotentialData);
 		}

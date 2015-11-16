@@ -249,6 +249,7 @@ namespace Dashel
 	}
 	
 	// explicit template instanciation of get() for int, unsigned, float and double
+	template bool ParameterSet::get<bool>(const char *key) const;
 	template int ParameterSet::get<int>(const char *key) const;
 	template unsigned ParameterSet::get<unsigned>(const char *key) const;
 	template float ParameterSet::get<float>(const char *key) const;
