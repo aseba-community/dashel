@@ -59,6 +59,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <pthread.h>
 #include <netinet/in.h>
 
@@ -858,7 +859,7 @@ namespace Dashel
 			Stream("ser"),
 			FileDescriptorStream("ser")
 		{
-			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8");
+			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8;dtr=true");
 			target.add(targetName.c_str());
 			string devFileName;
 			
@@ -1000,6 +1001,13 @@ namespace Dashel
 			// set attributes
 			if ((tcflush(fd, TCIOFLUSH) < 0) || (tcsetattr(fd, TCSANOW, &newtio) < 0))
 				throw DashelException(DashelException::ConnectionFailed, 0, "Cannot setup serial port. The requested baud rate might not be supported.");
+			
+			// Enable or disable DTR
+			int iFlags = TIOCM_DTR;
+			if (target.get<bool>("dtr"))
+				ioctl(fd, TIOCMBIS, &iFlags);
+			else
+				ioctl(fd, TIOCMBIC, &iFlags);
 		}
 		
 		//! Destructor, restore old serial port state
