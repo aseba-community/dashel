@@ -1,3 +1,9 @@
+libdashel (1.0.9) trusty; urgency=medium
+
+  * new upstream release
+
+ -- Stéphane Magnenat <stephane@nospam.magnenat.net>  Tue, 17 Nov 2015 09:06:40 +0100
+
 libdashel (1.0.8) trusty; urgency=medium
 
   * new upstream release

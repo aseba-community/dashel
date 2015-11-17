@@ -123,6 +123,7 @@
 	\li \c parity : parity type (none, even, odd), default none
 	\li \c fc : flow control type, (none, hard), default none
 	\li \c bits : number of bits per character, default 8
+	\li \c dtr : whether DTR line is enabled, default true
 	
 	Protocols \c stdin and \c stdout do not take any parameter.
 */
@@ -133,9 +134,9 @@ namespace Dashel
 	class Stream;
 	
 	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.0.8"
+	#define DASHEL_VERSION "1.0.9"
 	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10008
+	#define DASHEL_VERSION_INT 10009
 	
 	//! The one size fits all exception for streams.
 	/*!
