@@ -4,19 +4,19 @@ Name:           dashel
 # referencing below
 %global source_major 1
 %global source_minor 0
-%global source_patch 8
+%global source_patch 9
 Version:        %{source_major}.%{source_minor}.%{source_patch}
 
 # Update the following line with the git commit hash of the revision to use
 # for example by running git show-ref -s --tags RELEASE_TAG
-%global commit 68d19e179c454b6b1e8ee610f966e2c13bc76c9e
+%global commit a3f0925fe830a3ff85f860d4951897c7eeb8ac1f
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 # Update the following line to set commit_is_tagged_as_source_release to 0 if
 # and only if the commit hash is not from a git tag for an existing source
 # release (i.e. it is a commit hash for a pre-release or post-release
 # revision). Otherwise set it to 1.
-%global commit_is_tagged_as_source_release 0
+%global commit_is_tagged_as_source_release 1
 %if %{commit_is_tagged_as_source_release} == 0
   %global snapshot .%(date +%%Y%%m%%d)git%{shortcommit}
 %endif
@@ -119,6 +119,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %{_datadir}/dashel/*
 
 %changelog
+* Wed Nov 18 2015 Dean Brettle <dean@brettle.com> - 1.0.9-2
+- Sync with upstream 1.0.9
+
 * Fri Jun 20 2014 Dean Brettle <dean@brettle.com> - 1.0.8-1.20140620git68d19e1
 - Bumped minor version to sync with upstream.
 - Added dashelConfig.cmake to -devel package.
