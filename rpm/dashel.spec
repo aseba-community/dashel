@@ -3,13 +3,13 @@ Name:           dashel
 # Update the following lines to reflect the source release version you will be
 # referencing below
 %global source_major 1
-%global source_minor 0
-%global source_patch 9
+%global source_minor 1
+%global source_patch 0
 Version:        %{source_major}.%{source_minor}.%{source_patch}
 
 # Update the following line with the git commit hash of the revision to use
 # for example by running git show-ref -s --tags RELEASE_TAG
-%global commit a3f0925fe830a3ff85f860d4951897c7eeb8ac1f
+%global commit bd2781117e61cababbed36643024b0b3765d9f4b
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 # Update the following line to set commit_is_tagged_as_source_release to 0 if
@@ -119,6 +119,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 %{_datadir}/dashel/*
 
 %changelog
+* Thu Nov 19 2015 Dean Brettle <dean@brettle.com> - 1.1.0-1
+- Sync with upstream 1.1.0
+
 * Wed Nov 18 2015 Dean Brettle <dean@brettle.com> - 1.0.9-2
 - Sync with upstream 1.0.9
 
