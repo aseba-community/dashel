@@ -912,13 +912,13 @@ namespace Dashel
 		
 			fd = open(devFileName.c_str(), O_RDWR);
 			if (fd == -1)
-				throw DashelException(DashelException::ConnectionFailed, 0, "Cannot open serial port.");
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot open serial port.");
 			
 			int lockRes = flock(fd, LOCK_EX|LOCK_NB);
 			if (lockRes != 0)
 			{
 				close(fd);
-				throw DashelException(DashelException::ConnectionFailed, errno, (string("Cannot lock serial port: ") + strerror(errno)).c_str());
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot lock serial port.");
 			}
 			
 			struct termios newtio;
