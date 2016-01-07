@@ -182,7 +182,7 @@ namespace Dashel
 				} else 
 					name = "Serial Port";
 				name = name + " (" + path + ")";
-				ports[index++] = std::make_pair<std::string, std::string>(path, name);
+				ports[index++] = std::make_pair(path, name);
 			}
 			else
 				throw DashelException(DashelException::EnumerationError, 0, "IORegistryEntryCreateCFProperty returned a NULL path");
@@ -583,7 +583,7 @@ namespace Dashel
 			addr.sin_family = AF_INET;
 			addr.sin_port = htons(bindAddress.port);
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
-			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+			if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
 			
 			// Listen on socket, backlog is sort of arbitrary.
@@ -630,7 +630,7 @@ namespace Dashel
 				addr.sin_family = AF_INET;
 				addr.sin_port = htons(bindAddress.port);
 				addr.sin_addr.s_addr = htonl(bindAddress.address);
-				if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
 			}
 			else
