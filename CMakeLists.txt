@@ -29,6 +29,7 @@ else (WIN32)
 		mark_as_advanced(IOKIT_LIBRARY)
 		find_library(POLL_LIBRARY poll)
 		set(EXTRA_LIBS ${COREFOUNDATION_LIBRARY} ${IOKIT_LIBRARY} ${POLL_LIBRARY})
+		set(CMAKE_MACOSX_RPATH ON) # Solve the CMP0042 warning
 	else (APPLE)
 		if (UDEV_FOUND)
 			include_directories(${UDEV_INCLUDE_DIR})
