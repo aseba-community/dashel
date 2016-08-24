@@ -596,7 +596,9 @@ namespace Dashel
                 if (getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
                     throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
                 target.erase("port");
-                target.addParam("port", std::to_string(ntohs(addr.sin_port)).c_str(), true);
+                char * portnum = new char(6);
+                sprintf(portnum, "%d", ntohs(addr.sin_port));
+                target.addParam("port", portnum, true);
             }
 			
 			// Listen on socket, backlog is sort of arbitrary.
@@ -653,7 +655,9 @@ namespace Dashel
                     if (getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
                         throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
                     target.erase("port");
-                    target.addParam("port", std::to_string(ntohs(addr.sin_port)).c_str(), true);
+                    char * portnum = new char(6);
+                    sprintf(portnum, "%d", ntohs(addr.sin_port));
+                    target.addParam("port", portnum, true);
                 }
 			}
 			else
