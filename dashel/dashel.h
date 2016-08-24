@@ -134,9 +134,9 @@ namespace Dashel
 	class Stream;
 	
 	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.1.0"
+	#define DASHEL_VERSION "1.2.0"
 	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10100
+	#define DASHEL_VERSION_INT 10200
 	
 	//! The one size fits all exception for streams.
 	/*!
@@ -318,6 +318,11 @@ namespace Dashel
 			\return A string containing the parameter.
 		*/
 		const std::string &getTargetParameter(const char *param) const { return target.get(param); }
+		
+		//! Returns the target description.
+		/*! \return The set of parameters describing this target
+		*/
+		const ParameterSet getTarget() const { return target; }
 		
 		//!	Write data to the stream.
 		/*!	Writes all requested data to the stream, blocking until all the data has been written, or 

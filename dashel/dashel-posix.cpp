@@ -601,6 +601,17 @@ namespace Dashel
 				target.addParam("port", portnum.str().c_str(), true);
 			}
 			
+			// if dynamically-allocated port, set actual port in target name
+			if (bindAddress.port == 0)
+			{
+				socklen_t addrSize(sizeof(addr));
+				if (::getsockname(fd, (struct sockaddr *)&addr, &addrSize) != 0)
+					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot resolve current address of server socket.");
+				bindAddress.port = ntohs(addr.sin_port);
+				bindAddress.address = ntohl(addr.sin_addr.s_addr);
+				target.add(bindAddress.format().c_str());
+			}
+			
 			// Listen on socket, backlog is sort of arbitrary.
 			if(listen(fd, 16) < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot listen on socket.");
