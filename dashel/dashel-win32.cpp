@@ -307,6 +307,16 @@ namespace Dashel
 			if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
 			
+            // retrieve port number, if a dynamic one was requested
+            if (bindAddress.port == 0)
+            {
+                socklen_t sizeof_addr(sizeof(addr));
+                if (getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+                    throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
+                target.erase("port");
+                target.addParam("port", std::to_string(ntohs(addr.sin_port)).c_str(), true);
+            }
+
 			// Listen on socket, backlog is sort of arbitrary.
 			if(listen(sock, 16) == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot listen on socket.");
@@ -1149,6 +1159,16 @@ namespace Dashel
 				addr.sin_addr.s_addr = htonl(bindAddress.address);
 				if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
+
+                // retrieve port number, if a dynamic one was requested
+                if (bindAddress.port == 0)
+                {
+                    socklen_t sizeof_addr(sizeof(addr));
+                    if (getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+                        throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
+                    target.erase("port");
+                    target.addParam("port", std::to_string(ntohs(addr.sin_port)).c_str(), true);
+                }
 			}
 			else
 			{
