@@ -59,6 +59,7 @@
 #define _WIN32_WINNT 0x0501
 #endif // _WIN32_WINNT
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <setupapi.h>
 #include <devguid.h>
@@ -311,10 +312,10 @@ namespace Dashel
             if (bindAddress.port == 0)
             {
                 socklen_t sizeof_addr(sizeof(addr));
-                if (getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+                if (getsockname(sock, (struct sockaddr *)&addr, &sizeof_addr) != 0)
                     throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
                 target.erase("port");
-                ostringstream portnum;
+                std::ostringstream portnum;
                 portnum << ntohs(addr.sin_port);
                 target.addParam("port", portnum.str().c_str(), true);
             }
@@ -1166,10 +1167,10 @@ namespace Dashel
                 if (bindAddress.port == 0)
                 {
                     socklen_t sizeof_addr(sizeof(addr));
-                    if (getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+                    if (getsockname(sock, (struct sockaddr *)&addr, &sizeof_addr) != 0)
                         throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
                     target.erase("port");
-                    ostringstream portnum;
+                    std::ostringstream portnum;
                     portnum << ntohs(addr.sin_port);
                     target.addParam("port", portnum.str().c_str(), true);
                 }
