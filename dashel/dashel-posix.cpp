@@ -74,7 +74,7 @@
 #ifdef MACOSX
 	#include <CoreFoundation/CoreFoundation.h>
 	#include "TargetConditionals.h"
-	#ifndef TARGET_OS_IPHONE
+	#if TARGET_OS_IPHONE == 0
 		#include <IOKit/IOKitLib.h>
 		#include <IOKit/serial/IOSerialKeys.h>
 	#endif
@@ -134,7 +134,7 @@ namespace Dashel
 		
 
 
-#if defined MACOSX && !defined TARGET_OS_IPHONE
+#if defined MACOSX && TARGET_OS_IPHONE == 0
 		// use IOKit to enumerates devices
 		
 		// get a matching dictionary to specify which IOService class we're interested in
