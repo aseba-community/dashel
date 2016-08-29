@@ -311,7 +311,7 @@ namespace Dashel
 			if (bindAddress.port == 0)
 			{
 				int addrSize(sizeof(addr));
-				if (getsockname(fd, (struct sockaddr *)&addr, &addrSize) != 0)
+				if (getsockname(sock, (struct sockaddr *)&addr, &addrSize) != 0)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot resolve current address of server socket.");
 				bindAddress.port = ntohs(addr.sin_port);
 				bindAddress.address = ntohl(addr.sin_addr.s_addr);
