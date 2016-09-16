@@ -260,23 +260,6 @@ namespace Dashel
 		virtual void notifyEvent(Hub *srv, EvType& t) { }
 	};
 
-	//! Poll socket, used for polling only
-	class PollSocketStream: public SocketStream
-	{
-	public:
-		PollSocketStream(const std::string& targetName) :
-		Stream(targetName),
-		SocketStream(targetName)
-		{ }
-		virtual void write(const void *data, const size_t size) { }
-		virtual void flush() { }
-		virtual void read(void *data, size_t size) { }
-		virtual bool receiveDataAndCheckDisconnection() { tripped = true; return false; }
-		virtual bool isDataInRecvBuffer() const { bool ret = tripped; tripped = false; return ret; }
-	private:
-		mutable bool tripped;
-	};
-
 	//! Socket server stream.
 	/*! This stream is used for listening for incoming connections. It cannot be used for transfering
 		data.
@@ -1136,6 +1119,23 @@ namespace Dashel
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
 */
 		}
+	};
+
+	//! Poll socket, used for polling only
+	class PollSocketStream: public SocketStream
+	{
+	public:
+		PollSocketStream(const std::string& targetName) :
+		Stream(targetName),
+		SocketStream(targetName)
+		{ }
+		virtual void write(const void *data, const size_t size) { }
+		virtual void flush() { }
+		virtual void read(void *data, size_t size) { }
+		virtual bool receiveDataAndCheckDisconnection() { tripped = true; return false; }
+		virtual bool isDataInRecvBuffer() const { bool ret = tripped; tripped = false; return ret; }
+	private:
+		mutable bool tripped;
 	};
 
 	//! UDP Socket, uses sendto/recvfrom for read/write
