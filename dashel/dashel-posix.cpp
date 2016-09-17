@@ -352,7 +352,38 @@ namespace Dashel
 		//! Return true while there is some unread data in the reception buffer
 		virtual bool isDataInRecvBuffer() const { return recvBufferPos != recvBufferSize; }
 	};
-	
+
+	//! Assign a socket file descriptor to a target. Factored out from SocketStream::SocketStream.
+	//! If the target specifies a socket with a "sock=N" parameter, assume it is valid and use it.
+	//! Otherwise, create a socket, look up the target's host and port, and connect using TCP/IP.
+	//! Raises an exception if the socket cannot be created, or if the TCP/IP host cannot be reached.
+	static int GetOrCreateSocket(ParameterSet & target)
+	{
+		int fd = target.get<int>("sock");
+		if (fd < 0)
+		{
+			// create socket
+			fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (fd < 0)
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
+
+			IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
+
+			// connect
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(remoteAddress.port);
+			addr.sin_addr.s_addr = htonl(remoteAddress.address);
+			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot connect to remote host.");
+
+			// overwrite target name with a canonical one
+			target.add(remoteAddress.format().c_str());
+			target.erase("connectionPort");
+		}
+		return fd;
+	}
+
 	//! Socket, uses send/recv for read/write
 	class SocketStream: public DisconnectableStream
 	{
@@ -380,34 +411,13 @@ namespace Dashel
 			target.add("tcp:host;port;connectionPort=-1;sock=-1");
 			target.add(targetName.c_str());
 
-			fd = target.get<int>("sock");
-			if (fd < 0)
-			{
-				// create socket
-				fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-				if (fd < 0)
-					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
-				
-				IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
-				
-				// connect
-				sockaddr_in addr;
-				addr.sin_family = AF_INET;
-				addr.sin_port = htons(remoteAddress.port);
-				addr.sin_addr.s_addr = htonl(remoteAddress.address);
-				if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot connect to remote host.");
-				
-				// overwrite target name with a canonical one
-				target.add(remoteAddress.format().c_str());
-				target.erase("connectionPort");
-			}
-			else
+			fd = GetOrCreateSocket(target);
+			if (target.get<int>("sock") > 0)
 			{
 				// remove file descriptor information from target name
 				target.erase("sock");
 			}
-			
+
 			// setup TCP Cork for delayed sending
 			#ifdef TCP_CORK
 			int flag = 1;
@@ -554,15 +564,22 @@ namespace Dashel
 		}
 	};
 	
-	//! Poll socket, used for polling only. A target "poll:sock=N" will call Hub::incomingData(stream)
-	//! exactly once when the socket N is polled with POLLIN in Hub::step.
-	class PollSocketStream: public SocketStream
+	//! Poll a socket file descriptor for either a local Unix domain socket (tcppoll:sock=N) or a
+	//! remote TCP/IP socket (tcppoll:host=HOST;port=PORT). Delegates fd choice to GetOrCreateSocket.
+	//! Poll streams are used to include sockets that will be read or written by client code in the
+	//! Dashel polling loop. Dashel itself neither reads from nor writes to the socket. PollStream will
+	//! Hub::incomingData(stream) exactly once when its socket is polled with POLLIN in Hub::step.
+	class PollStream: public SelectableStream
 	{
 	public:
-		PollSocketStream(const std::string& targetName) :
+		PollStream(const std::string& targetName) :
 		Stream(targetName),
-		SocketStream(targetName)
-		{ }
+		SelectableStream(targetName)
+		{
+			target.add("tcppoll:host;port;connectionPort=-1;sock=-1");
+			target.add(targetName.c_str());
+			fd = GetOrCreateSocket(target);
+		}
 		virtual void write(const void *data, const size_t size) { }
 		virtual void flush() { }
 		virtual void read(void *data, size_t size) { }
@@ -1397,7 +1414,7 @@ namespace Dashel
 		reg("ser", &createInstance<SerialStream>);
 		reg("tcpin", &createInstance<SocketServerStream>);
 		reg("tcp", &createInstance<SocketStream>);
-		reg("poll", &createInstance<PollSocketStream>);
+		reg("tcppoll", &createInstance<PollStream>);
 		reg("udp", &createInstance<UDPSocketStream>);
 	}
 	
