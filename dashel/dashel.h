@@ -107,7 +107,7 @@
 	The tcp protocol accepts the following parameters, in this implicit order:
 	\li \c host : remote host
 	\li \c port : remote port
-	\li \c socket : local socket
+	\li \c socket : local socket; if a nonegative value is given, host and port are ignored
 	
 	The tcpin protocol accepts the following parameters, in this implicit order:
 	\li \c port : port
@@ -116,7 +116,7 @@
 	The tcppoll protocol accepts the following parameters, in this implicit order:
 	\li \c host : remote host
 	\li \c port : remote port
-	\li \c socket : local socket
+	\li \c socket : local socket; if a nonegative value is given, host and port are ignored
 
 	The udp protocol accepts the following parameters, in this implicit order:
 	\li \c port : port

@@ -354,8 +354,9 @@ namespace Dashel
 	};
 
 	//! Assign a socket file descriptor to a target. Factored out from SocketStream::SocketStream.
-	//! If the target specifies a socket with a "sock=N" parameter, assume it is valid and use it.
-	//! Otherwise, create a socket, look up the target's host and port, and connect using TCP/IP.
+	//! If the target specifies a socket with a nonnegative "sock=N" parameter, assume it is valid
+	//! and use it. Otherwise, the host and port parameters are used to look up a TCP/IP host, and
+	//! a new socket is created.
 	//! Raises an exception if the socket cannot be created, or if the TCP/IP host cannot be reached.
 	static int getOrCreateSocket(ParameterSet & target)
 	{
