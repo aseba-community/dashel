@@ -116,7 +116,7 @@
 	The tcppoll protocol accepts the following parameters, in this implicit order:
 	\li \c host : remote host
 	\li \c port : remote port
-	\li \c socket : socket socket
+	\li \c socket : local socket
 
 	The udp protocol accepts the following parameters, in this implicit order:
 	\li \c port : port
