@@ -944,7 +944,7 @@ namespace Dashel
 	//! If the target specifies a socket with a "sock=N" parameter, assume it is valid and use it.
 	//! Otherwise, create a socket, look up the target's host and port, and connect using TCP/IP.
 	//! Raises an exception if the socket cannot be created, or if the TCP/IP host cannot be reached.
-	static int GetOrCreateSocket(ParameterSet & target)
+	static int getOrCreateSocket(ParameterSet & target)
 	{
 		int sock = target.get<SOCKET>("sock");
 		if(!sock)
@@ -1006,8 +1006,8 @@ namespace Dashel
 			target.add("tcp:host;port;connectionPort=-1;sock=0");
 			target.add(params.c_str());
 
-			sock = GetOrCreateSocket(target);
-			if (target.get<SOCKET>("sock") > 0)
+			sock = getOrCreateSocket(target);
+			if (target.get<SOCKET>("sock") >= 0)
 			{
 				// remove file descriptor information from target name
 				target.erase("sock");
@@ -1139,7 +1139,7 @@ namespace Dashel
 	};
 
 	//! Poll a socket file descriptor for either a local socket (tcppoll:sock=N) or a
-	//! remote TCP/IP socket (tcppoll:host=HOST;port=PORT). Delegates fd choice to GetOrCreateSocket.
+	//! remote TCP/IP socket (tcppoll:host=HOST;port=PORT). Delegates fd choice to getOrCreateSocket.
 	//! Poll streams are used to include sockets that will be read or written by client code in the
 	//! Dashel polling loop. Dashel itself neither reads from nor writes to the socket. PollStream will
 	//! Hub::incomingData(stream) exactly once when its socket is polled with POLLIN in Hub::step.
@@ -1156,7 +1156,7 @@ namespace Dashel
 		{
 			target.add("tcppoll:host;port;connectionPort=-1;sock=-1");
 			target.add(targetName.c_str());
-			sock = GetOrCreateSocket(target);
+			sock = getOrCreateSocket(target);
 
 			hev = createEvent(EvPotentialData);
 			hev2 = createEvent(EvData);
