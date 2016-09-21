@@ -581,6 +581,10 @@ namespace Dashel
 			target.add(targetName.c_str());
 			fd = getOrCreateSocket(target);
 		}
+		~PollStream()
+		{	// file descriptor doesn't belong to this stream, so don't close it
+			fd = 0; // SelectableStream::~SelectableStream only tries to close fd >= 3
+		}
 		virtual void write(const void *data, const size_t size) { }
 		virtual void flush() { }
 		virtual void read(void *data, size_t size) { }

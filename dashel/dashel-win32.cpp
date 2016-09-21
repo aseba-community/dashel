@@ -1168,9 +1168,9 @@ namespace Dashel
 		}
 
 		~PollStream()
-		{
-			shutdown(sock, SD_BOTH);
-			closesocket(sock);
+		{	// socket doesn't belong to this stream, so don't shut it down 
+			// shutdown(sock, SD_BOTH);
+			// closesocket(sock);
 		}
 
 		//! Callback when an event is notified, allowing the stream to rearm it.
