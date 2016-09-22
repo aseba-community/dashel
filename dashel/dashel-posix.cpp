@@ -569,7 +569,7 @@ namespace Dashel
 	//! remote TCP/IP socket (tcppoll:host=HOST;port=PORT). Delegates fd choice to getOrCreateSocket.
 	//! Poll streams are used to include sockets that will be read or written by client code in the
 	//! Dashel polling loop. Dashel itself neither reads from nor writes to the socket. PollStream will
-	//! Hub::incomingData(stream) exactly once when its socket is polled with POLLIN in Hub::step.
+	//! call Hub::incomingData(stream) exactly once when its socket is polled with POLLIN in Hub::step.
 	class PollStream: public SelectableStream
 	{
 	public:
@@ -580,10 +580,13 @@ namespace Dashel
 			target.add("tcppoll:host;port;connectionPort=-1;sock=-1");
 			target.add(targetName.c_str());
 			fd = getOrCreateSocket(target);
+			dtorCloseSocket = target.get<int>("sock") < 0 && fd >= 0; // if getOrCreateSocket created the socket we will have to close it
 		}
 		~PollStream()
-		{	// file descriptor doesn't belong to this stream, so don't close it
-			fd = 0; // SelectableStream::~SelectableStream only tries to close fd >= 3
+		{	// if file descriptor doesn't belong to this stream, don't let the base class close it
+			// note that SelectableStream::~SelectableStream only closes if fd >= 3
+			if (!dtorCloseSocket)
+				fd = 0;
 		}
 		virtual void write(const void *data, const size_t size) { }
 		virtual void flush() { }
@@ -592,6 +595,7 @@ namespace Dashel
 		virtual bool isDataInRecvBuffer() const { bool ret = edgeTrigger; edgeTrigger = false; return ret; }
 	private:
 		mutable bool edgeTrigger;
+		bool dtorCloseSocket;
 	};
 
 	//! Socket server stream.
