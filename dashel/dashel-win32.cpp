@@ -1,6 +1,6 @@
 /*
 	Dashel
-	A cross-platform DAta Stream Helper Encatargetulation Library
+	A cross-platform DAta Stream Helper Encapsulation Library
 	Copyright (C) 2007 -- 2015:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
@@ -259,6 +259,13 @@ namespace Dashel
 			\param t Type of event.
 		*/
 		virtual void notifyEvent(Hub *srv, EvType& t) { }
+
+		//! Callback when incomingData is called, allowing the stream to rearm it.
+		//! Used by poll streams to rearm their edge triggers.
+		//! \param srv Hub instance that has generated the notification.
+		//! \param t Type of event.
+		virtual void notifyIncomingData(Hub *srv, EvType& t) { }
+
 	};
 
 	//! Socket server stream.
@@ -312,7 +319,7 @@ namespace Dashel
 			if (bindAddress.port == 0)
 			{
 				int addrSize(sizeof(addr));
-				if (getsockname(fd, (struct sockaddr *)&addr, &addrSize) != 0)
+				if (getsockname(sock, (struct sockaddr *)&addr, &addrSize) != 0)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot resolve current address of server socket.");
 				bindAddress.port = ntohs(addr.sin_port);
 				bindAddress.address = ntohl(addr.sin_addr.s_addr);
@@ -934,7 +941,40 @@ namespace Dashel
 		}
 	};
 
-	//! Serial port stream
+	//! Assign a socket file descriptor to a target. Factored out from SocketStream::SocketStream.
+	//! If the target specifies a socket with a nonnegative "sock=N" parameter, assume it is valid
+	//! and use it. Otherwise, the host and port parameters are used to look up a TCP/IP host, and
+	//! a new socket is created.
+	//! Raises an exception if the socket cannot be created, or if the TCP/IP host cannot be reached.
+	static int getOrCreateSocket(ParameterSet & target)
+	{
+		int sock = target.get<SOCKET>("sock");
+		if(!sock)
+		{
+			startWinSock();
+
+			// create socket
+			sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (sock == SOCKET_ERROR)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
+
+			IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
+			// connect
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(remoteAddress.port);
+			addr.sin_addr.s_addr = htonl(remoteAddress.address);
+			if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot connect to remote host.");
+
+			// overwrite target name with a canonical one
+			target.add(remoteAddress.format().c_str());
+			target.erase("connectionPort");
+		}
+		return sock;
+	}
+
+	//! Socket stream
 	class SocketStream : public WaitableStream
 	{
 		//! Socket handle.
@@ -968,30 +1008,8 @@ namespace Dashel
 			target.add("tcp:host;port;connectionPort=-1;sock=0");
 			target.add(params.c_str());
 
-			sock = target.get<SOCKET>("sock");
-			if(!sock)
-			{
-				startWinSock();
-
-				// create socket
-				sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-				if (sock == SOCKET_ERROR)
-					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
-			
-				IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
-				// connect
-				sockaddr_in addr;
-				addr.sin_family = AF_INET;
-				addr.sin_port = htons(remoteAddress.port);
-				addr.sin_addr.s_addr = htonl(remoteAddress.address);
-				if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot connect to remote host.");
-				
-				// overwrite target name with a canonical one
-				target.add(remoteAddress.format().c_str());
-				target.erase("connectionPort");
-			}
-			else
+			sock = getOrCreateSocket(target);
+			if (target.get<SOCKET>("sock") >= 0)
 			{
 				// remove file descriptor information from target name
 				target.erase("sock");
@@ -1120,6 +1138,62 @@ namespace Dashel
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
 */
 		}
+	};
+
+	//! Poll a socket file descriptor for either a local socket (tcppoll:sock=N) or a
+	//! remote TCP/IP socket (tcppoll:host=HOST;port=PORT). Delegates fd choice to getOrCreateSocket.
+	//! Poll streams are used to include sockets that will be read or written by client code in the
+	//! Dashel polling loop. Dashel itself neither reads from nor writes to the socket. PollStream will
+	//! Hub::incomingData(stream) exactly once when its socket is polled with POLLIN in Hub::step.
+	class PollStream: public WaitableStream
+	{
+		SOCKET sock; //!< Socket handle.
+		HANDLE hev; //!< Event for potential data.
+		HANDLE hev2; //!< Event for real data.
+
+	public:
+		PollStream(const std::string& targetName) :
+		Stream(targetName),
+		WaitableStream(targetName)
+		{
+			target.add("tcppoll:host;port;connectionPort=-1;sock=-1");
+			target.add(targetName.c_str());
+			sock = getOrCreateSocket(target);
+
+			hev = createEvent(EvPotentialData);
+			hev2 = createEvent(EvData);
+
+			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			if (rv == SOCKET_ERROR)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
+		}
+
+		~PollStream()
+		{
+			shutdown(sock, SD_BOTH);
+			closesocket(sock);
+		}
+
+		//! Callback when an event is notified, allowing the stream to rearm it.
+		//! \param srv Hub instance that has generated the notification.
+		//! \param t Type of event.
+		virtual void notifyEvent(Hub *srv, EvType& t)
+		{
+			if(t == EvPotentialData)
+				t = EvData; // trick Hub::step into calling Hub::incomingData, once
+		}
+
+		//! Callback when incomingData is called, allowing the stream to rearm its edge trigger.
+		//! \param srv Hub instance that has generated the notification.
+		//! \param t Type of event.
+		 virtual void notifyIncomingData(Hub *srv, EvType& t)
+		{
+			readDone = true; // lie to Hub::step so that it doesn't raise DashelException::PreviousIncomingDataNotRead
+		}
+
+		virtual void write(const void *data, const size_t size) { }
+		virtual void flush() { }
+		virtual void read(void *data, size_t size) { }
 	};
 
 	//! UDP Socket, uses sendto/recvfrom for read/write
@@ -1368,6 +1442,7 @@ namespace Dashel
 					try
 					{
 						strs[r]->readDone = false;
+						strs[r]->notifyIncomingData(this, ets[r]); // Poll streams need to reset their edge triggers
 						incomingData(strs[r]);
 					}
 					catch (DashelException e)
@@ -1423,6 +1498,7 @@ namespace Dashel
 		reg("ser", &createInstance<SerialStream>);
 		reg("tcpin", &createInstanceWithHub<SocketServerStream>);
 		reg("tcp", &createInstance<SocketStream>);
+		reg("tcppoll", &createInstance<PollStream>);
 		reg("udp", &createInstance<UDPSocketStream>);
 	}
 	
