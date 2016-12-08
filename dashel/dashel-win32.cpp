@@ -97,7 +97,7 @@ namespace Dashel
 		failedFlag = true;
 
 		if (se)
-			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, se, 0, sysMessage, 1024, NULL);
+			FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, se, 0, sysMessage, 1024, NULL);
 
 		failReason = reason;
 		failReason += " ";
@@ -586,18 +586,18 @@ namespace Dashel
 			hf = NULL;
 			if (mode == "read")
 			{
-				hf = CreateFile(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+				hf = CreateFileA(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 				startStream();
 			}
 			else if (mode == "write")
 			{
 				writeOffset = 0;
-				hf = CreateFile(name.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
+				hf = CreateFileA(name.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
 			}
 			else if (mode == "readwrite") 
 			{
 				writeOffset = 0;
-				hf = CreateFile(name.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
+				hf = CreateFileA(name.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_FLAG_OVERLAPPED, NULL);
 				startStream();
 			}
 			if(hf == INVALID_HANDLE_VALUE)
@@ -912,7 +912,7 @@ namespace Dashel
 				devName = std::string("\\\\.\\COM").append(target.get("port"));
 			}
 
-			hf = CreateFile(devName.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+			hf = CreateFileA(devName.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 			if(hf == INVALID_HANDLE_VALUE)
 				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open serial port.");
 
