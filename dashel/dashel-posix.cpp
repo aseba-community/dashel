@@ -73,8 +73,11 @@
 
 #ifdef MACOSX
 	#include <CoreFoundation/CoreFoundation.h>
-	#include <IOKit/IOKitLib.h>
-	#include <IOKit/serial/IOSerialKeys.h>
+	#include "TargetConditionals.h"
+	#if TARGET_OS_IPHONE == 0
+		#include <IOKit/IOKitLib.h>
+		#include <IOKit/serial/IOSerialKeys.h>
+	#endif
 #endif
 
 #ifdef USE_LIBUDEV
@@ -131,7 +134,7 @@ namespace Dashel
 		
 
 
-#ifdef MACOSX
+#if defined MACOSX && TARGET_OS_IPHONE == 0
 		// use IOKit to enumerates devices
 		
 		// get a matching dictionary to specify which IOService class we're interested in
@@ -585,6 +588,17 @@ namespace Dashel
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
+			
+			// if dynamically-allocated port, set actual port in target name
+			if (bindAddress.port == 0)
+			{
+				socklen_t addrSize(sizeof(addr));
+				if (::getsockname(fd, (struct sockaddr *)&addr, &addrSize) != 0)
+					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot resolve current address of server socket.");
+				bindAddress.port = ntohs(addr.sin_port);
+				bindAddress.address = ntohl(addr.sin_addr.s_addr);
+				target.add(bindAddress.format().c_str());
+			}
 			
 			// Listen on socket, backlog is sort of arbitrary.
 			if(listen(fd, 16) < 0)

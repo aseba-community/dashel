@@ -29,6 +29,7 @@ else (WIN32)
 		mark_as_advanced(IOKIT_LIBRARY)
 		find_library(POLL_LIBRARY poll)
 		set(EXTRA_LIBS ${COREFOUNDATION_LIBRARY} ${IOKIT_LIBRARY} ${POLL_LIBRARY})
+		set(CMAKE_MACOSX_RPATH ON) # Solve the CMP0042 warning
 	else (APPLE)
 		if (UDEV_FOUND)
 			include_directories(${UDEV_INCLUDE_DIR})
@@ -52,7 +53,7 @@ target_link_libraries(dashel ${EXTRA_LIBS})
 # dynamic library version
 set(LIB_INSTALL_DIR lib CACHE FILEPATH "Where to install libraries")
 set(LIB_VERSION_MAJOR 1) # Must be bumped for incompatible ABI changes
-set(LIB_VERSION_MINOR 1)
+set(LIB_VERSION_MINOR 2)
 set(LIB_VERSION_PATCH 0)
 set(LIB_VERSION_STRING ${LIB_VERSION_MAJOR}.${LIB_VERSION_MINOR}.${LIB_VERSION_PATCH})
 set_target_properties(dashel PROPERTIES VERSION ${LIB_VERSION_STRING} 

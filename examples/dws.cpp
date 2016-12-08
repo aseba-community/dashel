@@ -89,7 +89,7 @@ public:
 		vector<string> requestParts(split(request, "\n\r\t "));
 		
 		// only support GET
-		if ((requestParts.size() < 2) or requestParts[0] != "GET")
+		if ((requestParts.size() < 2) || requestParts[0] != "GET")
 		{
 			cerr << stream << " Unsupported HTTP request" << request << endl;
 			sendString(stream, "HTTP/1.0 403\r\n\r\n");
