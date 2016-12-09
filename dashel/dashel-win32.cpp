@@ -188,7 +188,7 @@ namespace Dashel
 	//! Ensure that the WinSock API has been started properly.
 	void startWinSock()
 	{
-		bool started = false;
+		static bool started = false;
 		if(!started)
 		{
 			WORD ver = 0x0101;
