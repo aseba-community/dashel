@@ -59,6 +59,7 @@
 #define _WIN32_WINNT 0x0501
 #endif // _WIN32_WINNT
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <setupapi.h>
 #include <devguid.h>
@@ -314,19 +315,20 @@ namespace Dashel
 			if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
 			
-			// if dynamically-allocated port, set actual port in target name
+			// retrieve port number, if a dynamic one was requested
 			if (bindAddress.port == 0)
 			{
-				int addrSize(sizeof(addr));
-				if (getsockname(sock, (struct sockaddr *)&addr, &addrSize) != 0)
-					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot resolve current address of server socket.");
-				bindAddress.port = ntohs(addr.sin_port);
-				bindAddress.address = ntohl(addr.sin_addr.s_addr);
-				target.add(bindAddress.format().c_str());
+				int sizeof_addr(sizeof(addr));
+				if (getsockname(sock, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot retrieve socket port assignment.");
+				target.erase("port");
+				std::ostringstream portnum;
+				portnum << ntohs(addr.sin_port);
+				target.addParam("port", portnum.str().c_str(), true);
 			}
-			
+
 			// Listen on socket, backlog is sort of arbitrary.
-			if(listen(sock, 16) == SOCKET_ERROR)
+			if (listen(sock, 16) == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot listen on socket.");
 
 			// Create and register event.
@@ -1240,6 +1242,18 @@ namespace Dashel
 				addr.sin_addr.s_addr = htonl(bindAddress.address);
 				if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
+
+				// retrieve port number, if a dynamic one was requested
+				if (bindAddress.port == 0)
+				{
+					socklen_t sizeof_addr(sizeof(addr));
+					if (getsockname(sock, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+						throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
+					target.erase("port");
+					std::ostringstream portnum;
+					portnum << ntohs(addr.sin_port);
+					target.addParam("port", portnum.str().c_str(), true);
+				}
 			}
 			else
 			{
