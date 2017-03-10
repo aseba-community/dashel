@@ -632,20 +632,21 @@ namespace Dashel
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
-			
-			// if dynamically-allocated port, set actual port in target name
+
+			// retrieve port number, if a dynamic one was requested
 			if (bindAddress.port == 0)
 			{
-				socklen_t addrSize(sizeof(addr));
-				if (::getsockname(fd, (struct sockaddr *)&addr, &addrSize) != 0)
-					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot resolve current address of server socket.");
-				bindAddress.port = ntohs(addr.sin_port);
-				bindAddress.address = ntohl(addr.sin_addr.s_addr);
-				target.add(bindAddress.format().c_str());
+				socklen_t sizeof_addr(sizeof(addr));
+				if (::getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
+				target.erase("port");
+				ostringstream portnum;
+				portnum << ntohs(addr.sin_port);
+				target.addParam("port", portnum.str().c_str(), true);
 			}
 			
 			// Listen on socket, backlog is sort of arbitrary.
-			if(listen(fd, 16) < 0)
+			if (listen(fd, 16) < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot listen on socket.");
 		}
 		
@@ -690,6 +691,18 @@ namespace Dashel
 				addr.sin_addr.s_addr = htonl(bindAddress.address);
 				if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
+
+				// retrieve port number, if a dynamic one was requested
+				if (bindAddress.port == 0)
+				{
+					socklen_t sizeof_addr(sizeof(addr));
+					if (::getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+						throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
+					target.erase("port");
+					ostringstream portnum;
+					portnum << ntohs(addr.sin_port);
+					target.addParam("port", portnum.str().c_str(), true);
+				}
 			}
 			else
 			{
