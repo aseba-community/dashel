@@ -40,6 +40,8 @@ Additional contributions by:
 
 	Antoine Beyeler <abeyeler at ab-ware dot com>
 		(http://www.ab-ware.com)
+	David James Sherman <david dot sherman at inria dot fr>
+		(http://inria.fr)
 
 
 To compile Dashel, you need CMake 2.6 or later (http://www.cmake.org/).

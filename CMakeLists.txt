@@ -53,7 +53,7 @@ target_link_libraries(dashel ${EXTRA_LIBS})
 # dynamic library version
 set(LIB_INSTALL_DIR lib CACHE FILEPATH "Where to install libraries")
 set(LIB_VERSION_MAJOR 1) # Must be bumped for incompatible ABI changes
-set(LIB_VERSION_MINOR 2)
+set(LIB_VERSION_MINOR 3)
 set(LIB_VERSION_PATCH 0)
 set(LIB_VERSION_STRING ${LIB_VERSION_MAJOR}.${LIB_VERSION_MINOR}.${LIB_VERSION_PATCH})
 set_target_properties(dashel PROPERTIES VERSION ${LIB_VERSION_STRING} 

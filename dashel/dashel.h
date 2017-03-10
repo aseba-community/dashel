@@ -60,8 +60,9 @@
 	Sebastion Gerlach,
 	Kenzan Technologies (http://www.kenzantech.com)\n
 	Antoine Beyeler (http://www.ab-ware.com),
-	Laboratory of Intelligent Systems, EPFL, Lausanne (http://lis.epfl.ch)
-	
+	Laboratory of Intelligent Systems, EPFL, Lausanne (http://lis.epfl.ch)\n
+	David James Sherman,
+	Inria (http://inria.fr)
 	
 	\section IntroSec Introduction
 	
@@ -74,7 +75,7 @@
 	
 	\section Usage
 	
-	To use Dashel, you have to instanciate a Dashel::Hub.
+	To use Dashel, you have to instantiate a Dashel::Hub.
 	The Hub is your connection with the data streams.
 	It is the place where you create, destroy, and synchronize them.
 	
@@ -93,6 +94,7 @@
 	\li \c file : local files
 	\li \c tcp : TCP/IP client
 	\li \c tcpin : TCP/IP server
+	\li \c tcppoll : TCP/IP polling
 	\li \c udp : UDP/IP
 	\li \c ser : serial port
 	\li \c stdin : standard input
@@ -103,13 +105,19 @@
 	\li \c mode : mode (read, write)
 	
 	The tcp protocol accepts the following parameters, in this implicit order:
-	\li \c host : host
-	\li \c port : port
+	\li \c host : remote host
+	\li \c port : remote port
+	\li \c socket : local socket; if a nonegative value is given, host and port are ignored
 	
 	The tcpin protocol accepts the following parameters, in this implicit order:
 	\li \c port : port
 	\li \c address : if the computer possesses multiple network addresses, the one to listen on, default 0.0.0.0 (any)
 	
+	The tcppoll protocol accepts the following parameters, in this implicit order:
+	\li \c host : remote host
+	\li \c port : remote port
+	\li \c socket : local socket; if a nonegative value is given, host and port are ignored
+
 	The udp protocol accepts the following parameters, in this implicit order:
 	\li \c port : port
 	\li \c address : if the computer possesses multiple network addresses, the one to connect to, default 0.0.0.0 (any)
@@ -134,9 +142,9 @@ namespace Dashel
 	class Stream;
 	
 	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.2.0"
+	#define DASHEL_VERSION "1.3.0"
 	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10200
+	#define DASHEL_VERSION_INT 10300
 	
 	//! The one size fits all exception for streams.
 	/*!
@@ -247,7 +255,7 @@ namespace Dashel
 		bool isSet(const char *key) const;
 
 		//! Get a parameter value.
-		//! Explicitely instanciated for int, unsigned, float and double in the library
+		//! Explicitely instantiated for int, unsigned, float and double in the library
 		template<typename T> T get(const char *key) const;
 
 		//! Get a parameter value
