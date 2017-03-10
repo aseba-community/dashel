@@ -4,7 +4,7 @@
 // Requires CMake plugin from https://github.com/davidjsherman/aseba-jenkins.git in global library.
 
 pipeline {
-	agent label:'' // use any available Jenkins agent
+	agent any // use any available Jenkins agent
 	stages {
 		stage('Prepare') {
 			steps {
@@ -20,7 +20,7 @@ pipeline {
 					"debian" : {
 						node('debian') {
 							unstash 'source'
-							CMake([sourceDir: '$workDir/dashel', label: 'debian'])
+							CMake([sourceDir: pwd()+'/dashel', label: 'debian'])
 							stash includes: 'dist/**', name: 'dist-debian'
 							stash includes: 'build/**', name: 'build-debian'
 						}
@@ -28,14 +28,14 @@ pipeline {
 					"macos" : {
 						node('macos') {
 							unstash 'source'
-							CMake([sourceDir: '$workDir/dashel', label: 'macos'])
+							CMake([sourceDir: pwd()+'/dashel', label: 'macos'])
 							stash includes: 'dist/**', name: 'dist-macos'
 						}
 					},
 					"windows" : {
 						node('windows') {
 							unstash 'source'
-							CMake([sourceDir: '$workDir/dashel', label: 'windows'])
+							CMake([sourceDir: pwd()+'/dashel', label: 'windows'])
 							stash includes: 'dist/**', name: 'dist-windows'
 						}
 					}
