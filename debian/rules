@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
-build: clean
-	mkdir debian/build
+build:
+	mkdir -p debian/build
 	cd debian/build && cmake -D CMAKE_BUILD_TYPE=Release -D BUILD_SHARED_LIBS=false -D CMAKE_INSTALL_PREFIX=../tmp/usr ../..
 	cd debian/build && $(MAKE)
 
