@@ -15,7 +15,7 @@ binary-indep:
 binary-arch: build
 	install -d debian/tmp/DEBIAN
 	install -d debian/tmp/usr/share/doc/libdashel
-	cd debian/build && make install
+	cd debian/build && $(MAKE) install
 	strip --strip-unneeded -R .note -R .comment debian/tmp/usr/lib/*.a
 	cp changelog debian/tmp/usr/share/doc/libdashel/changelog
 	cp debian/changelog debian/tmp/usr/share/doc/libdashel/changelog.debian
