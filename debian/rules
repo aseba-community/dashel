@@ -2,7 +2,7 @@
 
 build: clean
 	mkdir debian/build
-	cd debian/build && cmake -D CMAKE_BUILD_TYPE=relwithdebuginfo -D BUILD_SHARED_LIBS=false ../..
+	cd debian/build && cmake -D CMAKE_BUILD_TYPE=Release -D BUILD_SHARED_LIBS=false ../..
 	cd debian/build && $(MAKE)
 
 clean:
