@@ -15,18 +15,13 @@ binary-indep:
 binary-arch: build
 	rm -rf debian/tmp
 	install -d debian/tmp/DEBIAN
-	install -d debian/tmp/usr/include/dashel
-	install -d debian/tmp/usr/lib
 	install -d debian/tmp/usr/share/doc/libdashel
-	install -d debian/tmp/usr/share/dashel/CMake
-	strip --strip-unneeded -R .note -R .comment debian/build/libdashel.a
+	cd debian/build && make install
+	strip --strip-unneeded -R .note -R .comment debian/tmp/usr/lib/*.a
 	cp changelog debian/tmp/usr/share/doc/libdashel/changelog
 	cp debian/changelog debian/tmp/usr/share/doc/libdashel/changelog.debian
 	cp debian/copyright debian/tmp/usr/share/doc/libdashel
-	cp dashel/dashel.h debian/tmp/usr/include/dashel
-	cp dashel/dashel-posix.h debian/tmp/usr/include/dashel
-	cp debian/build/libdashel.a debian/tmp/usr/lib
-	cp debian/build/dashelConfig.cmake debian/tmp/usr/share/dashel/CMake
+	gzip -9 debian/tmp/usr/share/doc/libdashel/changelog.debian
 	chown -R root.root debian/tmp
 	chmod -R o-s,go=u,go-ws debian/tmp
 	dpkg-gencontrol
