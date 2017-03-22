@@ -2,7 +2,7 @@
 
 build: clean
 	mkdir debian/build
-	cd debian/build && cmake -D CMAKE_BUILD_TYPE=Release -D BUILD_SHARED_LIBS=false ../..
+	cd debian/build && cmake -D CMAKE_BUILD_TYPE=Release -D BUILD_SHARED_LIBS=false -D CMAKE_INSTALL_PREFIX=../tmp/usr ../..
 	cd debian/build && $(MAKE)
 
 clean:
@@ -13,12 +13,11 @@ binary: binary-arch binary-indep
 binary-indep:
 
 binary-arch: build
-	rm -rf debian/tmp
 	install -d debian/tmp/DEBIAN
-	install -d debian/tmp/usr/include/dashel
-	install -d debian/tmp/usr/lib
+	#install -d debian/tmp/usr/include/dashel
+	#install -d debian/tmp/usr/lib
 	install -d debian/tmp/usr/share/doc/libdashel
-	install -d debian/tmp/usr/share/dashel/CMake
+	#install -d debian/tmp/usr/share/dashel/CMake
 	cd debian/build && make install
 	strip --strip-unneeded -R .note -R .comment debian/tmp/usr/lib/*.a
 	cp changelog debian/tmp/usr/share/doc/libdashel/changelog
