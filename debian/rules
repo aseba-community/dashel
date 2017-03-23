@@ -23,7 +23,7 @@ binary-arch: build
 	cp debian/copyright debian/tmp/usr/share/doc/libdashel
 	cp -r docs/* debian/tmp/usr/share/doc/libdashel/html
 	rm debian/tmp/usr/share/doc/libdashel/html/jquery.js
-	ln -s /usr/share/javascript/jquery/jquery.js debian/tmp/usr/share/doc/libdashel/html/jquery.js
+	ln -s ../../../javascript/jquery/jquery.js debian/tmp/usr/share/doc/libdashel/html/jquery.js
 	gzip -n9 debian/tmp/usr/share/doc/libdashel/changelog.debian
 	gzip -n9 debian/tmp/usr/share/doc/libdashel/changelog
 	chown -R root.root debian/tmp
