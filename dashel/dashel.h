@@ -64,6 +64,8 @@
 	  Laboratory of Intelligent Systems, EPFL, Lausanne (http://lis.epfl.ch)
 	- [David James Sherman](https://github.com/davidjsherman),
 	  Inria (http://inria.fr)
+	  
+	https://github.com/aseba-community/dashel
 	
 	\section IntroSec Introduction
 	
@@ -74,8 +76,8 @@
 	Dashel is licensed under a [modified BSD license](http://en.wikipedia.org/wiki/BSD_licenses), which is a permissive open source license.
 	Yet, if you find bugs or do some improvements, please let us know.
 	
-	Development takes place on https://github.com/aseba-community/dashel.
-	Feel free to fork Dashel and submit pull requests.
+	The development takes place on [github](https://github.com/aseba-community/dashel).
+	Feel free to report bugs, fork Dashel and submit pull requests.
 	If you want to reach us, you can join the [development mailing list](https://mail.gna.org/listinfo/dashel-dev/).
 	
 	\section Usage
