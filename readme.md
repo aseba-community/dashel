@@ -14,7 +14,7 @@ On Linux, to enumerate serial ports, first install [libudev](http://www.kernel.o
 
 ## Contribute
 
-Feel free to [report bugs](https://github.com/aseba-community/dashel/issues), [fork Dashel](https://github.com/aseba-community/dashel#fork-destination-box) and [submit pull requests](https://github.com/aseba-community/dashel/pulls) through [github](https://github.com/aseba-community/dashel).
+Feel free to [report bugs](https://github.com/aseba-community/dashel/issues/new), fork Dashel and [submit pull requests](https://github.com/aseba-community/dashel/pulls) through [github](https://github.com/aseba-community/dashel).
 If you want to reach us, you can join the [development mailing list](https://mail.gna.org/listinfo/dashel-dev/).
 
 ## Authors and license
