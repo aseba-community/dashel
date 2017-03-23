@@ -23,7 +23,7 @@ If this does not work, then read the aforementioned web page.
 
 On Linux, to enumerate serial ports properly, install libudev (http://www.kernel.org/pub/linux/utils/kernel/hotplug/libudev/).
 
-### Contribute
+## Contribute
 
 Feel free to report bugs, fork Dashel and submit pull requests through [github](https://github.com/aseba-community/dashel).
 If you want to reach us, you can join the [development mailing list](https://mail.gna.org/listinfo/dashel-dev/).
@@ -37,7 +37,7 @@ Copyright (C) 2007–2017:
 * [Antoine Beyeler](http://www.ab-ware.com), [Laboratory of Intelligent Systems](http://lis.epfl.ch), [EPFL](http://www.epfl.ch/)
 * [David James Sherman](http://www.labri.fr/perso/david/Site/David_James_Sherman.html), [Inria](http://inria.fr)
 
-All rights reserved.
+All rights reserved. Released under a [modified BSD license](https://opensource.org/licenses/BSD-3-Clause):
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
