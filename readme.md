@@ -21,7 +21,7 @@ If you want to reach us, you can join the [development mailing list](https://mai
 
 Copyright (C) 2007–2017:
 	
-* [Stephane Magnenat](http://stephane.magnenat.net), [Mobots group](http://mobots.epfl.ch), [EPFL](http://www.epfl.ch/)
+* [Stéphane Magnenat](http://stephane.magnenat.net), [Mobots group](http://mobots.epfl.ch), [EPFL](http://www.epfl.ch/)
 * Sebastian Gerlach, [Kenzan Technologies](http://www.kenzantech.com)
 * [Antoine Beyeler](http://www.ab-ware.com), [Laboratory of Intelligent Systems](http://lis.epfl.ch), [EPFL](http://www.epfl.ch/)
 * [David James Sherman](http://www.labri.fr/perso/david/Site/David_James_Sherman.html), [Inria](http://inria.fr)
