@@ -10,11 +10,6 @@ To learn how to use Dashel, visit http://aseba-community.github.io/dashel.
 
 To compile Dashel, you need [CMake 2.6 or later](http://www.cmake.org/).
 The CMake website provides [documentation on how to use CMake](https://cmake.org/runningcmake).
-
-### Unix
-
-If you are on Unix and lazy, and just want to compile Dashel without any
-additional thinking, type the following commands in Dashel sources directory:
 On Linux, to enumerate serial ports, first install [libudev](http://www.kernel.org/pub/linux/utils/kernel/hotplug/libudev/).
 
 ## Contribute
