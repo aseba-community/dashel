@@ -55,17 +55,9 @@
 /**
 	\mainpage Dashel
 	
-	Dashel, a cross-platform DAta Stream Helper Encapsulation Library, by:
-	- [Stéphane Magnenat](https://github.com/stephanemagnenat) (http://stephane.magnenat.net),
-	  Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne (http://mobots.epfl.ch)
-	- Sebastion Gerlach,
-	  Kenzan Technologies (http://www.kenzantech.com)
-	- Antoine Beyeler (http://www.ab-ware.com),
-	  Laboratory of Intelligent Systems, EPFL, Lausanne (http://lis.epfl.ch)
-	- [David James Sherman](https://github.com/davidjsherman),
-	  Inria (http://inria.fr)
+	Dashel, a cross-platform DAta Stream Helper Encapsulation Library
 	  
-	https://github.com/aseba-community/dashel
+	Source code, compilation instructions, authors and license information are available at https://github.com/aseba-community/dashel.
 	
 	\section IntroSec Introduction
 	
@@ -422,7 +414,7 @@ namespace Dashel
 	/**
 		The central place where to create, destroy, and synchronize streams.
 		To create a client connection, users of the library have to subclass Hub
-		and implement incomingConnection(), incomingData(), and connectionClosed().
+		and implement connectionCreated(), incomingData(), and connectionClosed().
 	*/
 	class Hub
 	{
