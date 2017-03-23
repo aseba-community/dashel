@@ -55,9 +55,7 @@
 /**
 	\mainpage Dashel
 	
-	Dashel, a cross-platform DAta Stream Helper Encapsulation Library
-	  
-	Source code, compilation instructions, authors and license information are available at https://github.com/aseba-community/dashel.
+	[github.com/aseba-community/dashel](https://github.com/aseba-community/dashel)
 	
 	\section IntroSec Introduction
 	
@@ -65,11 +63,9 @@
 	It provides a unified access to TCP/UDP sockets, serial ports, console, and files streams.
 	It also allows a server application to wait for any activity on any combination of these streams.
 	
-	Dashel is licensed under a [modified BSD license](http://en.wikipedia.org/wiki/BSD_licenses), which is a permissive open source license.
-	Yet, if you find bugs or do some improvements, please let us know.
-	
-	The development takes place on [github](https://github.com/aseba-community/dashel).
-	Feel free to report bugs, fork Dashel and submit pull requests.
+	Dashel is licensed under a [modified BSD open-source license](http://en.wikipedia.org/wiki/BSD_licenses).
+	Source code, compilation instructions, authors and license information are available on [github](https://github.com/aseba-community/dashel).
+	Feel free to [report bugs](https://github.com/aseba-community/dashel/issues/new), fork Dashel and submit [pull requests](https://github.com/aseba-community/dashel/pulls).
 	If you want to reach us, you can join the [development mailing list](https://mail.gna.org/listinfo/dashel-dev/).
 	
 	\section Usage
@@ -81,7 +77,7 @@
 	The [`example` directory](https://github.com/aseba-community/dashel/tree/master/examples) in Dashel distribution provides several working examples that
 	you can read to learn to use Dashel.
 	
-	\section TargetNamingSec Targets Naming
+	\section TargetNamingSec Targets naming
 	
 	In Dashel, streams connect to targets.
 	A target is a string that describes a file, a TCP/UDP address/port, or a serial port.
