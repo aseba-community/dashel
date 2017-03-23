@@ -46,7 +46,7 @@ Additional contributions by:
 
 ## Usage
 
-To learn how to use Dashel, visit http://aseba-community.github.io/dashel
+To learn how to use Dashel, visit http://aseba-community.github.io/dashel.
 
 ## Compilation
 
@@ -63,10 +63,10 @@ additional thinking, type the following commands in Dashel sources directory:
 
 If this does not work, then read the aforementioned web page.
 
-Optionally, on Linux, to enumerate serial ports properly, you can install libudev (http://www.kernel.org/pub/linux/utils/kernel/hotplug/libudev/).
+On Linux, to enumerate serial ports properly, install libudev (http://www.kernel.org/pub/linux/utils/kernel/hotplug/libudev/).
 
 ### Contribute
 
-Feel free to report bugs, fork Dashel and submit pull requests through github.
+Feel free to report bugs, fork Dashel and submit pull requests through [github](https://github.com/aseba-community/dashel).
 If you want to reach us, you can join the [development mailing list](https://mail.gna.org/listinfo/dashel-dev/).
 
