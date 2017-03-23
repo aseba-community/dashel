@@ -55,14 +55,15 @@
 /**
 	\mainpage Dashel
 	
-	Stéphane Magnenat (http://stephane.magnenat.net),
-	Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne (http://mobots.epfl.ch) \n
-	Sebastion Gerlach,
-	Kenzan Technologies (http://www.kenzantech.com)\n
-	Antoine Beyeler (http://www.ab-ware.com),
-	Laboratory of Intelligent Systems, EPFL, Lausanne (http://lis.epfl.ch)\n
-	David James Sherman,
-	Inria (http://inria.fr)
+	Dashel, a cross-platform DAta Stream Helper Encapsulation Library, by:
+	- [Stéphane Magnenat](https://github.com/stephanemagnenat) (http://stephane.magnenat.net),
+	  Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne (http://mobots.epfl.ch)
+	- Sebastion Gerlach,
+	  Kenzan Technologies (http://www.kenzantech.com)
+	- Antoine Beyeler (http://www.ab-ware.com),
+	  Laboratory of Intelligent Systems, EPFL, Lausanne (http://lis.epfl.ch)
+	- [David James Sherman](https://github.com/davidjsherman),
+	  Inria (http://inria.fr)
 	
 	\section IntroSec Introduction
 	
@@ -70,8 +71,12 @@
 	It provides a unified access to TCP/UDP sockets, serial ports, console, and files streams.
 	It also allows a server application to wait for any activity on any combination of these streams.
 	
-	Dashel is licensed under a modified BSD license, which is a permissive open source license.
+	Dashel is licensed under a [modified BSD license](http://en.wikipedia.org/wiki/BSD_licenses), which is a permissive open source license.
 	Yet, if you find bugs or do some improvements, please let us know.
+	
+	Development takes place on https://github.com/aseba-community/dashel.
+	Feel free to fork Dashel and submit pull requests.
+	If you want to reach us, you can join the [development mailing list](https://mail.gna.org/listinfo/dashel-dev/).
 	
 	\section Usage
 	
@@ -79,7 +84,7 @@
 	The Hub is your connection with the data streams.
 	It is the place where you create, destroy, and synchronize them.
 	
-	The \c example directory in Dashel distribution provides several working examples that
+	The [`example` directory](https://github.com/aseba-community/dashel/tree/master/examples) in Dashel distribution provides several working examples that
 	you can read to learn to use Dashel.
 	
 	\section TargetNamingSec Targets Naming
