@@ -99,7 +99,7 @@ namespace Dashel
 	
 	// frome dashel.h
 	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
-		std::runtime_error(sourceToString(s) + "(" + _to_string(se) + "): " + reason),
+		std::runtime_error(sourceToString(s) + " (" + _to_string(se) + "): " + reason),
 		source(s),
 		sysError(se),
 		stream(stream)
