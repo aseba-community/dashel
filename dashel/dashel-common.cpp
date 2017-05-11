@@ -89,14 +89,43 @@ namespace Dashel
 		_pos += size;
 	}
 	
+	// to be removed when we switch to C++11
+	string _to_string(int se)
+	{
+		ostringstream ostr;
+		ostr << se;
+		return ostr.str();
+	}
+	
 	// frome dashel.h
 	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
-		std::runtime_error(reason),
+		std::runtime_error(sourceToString(s) + "(" + _to_string(se) + "): " + reason),
 		source(s),
 		sysError(se),
 		stream(stream)
 	{
 	
+	}
+	
+	string DashelException::sourceToString(Source s)
+	{
+		const char* const sourceNames[] =
+		{
+			"Unknown cause",
+			"Synchronisation error",
+			"Invalid target",
+			"Invalid operation",
+			"Connection lost",
+			"I/O error",
+			"Connection failed",
+			"Enumeration error",
+			"Previous incoming data not read"
+		};
+		const size_t arrayLength(sizeof(sourceNames)/sizeof(const char*));
+		if (s >= arrayLength)
+			return sourceNames[0];
+		else
+			return sourceNames[s];
 	}
 	
 	IPV4Address::IPV4Address(unsigned addr, unsigned short prt)

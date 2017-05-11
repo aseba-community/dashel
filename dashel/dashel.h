@@ -176,6 +176,10 @@ namespace Dashel
 			\param stream Stream to which exception applies.
 		*/
 		DashelException(Source s, int se, const char *reason, Stream* stream = NULL);
+		
+	protected:
+		//! Return a string description of the source error
+		static std::string sourceToString(Source s);
 	};
 	
 	//! Serial port enumerator class.
