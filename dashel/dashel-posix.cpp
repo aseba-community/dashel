@@ -650,6 +650,9 @@ namespace Dashel
 			// Listen on socket, backlog is sort of arbitrary.
 			if (listen(fd, 16) < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot listen on socket.");
+			
+			// set counterpart listening name
+			listeningName = "tcp:host=localhost;port=" + bindAddress.port;
 		}
 		
 		virtual void write(const void *data, const size_t size) { }
