@@ -1118,6 +1118,7 @@ namespace Dashel
 				throw DashelException(DashelException::ConnectionFailed, errno,
 					"Cannot unlock pseudoterminal master/slave pair.");
 			slavePort = ptsname(fd);
+			listeningName = "ser:device=" + slavePort;
 		}
 		
 		const string getSlavePort()
