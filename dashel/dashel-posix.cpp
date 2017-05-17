@@ -1128,6 +1128,11 @@ namespace Dashel
 		{
 			return slavePort;
 		}
+		
+		virtual void flush()
+		{
+			// nothing to do, hide fflush in base class
+		}
 	};
 	#endif
 	
