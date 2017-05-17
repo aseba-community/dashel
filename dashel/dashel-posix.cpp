@@ -78,6 +78,8 @@
 		#include <IOKit/IOKitLib.h>
 		#include <IOKit/serial/IOSerialKeys.h>
 	#endif
+#else
+	#define PSEUDOTTY
 #endif
 
 #ifdef USE_LIBUDEV
@@ -1092,6 +1094,38 @@ namespace Dashel
 		}
 	};
 	
+	#ifdef PSEUDOTTY
+	class PseudoTtyStream: public FileDescriptorStream
+	{
+	protected:
+		string slavePort;
+	public:
+		//! Parse the target name and create the corresponding pty stream
+		PseudoTtyStream(const string& targetName) :
+			Stream("pty"),
+			FileDescriptorStream("pty")
+		{
+			target.add("pty:");
+			target.add(targetName.c_str());
+			
+			fd = open("/dev/ptmx", O_RDWR);
+			if (fd == -1)
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot open /dev/ptmx.");
+			if (grantpt(fd) < 0)
+				throw DashelException(DashelException::ConnectionFailed, errno,
+					"Cannot grant access to the slave pseudoterminal.");
+			if (unlockpt(fd) < 0)
+				throw DashelException(DashelException::ConnectionFailed, errno,
+					"Cannot unlock pseudoterminal master/slave pair.");
+			slavePort = ptsname(fd);
+		}
+		
+		const string getSlavePort()
+		{
+			return slavePort;
+		}
+	};
+	#endif
 	
 	/*
 	We have decided to let the application choose what to do with signals.
@@ -1438,6 +1472,9 @@ namespace Dashel
 		reg("tcp", &createInstance<SocketStream>);
 		reg("tcppoll", &createInstance<PollStream>);
 		reg("udp", &createInstance<UDPSocketStream>);
+		#ifdef PSEUDOTTY
+		reg("pty", &createInstance<PseudoTtyStream>);
+		#endif
 	}
 	
 	StreamTypeRegistry __attribute__((init_priority(1000))) streamTypeRegistry;
