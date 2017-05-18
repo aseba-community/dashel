@@ -1111,9 +1111,9 @@ namespace Dashel
 			target.add("pty:");
 			target.add(targetName.c_str());
 			
-			fd = open("/dev/ptmx", O_RDWR);
+			fd = posix_openpt(O_RDWR);
 			if (fd == -1)
-				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot open /dev/ptmx.");
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot open new pseudoterminal.");
 			if (grantpt(fd) < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno,
 					"Cannot grant access to the slave pseudoterminal.");
