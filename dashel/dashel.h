@@ -120,13 +120,15 @@
 	The ser protocol accepts the following parameters, in this implicit order:
 	\li \c device : serial port device name, system specific; either port or device must be given, device has priority if both are given.
 	\li \c name : select the port by matching part of the serial port "user-friendly" description. The match is case-sensitive. Works on Linux and Windows (note: on Linux, this feature requires libudev).
-	\li \c port : serial port number, starting from 1, default 1; either port or device must be given, device has priority if both are given (note: on Linux, this feature requires libhal).
+	\li \c port : serial port number, starting from 1, default 1
 	\li \c baud : baud rate, default 115200
 	\li \c stop : stop bits count (1 or 2), default 1
 	\li \c parity : parity type (none, even, odd), default none
 	\li \c fc : flow control type, (none, hard), default none
 	\li \c bits : number of bits per character, default 8
 	\li \c dtr : whether DTR line is enabled, default true
+	Note that either device, name (on supported platforms), or port must be given.
+	If more than one is given, device has priority, then name, and port has the lowest priority.
 	
 	Protocols \c stdin and \c stdout do not take any parameter.
 */
