@@ -257,8 +257,6 @@ static void map_select_results
 	if (FD_ISSET (pCur->fd, pWriteSet))
 	    pCur->revents |= POLLOUT;
     }
-
-    return;
 }
 
 /*---------------------------------------------------------------------------*\

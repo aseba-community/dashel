@@ -718,7 +718,7 @@ namespace Dashel
 		{
 			sockaddr_in addr;
 			addr.sin_family = AF_INET;
-			addr.sin_port = htons(dest.port);;
+			addr.sin_port = htons(dest.port);
 			addr.sin_addr.s_addr = htonl(dest.address);
 			
 			ssize_t sent = sendto(fd, sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr *)&addr, sizeof(addr));
@@ -1169,12 +1169,12 @@ namespace Dashel
 	
 	Stream* Hub::connect(const std::string &target)
 	{
-		std::string proto, params;
+		std::string proto;
 		size_t c = target.find_first_of(':');
 		if (c == std::string::npos)
 			throw DashelException(DashelException::InvalidTarget, 0, "No protocol specified in target.");
 		proto = target.substr(0, c);
-		params = target.substr(c+1);
+		// N.B. params = target.substr(c+1)
 		
 		SelectableStream *s(dynamic_cast<SelectableStream*>(streamTypeRegistry.create(proto, target, *this)));
 		if(!s)
