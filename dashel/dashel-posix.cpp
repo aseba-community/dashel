@@ -1090,47 +1090,6 @@ namespace Dashel
 	};
 	
 	
-	/*
-	We have decided to let the application choose what to do with signals.
-	Hub::stop() being thread safe, it is ok to let the user decide.
-	
-	// Signal handler for SIGTERM
-	
-	typedef std::set<Hub*> HubsSet;
-	typedef HubsSet::iterator HubsSetIterator;
-	
-	//! All instanciated Hubs, required for correctly terminating them on signal
-	static HubsSet allHubs;
-	
-	//! Called when SIGTERM or SIGINT arrives, halts all running clients or servers in all threads
-	void termHandler(int t)
-	{
-		for (HubsSetIterator it = allHubs.begin(); it != allHubs.end(); ++it)
-		{
-			(*it)->stop();
-		}
-	}
-	
-	
-	//! Class to setup SIGTERM or SIGINT handler
-	static class SigTermHandlerSetuper
-	{
-	public:
-		//! Private constructor that redirects SIGTERM
-		SigTermHandlerSetuper()
-		{
-			struct sigaction new_act, old_act;
-			new_act.sa_handler = termHandler;
-			sigemptyset(&new_act.sa_mask);
-
-			new_act.sa_flags = 0;
-
-			sigaction(SIGTERM, &new_act, &old_act);
-			sigaction(SIGINT, &new_act, &old_act);
-		}
-	} staticSigTermHandlerSetuper;
-	*/
-	
 	// Hub
 	
 	Hub::Hub(const bool resolveIncomingNames):
@@ -1144,16 +1103,10 @@ namespace Dashel
 		streamsLock = new pthread_mutex_t;
 		
 		pthread_mutex_init((pthread_mutex_t*)streamsLock, NULL);
-
-		// commented because we let the users manage the signal themselves
-		//allHubs.insert(this);
 	}
 	
 	Hub::~Hub()
 	{
-		// commented because we let the users manage the signal themselves
-		//allHubs.erase(this);
-		
 		int *terminationPipes = (int*)hTerminate;
 		close(terminationPipes[0]);
 		close(terminationPipes[1]);
@@ -1266,7 +1219,6 @@ namespace Dashel
 				
 				if (pollFdsArray[i].revents & POLLERR)
 				{
-					//std::cerr << "POLLERR" << std::endl;
 					wasActivity = true;
 					
 					try
@@ -1291,7 +1243,6 @@ namespace Dashel
 				}
 				else if (pollFdsArray[i].revents & POLLHUP)
 				{
-					//std::cerr << "POLLHUP" << std::endl;
 					wasActivity = true;
 					
 					try
@@ -1307,7 +1258,6 @@ namespace Dashel
 				}
 				else if (pollFdsArray[i].revents & stream->pollEvent)
 				{
-					//std::cerr << "POLLIN" << std::endl;
 					wasActivity = true;
 					
 					// test if listen stream
@@ -1341,7 +1291,6 @@ namespace Dashel
 						{
 							if (stream->receiveDataAndCheckDisconnection())
 							{
-								//std::cerr << "connection closed" << std::endl;
 								connectionClosed(stream, false);
 								streamClosed = true;
 							}
@@ -1350,12 +1299,10 @@ namespace Dashel
 								// read all data available on this socket
 								while (stream->isDataInRecvBuffer())
 									incomingData(stream);
-								//std::cerr << "incoming data" << std::endl;
 							}
 						}
 						catch (DashelException &e)
 						{
-							//std::cerr << "exception on POLLIN" << std::endl;
 							assert(e.stream);
 						}
 						
