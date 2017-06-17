@@ -74,7 +74,7 @@ class ChatClient: public Hub
 {
 public:
 	ChatClient(string remoteTarget, const string& nick) :
-		nick(nick), inputStream(0)
+		inputStream(0), nick(nick)
 	{
 		remoteTarget += ";port=8765";
 		inputStream = connect("stdin:");
