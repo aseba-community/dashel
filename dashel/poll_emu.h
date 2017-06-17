@@ -6,7 +6,7 @@
 	poll - select(2)-based poll() emulation function for BSD systems.
 
   SYNOPSIS
-	#include "poll.h"
+#include "poll.h"
 
 	struct pollfd
 	{

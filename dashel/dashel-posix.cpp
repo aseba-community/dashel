@@ -68,32 +68,32 @@
 #endif
 
 #ifdef MACOSX
-	#define USE_POLL_EMU
+#define USE_POLL_EMU
 #endif
 
 #ifdef MACOSX
-	#include <CoreFoundation/CoreFoundation.h>
-	#include "TargetConditionals.h"
-	#if TARGET_OS_IPHONE == 0
-		#include <IOKit/IOKitLib.h>
-		#include <IOKit/serial/IOSerialKeys.h>
-	#endif
+#include <CoreFoundation/CoreFoundation.h>
+#include "TargetConditionals.h"
+#if TARGET_OS_IPHONE == 0
+#include <IOKit/IOKitLib.h>
+#include <IOKit/serial/IOSerialKeys.h>
+#endif
 #endif
 
 #ifdef USE_LIBUDEV
 extern "C" {
-	#include <libudev.h>
+#include <libudev.h>
 }
 #endif
 
 #ifdef USE_HAL
-	#include <hal/libhal.h>
+#include <hal/libhal.h>
 #endif
 
 #ifndef USE_POLL_EMU
-	#include <poll.h>
+#include <poll.h>
 #else
-	#include "poll_emu.h"
+#include "poll_emu.h"
 #endif
 
 #include "dashel-private.h"
@@ -311,7 +311,7 @@ namespace Dashel
 	
 	// Streams
 	
-	#define RECV_BUFFER_SIZE	4096
+#define RECV_BUFFER_SIZE	4096
 
 	SelectableStream::SelectableStream(const string& protocolName) : 
 		Stream(protocolName),
@@ -389,7 +389,7 @@ namespace Dashel
 	class SocketStream: public DisconnectableStream
 	{
 	protected:
-		#ifndef TCP_CORK
+#ifndef TCP_CORK
 		//! Socket constants
 		enum Consts
 		{
@@ -398,16 +398,16 @@ namespace Dashel
 		};
 		
 		ExpandableBuffer sendBuffer;
-		#endif
+#endif
 		
 	public:
 		//! Create a socket stream to the following destination
 		SocketStream(const string& targetName) :
 			Stream("tcp"),
 			DisconnectableStream("tcp")
-			#ifndef TCP_CORK
+#ifndef TCP_CORK
 			,sendBuffer(SEND_BUFFER_SIZE_INITIAL)
-			#endif
+#endif
 		{
 			target.add("tcp:host;port;connectionPort=-1;sock=-1");
 			target.add(targetName.c_str());
@@ -420,10 +420,10 @@ namespace Dashel
 			}
 
 			// setup TCP Cork for delayed sending
-			#ifdef TCP_CORK
+#ifdef TCP_CORK
 			int flag = 1;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
-			#endif
+#endif
 		}
 		
 		virtual ~SocketStream()
@@ -442,9 +442,9 @@ namespace Dashel
 			if (size == 0)
 				return;
 			
-			#ifdef TCP_CORK
+#ifdef TCP_CORK
 			send(data, size);
-			#else
+#else
 			if (size >= SEND_BUFFER_SIZE_LIMIT)
 			{
 				flush();
@@ -456,7 +456,7 @@ namespace Dashel
 				if (sendBuffer.size() >= SEND_BUFFER_SIZE_LIMIT)
 					flush();
 			}
-			#endif
+#endif
 		}
 		
 		//! Send all data over the socket
@@ -495,15 +495,15 @@ namespace Dashel
 		{
 			assert(fd >= 0);
 			
-			#ifdef TCP_CORK
+#ifdef TCP_CORK
 			int flag = 0;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
 			flag = 1;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
-			#else
+#else
 			send(sendBuffer.get(), sendBuffer.size());
 			sendBuffer.clear();
-			#endif
+#endif
 		}
 		
 		virtual void read(void *data, size_t size)
@@ -1246,11 +1246,11 @@ namespace Dashel
 			
 			pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
 			
-			#ifndef USE_POLL_EMU
+#ifndef USE_POLL_EMU
 			int ret = poll(&pollFdsArray[0], pollFdsArray.size(), thisPollTimeout);
-			#else
+#else
 			int ret = poll_emu(&pollFdsArray[0], pollFdsArray.size(), thisPollTimeout);
-			#endif
+#endif
 			if (ret < 0)
 				throw DashelException(DashelException::SyncError, errno, "Error during poll.");
 			

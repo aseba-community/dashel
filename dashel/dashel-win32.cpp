@@ -50,9 +50,9 @@
 #include <sstream>
 
 #ifdef _MSC_VER
-	#pragma comment(lib, "ws2_32.lib")
-	#pragma comment(lib, "wbemuuid.lib")
-	#pragma comment(lib, "comsuppw.lib")
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "wbemuuid.lib")
+#pragma comment(lib, "comsuppw.lib")
 #endif // _MSC_VER
 
 #ifndef _WIN32_WINNT
