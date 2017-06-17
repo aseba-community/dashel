@@ -91,7 +91,7 @@ namespace Dashel
 	
 		virtual void write(const void *data, const size_t size);
 		
-		virtual void flush() { }
+		virtual void flush() { /* hook for use by derived classes */ }
 		
 		virtual void read(void *data, size_t size);
 	};

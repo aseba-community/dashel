@@ -587,9 +587,9 @@ namespace Dashel
 			if (!dtorCloseSocket)
 				fd = 0;
 		}
-		virtual void write(const void *data, const size_t size) { }
-		virtual void flush() { }
-		virtual void read(void *data, size_t size) { }
+		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
+		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
 		virtual bool receiveDataAndCheckDisconnection() { edgeTrigger = true; return false; }
 		virtual bool isDataInRecvBuffer() const { bool ret = edgeTrigger; edgeTrigger = false; return ret; }
 	private:
@@ -649,9 +649,9 @@ namespace Dashel
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot listen on socket.");
 		}
 		
-		virtual void write(const void *data, const size_t size) { }
-		virtual void flush() { }
-		virtual void read(void *data, size_t size) { }
+		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
+		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
 		virtual bool receiveDataAndCheckDisconnection() { return false; }
 		virtual bool isDataInRecvBuffer() const { return false; }
 	};
@@ -1086,9 +1086,7 @@ namespace Dashel
 			 tcsetattr(fd, TCSANOW, &oldtio);
 		}
 		
-		virtual void flush()
-		{
-		}
+		virtual void flush() { /* hook for use by derived classes */ }
 	};
 	
 	
