@@ -61,7 +61,7 @@ vector<string> split(const string& str, const string& delim)
 class WebServer: public Hub
 {
 public:
-	WebServer(const string& port)
+	explicit WebServer(const string& port)
 	{
 		listenStream = connect("tcpin:port=" + port);
 	}

@@ -289,7 +289,7 @@ namespace Dashel
 		friend class Hub;
 		
 		//! Constructor.
-		Stream(const std::string& protocolName) : failedFlag(false), protocolName(protocolName) {}
+		explicit Stream(const std::string& protocolName) : failedFlag(false), protocolName(protocolName) {}
 	
 		//! Virtual destructor, to ensure calls to destructors of sub-classes.
 		virtual ~Stream() {}
@@ -396,7 +396,7 @@ namespace Dashel
 	{
 	public:
 		//! Constructor
-		PacketStream(const std::string& protocolName) : Stream(protocolName) { }
+		explicit PacketStream(const std::string& protocolName) : Stream(protocolName) { }
 	
 		//! Send all written data to an IP address in a single packet.
 		/*!
@@ -439,7 +439,7 @@ namespace Dashel
 		/** Constructor.
 			\param resolveIncomingNames if true, try to resolve the peer's hostname of incoming TCP connections
 		*/
-		Hub(const bool resolveIncomingNames = true);
+		explicit Hub(const bool resolveIncomingNames = true);
 	
 		//! Destructor, closes all connections.
 		virtual ~Hub();

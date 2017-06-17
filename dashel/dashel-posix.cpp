@@ -339,7 +339,7 @@ namespace Dashel
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		DisconnectableStream(const string& protocolName) :
+		explicit DisconnectableStream(const string& protocolName) :
 			Stream(protocolName),
 			SelectableStream(protocolName),
 			recvBufferPos(0),
@@ -401,7 +401,7 @@ namespace Dashel
 		
 	public:
 		//! Create a socket stream to the following destination
-		SocketStream(const string& targetName) :
+		explicit SocketStream(const string& targetName) :
 			Stream("tcp"),
 			DisconnectableStream("tcp")
 #ifndef TCP_CORK
@@ -572,7 +572,7 @@ namespace Dashel
 	class PollStream: public SelectableStream
 	{
 	public:
-		PollStream(const std::string& targetName) :
+		explicit PollStream(const std::string& targetName) :
 		Stream(targetName),
 		SelectableStream(targetName)
 		{
@@ -605,7 +605,7 @@ namespace Dashel
 	{
 	public:
 		//! Create the stream and associates a file descriptor
-		SocketServerStream(const std::string& targetName) :
+		explicit SocketServerStream(const std::string& targetName) :
 			Stream("tcpin"),
 			SelectableStream("tcpin")
 		{
@@ -664,7 +664,7 @@ namespace Dashel
 		
 	public:
 		//! Create as UDP socket stream on a specific port
-		UDPSocketStream(const string& targetName) :
+		explicit UDPSocketStream(const string& targetName) :
 			Stream("udp"),
 			MemoryPacketStream("udp"),
 			SelectableStream("udp"),
@@ -753,7 +753,7 @@ namespace Dashel
 	{
 	public:
 		//! Create the stream and associates a file descriptor
-		FileDescriptorStream(const string& protocolName) :
+		explicit FileDescriptorStream(const string& protocolName) :
 			Stream(protocolName),
 			DisconnectableStream(protocolName)
 		{ }
@@ -866,7 +866,7 @@ namespace Dashel
 	{
 	public:
 		//! Parse the target name and create the corresponding file stream
-		FileStream(const string& targetName) :
+		explicit FileStream(const string& targetName) :
 			Stream("file"),
 			FileDescriptorStream("file")
 		{
@@ -904,7 +904,7 @@ namespace Dashel
 	//! Standard input stream, simply a FileStream with a specific target
 	struct StdinStream: public FileStream
 	{
-		StdinStream(const string& targetName):
+		explicit StdinStream(const string& targetName):
 			Stream("file"),
 			FileStream("file:name=/dev/stdin;mode=read;fd=0") {}
 	};
@@ -912,7 +912,7 @@ namespace Dashel
 	//! Standard output stream, simply a FileStream with a specific target
 	struct StdoutStream: public FileStream
 	{
-		StdoutStream(const string& targetName):
+		explicit StdoutStream(const string& targetName):
 			Stream("file"),
 			FileStream("file:name=/dev/stdout;mode=write;fd=1") {}
 	};
@@ -925,7 +925,7 @@ namespace Dashel
 		
 	public:
 		//! Parse the target name and create the corresponding serial stream
-		SerialStream(const string& targetName) :
+		explicit SerialStream(const string& targetName) :
 			Stream("ser"),
 			FileDescriptorStream("ser")
 		{
