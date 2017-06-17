@@ -128,11 +128,8 @@ namespace Dashel
 			return sourceNames[s];
 	}
 	
-	IPV4Address::IPV4Address(unsigned addr, unsigned short prt)
-	{
-		address = addr;
-		port = prt;
-	}
+	IPV4Address::IPV4Address(unsigned addr, unsigned short prt) :
+		address(addr), port(prt) { }
 	
 	IPV4Address::IPV4Address(const std::string& name, unsigned short port) :
 		port(port)
