@@ -99,6 +99,7 @@ extern "C" {
 #include "dashel-private.h"
 #include "dashel-posix.h"
 
+#define RECV_BUFFER_SIZE	4096
 
 
 /*!	\file streams.cpp
@@ -311,8 +312,6 @@ namespace Dashel
 	
 	// Streams
 	
-#define RECV_BUFFER_SIZE	4096
-
 	SelectableStream::SelectableStream(const string& protocolName) : 
 		Stream(protocolName),
 		fd(-1),
