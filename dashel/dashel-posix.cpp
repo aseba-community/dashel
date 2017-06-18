@@ -1225,7 +1225,7 @@ namespace Dashel
 					{
 						stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
 					}
-					catch (DashelException &e)
+					catch (const DashelException &e)
 					{
 						assert(e.stream);
 					}
@@ -1234,7 +1234,7 @@ namespace Dashel
 					{
 						connectionClosed(stream, true);
 					}
-					catch (DashelException &e)
+					catch (const DashelException &e)
 					{
 						assert(e.stream);
 					}
@@ -1249,7 +1249,7 @@ namespace Dashel
 					{
 						connectionClosed(stream, false);
 					}
-					catch (DashelException &e)
+					catch (const DashelException &e)
 					{
 						assert(e.stream);
 					}
@@ -1301,7 +1301,7 @@ namespace Dashel
 									incomingData(stream);
 							}
 						}
-						catch (DashelException &e)
+						catch (const DashelException &e)
 						{
 							assert(e.stream);
 						}
@@ -1338,7 +1338,7 @@ namespace Dashel
 					{
 						connectionClosed(stream, true);
 					}
-					catch (DashelException &e)
+					catch (const DashelException &e)
 					{
 						assert(e.stream);
 					}

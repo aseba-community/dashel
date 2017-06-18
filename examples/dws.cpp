@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
 		WebServer webServer(argc > 1 ? argv[1] : "8080");
 		webServer.run();
 	}
-	catch(DashelException &e)
+	catch(const DashelException &e)
 	{
 		std::cerr << e.what() << std::endl;
 	}

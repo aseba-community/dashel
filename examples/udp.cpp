@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 			PingServer().run();
 		}
 	}
-	catch(DashelException &e)
+	catch(const DashelException &e)
 	{
 		std::cerr << e.what() << std::endl;
 	}

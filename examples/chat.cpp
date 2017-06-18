@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 			server.run();
 		}
 	}
-	catch(DashelException &e)
+	catch(const DashelException &e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
