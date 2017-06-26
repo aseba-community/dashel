@@ -283,6 +283,8 @@ namespace Dashel
 		ParameterSet target;
 		//! The protocol name.
 		std::string protocolName;
+		//! The listening counterpart name, or empty string
+		std::string listeningName;
 		
 	protected:
 		
@@ -332,6 +334,13 @@ namespace Dashel
 		/*! \return The set of parameters describing this target
 		*/
 		const ParameterSet getTarget() const { return target; }
+		
+		//!	Returns the name of the listening counterpart for tcpin or pty, or empty string.
+		/*!	The name of the listening counterpart contains all parameters and the protocol name.
+		
+			\return Name of the listening counterpart
+		*/
+		const std::string getListeningName() const { return listeningName; }
 		
 		//!	Write data to the stream.
 		/*!	Writes all requested data to the stream, blocking until all the data has been written, or 

@@ -78,6 +78,8 @@
 		#include <IOKit/IOKitLib.h>
 		#include <IOKit/serial/IOSerialKeys.h>
 	#endif
+#else
+	#define PSEUDOTTY
 #endif
 
 #ifdef USE_LIBUDEV
@@ -648,6 +650,9 @@ namespace Dashel
 			// Listen on socket, backlog is sort of arbitrary.
 			if (listen(fd, 16) < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot listen on socket.");
+			
+			// set counterpart listening name
+			listeningName = "tcp:host=localhost;port=" + bindAddress.port;
 		}
 		
 		virtual void write(const void *data, const size_t size) { }
@@ -1092,6 +1097,44 @@ namespace Dashel
 		}
 	};
 	
+	#ifdef PSEUDOTTY
+	class PseudoTtyStream: public FileDescriptorStream
+	{
+	protected:
+		string slavePort;
+	public:
+		//! Parse the target name and create the corresponding pty stream
+		PseudoTtyStream(const string& targetName) :
+			Stream("pty"),
+			FileDescriptorStream("pty")
+		{
+			target.add("pty:");
+			target.add(targetName.c_str());
+			
+			fd = posix_openpt(O_RDWR);
+			if (fd == -1)
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot open new pseudoterminal.");
+			if (grantpt(fd) < 0)
+				throw DashelException(DashelException::ConnectionFailed, errno,
+					"Cannot grant access to the slave pseudoterminal.");
+			if (unlockpt(fd) < 0)
+				throw DashelException(DashelException::ConnectionFailed, errno,
+					"Cannot unlock pseudoterminal master/slave pair.");
+			slavePort = ptsname(fd);
+			listeningName = "ser:device=" + slavePort;
+		}
+		
+		const string getSlavePort()
+		{
+			return slavePort;
+		}
+		
+		virtual void flush()
+		{
+			// nothing to do, hide fflush in base class
+		}
+	};
+	#endif
 	
 	/*
 	We have decided to let the application choose what to do with signals.
@@ -1438,6 +1481,9 @@ namespace Dashel
 		reg("tcp", &createInstance<SocketStream>);
 		reg("tcppoll", &createInstance<PollStream>);
 		reg("udp", &createInstance<UDPSocketStream>);
+		#ifdef PSEUDOTTY
+		reg("pty", &createInstance<PseudoTtyStream>);
+		#endif
 	}
 	
 	StreamTypeRegistry __attribute__((init_priority(1000))) streamTypeRegistry;

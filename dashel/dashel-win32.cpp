@@ -65,6 +65,7 @@
 #include <devguid.h>
 #include <regstr.h>
 #include <winnls.h>
+#include <Cfgmgr32.h>
 
 #pragma warning(disable:4996)
 
@@ -805,6 +806,10 @@ namespace Dashel
 	//! Serial port stream
 	class SerialStream : public FileStream
 	{
+	protected:
+		std::string devName;
+		bool disconnected;
+
 	private:
 		//! Set up a DCB for the given port parameters.
 		/*! \param sp File handle to the serial port.
@@ -884,6 +889,14 @@ namespace Dashel
 			return true;
 		}
 
+		static std::string devNameToPortName(std::string &devName)
+		{
+			size_t pos = devName.find("\\COM");
+			if (pos == std::string::npos)
+				return devName;	// likely "COMnn"
+			return devName.substr(pos + 1);
+		}
+		
 	public:
 		//! Create the stream and associates a file descriptor
 		/*! \param params Parameter string.
@@ -893,7 +906,6 @@ namespace Dashel
 			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8;dtr=true");
 			target.add(params.c_str());
 
-			std::string devName;
 			if (target.isSet("device"))
 			{
 				target.addParam("device", NULL, true);
@@ -933,12 +945,68 @@ namespace Dashel
 			}
 
 			hf = CreateFileA(devName.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-			if(hf == INVALID_HANDLE_VALUE)
-				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open serial port.");
+			if (hf == INVALID_HANDLE_VALUE)
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(),
+					(std::string("Cannot open serial port ") + devName + ".").c_str());
 
 			buildDCB(hf, target.get<int>("baud"), target.get<int>("bits"), target.get<bool>("dtr"), target.get("parity"), target.get("stop"), target.get("fc"));
 
 			startStream(EvPotentialData);
+		}
+
+		virtual bool checkConnection()
+		{
+			// convert devName to portName as wstring
+#ifdef _UNICODE
+			std::string portName8 = devNameToPortName(devName);
+			std::wstring portName = std::wstring(portName8.begin(), portName8.end());
+#else
+			std::string portName = devNameToPortName(devName);
+#endif
+
+			SP_DEVINFO_DATA deviceInfoData;
+			deviceInfoData.cbSize = sizeof(deviceInfoData);
+			HDEVINFO hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_PORTS, 0, 0, DIGCF_PRESENT);
+			for (int i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &deviceInfoData); i++)
+			{
+				DWORD dataType;
+				DWORD bufSize;
+				TCHAR *buffer;
+
+				SetupDiGetDeviceRegistryProperty(hDevInfo, &deviceInfoData, SPDRP_FRIENDLYNAME, &dataType, NULL, 0, &bufSize);
+				buffer = new TCHAR[bufSize];
+				if (SetupDiGetDeviceRegistryProperty(hDevInfo, &deviceInfoData, SPDRP_FRIENDLYNAME, &dataType, (PBYTE)buffer, bufSize, NULL))
+				{
+					// find "(COM"
+#ifdef _UNICODE
+					wchar_t const *p = wcsstr(buffer, L"(COM");
+#else
+					char const *p = strstr(buffer, "(COM");
+#endif
+					if (p)
+					{
+						// set port to "COMn" or "COMnn"
+#ifdef _UNICODE
+						std::wstring port = std::wstring(p + 1, isdigit(p[5]) ? 5 : 4);
+#else
+						std::string port = std::string(p + 1, isdigit(p[5]) ? 5 : 4);
+#endif
+						if (port == portName)
+						{
+							// match portName: check if still disconnected
+							ULONG pulStatus, pulProblemNumber;
+							bool connected = !CM_Get_DevNode_Status(&pulStatus, &pulProblemNumber, deviceInfoData.DevInst, 0)
+								|| !(pulStatus & DN_WILL_BE_REMOVED);
+							delete[] buffer;
+							return connected;
+						}
+					}
+				}
+				delete[] buffer;
+			}
+
+			// device not found by SetupDiEnumDeviceInfo, assume it's disconnected
+			return false;
 		}
 	};
 
@@ -1379,7 +1447,7 @@ namespace Dashel
 		
 		// Loop in order to consume all events, mostly within lock, excepted for wait
 		lock();
-		do
+		while (true)
 		{
 			// the first object to be waited on is always the hTerminate
 			DWORD hc = 1;
@@ -1405,16 +1473,39 @@ namespace Dashel
 			
 			// Unlock for the wait
 			unlock();
-			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms);
-			
+
+			// force finite timeout to check for serial disconnections
+			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms == INFINITE ? 1000 : ms);
+
 			// Check for error or timeout.
 			if (r == WAIT_FAILED)
 				throw DashelException(DashelException::SyncError, 0, "Wait failed.");
-			if (r == WAIT_TIMEOUT)
-				return true;
-			
+
 			// Relock for manipulating streams and calling callbacks
 			lock();
+
+			if (r == WAIT_TIMEOUT)
+			{
+				for (std::set<Stream*>::iterator it = streams.begin(); it != streams.end(); ++it)
+				{
+					SerialStream *serialStream = dynamic_cast<SerialStream*>(*it);
+					if (serialStream && !serialStream->checkConnection())
+					{
+						try
+						{
+							connectionClosed(serialStream, false);
+						}
+						catch (DashelException e)
+						{ }
+						closeStream(serialStream);
+						break;
+					}
+				}
+				if (ms == INFINITE)
+					continue;	// hide internal timeout to caller
+				unlock();
+				return true;
+			}
 
 			// Look for what we got.
 			r -= WAIT_OBJECT_0;
@@ -1470,7 +1561,6 @@ namespace Dashel
 			// No more timeouts on following rounds.
 			ms = 0;
 		}
-		while(true);
 	}
 	
 	void Hub::lock()
