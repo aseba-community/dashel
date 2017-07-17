@@ -53,6 +53,12 @@ pipeline {
 			}
 		}
 		stage('Package') {
+			// Packages are only built for the master branch
+			when {
+				expression {
+					return env.BRANCH == 'master'
+				}
+			}
 			steps {
 				parallel (
 					"debian" : {
