@@ -56,7 +56,7 @@ namespace Dashel
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		SelectableStream(const std::string& protocolName);
+		explicit SelectableStream(const std::string& protocolName);
 		
 		virtual ~SelectableStream();
 		

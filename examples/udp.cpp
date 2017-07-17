@@ -18,7 +18,7 @@ protected:
 	map<Stream*, string> nicks;
 	
 protected:
-	void connectionCreated(Stream *stream) { }
+	virtual void connectionCreated(Stream *stream) { /* hook for use by derived classes */ }
 	
 	void incomingData(Stream *stream)
 	{
@@ -42,7 +42,7 @@ protected:
 		cerr << endl;
 	}
 	
-	void connectionClosed(Stream *stream, bool abnormal) { }
+	virtual void connectionClosed(Stream *stream, bool abnormal) { /* hook for use by derived classes */ }
 };
 
 class PingClient: public Hub
@@ -62,11 +62,11 @@ public:
 	
 protected:
 	
-	void connectionCreated(Stream *stream) { }
+	virtual void connectionCreated(Stream *stream) { /* hook for use by derived classes */ }
 	
-	void incomingData(Stream *stream) { }
+	virtual void incomingData(Stream *stream) { /* hook for use by derived classes */ }
 	
-	void connectionClosed(Stream *stream, bool abnormal) { }
+	virtual void connectionClosed(Stream *stream, bool abnormal) { /* hook for use by derived classes */ }
 };
 
 int main(int argc, char* argv[])
@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 			PingServer().run();
 		}
 	}
-	catch(DashelException &e)
+	catch(const DashelException &e)
 	{
 		std::cerr << e.what() << std::endl;
 	}

@@ -128,11 +128,8 @@ namespace Dashel
 			return sourceNames[s];
 	}
 	
-	IPV4Address::IPV4Address(unsigned addr, unsigned short prt)
-	{
-		address = addr;
-		port = prt;
-	}
+	IPV4Address::IPV4Address(unsigned addr, unsigned short prt) :
+		address(addr), port(prt) { }
 	
 	IPV4Address::IPV4Address(const std::string& name, unsigned short port) :
 		port(port)
@@ -141,7 +138,7 @@ namespace Dashel
 		
 		if (he == NULL)
 		{
-			#ifndef WIN32
+#ifndef WIN32
 			struct in_addr addr;
 			if (inet_aton(name.c_str(), &addr))
 			{
@@ -151,21 +148,21 @@ namespace Dashel
 			{
 				address = INADDR_ANY;
 			}
-			#else // WIN32
+#else // WIN32
 			unsigned long addr = inet_addr(name.c_str());
 			if(addr != INADDR_NONE)
 				address = addr;
 			else
 				address = INADDR_ANY;
-			#endif // WIN32
+#endif // WIN32
 		}
 		else
 		{
-			#ifndef WIN32
+#ifndef WIN32
 			address = ntohl(*((unsigned *)he->h_addr));
-			#else
+#else
 			address = ntohl(*((unsigned *)he->h_addr));
-			#endif
+#endif
 		}
 	}
 	
