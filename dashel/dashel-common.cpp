@@ -45,11 +45,11 @@
 #include <ostream>
 #include <sstream>
 #ifndef WIN32
-#include <netdb.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
+	#include <netdb.h>
+	#include <sys/socket.h>
+	#include <arpa/inet.h>
 #else
-#include <winsock2.h>
+	#include <winsock2.h>
 #endif
 
 /*!	\file dashel-commong.cpp

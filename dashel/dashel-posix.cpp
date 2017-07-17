@@ -64,36 +64,36 @@
 #include <netinet/in.h>
 
 #ifdef __APPLE__
-#define MACOSX
+	#define MACOSX
 #endif
 
 #ifdef MACOSX
-#define USE_POLL_EMU
+	#define USE_POLL_EMU
 #endif
 
 #ifdef MACOSX
-#include <CoreFoundation/CoreFoundation.h>
-#include "TargetConditionals.h"
-#if TARGET_OS_IPHONE == 0
-#include <IOKit/IOKitLib.h>
-#include <IOKit/serial/IOSerialKeys.h>
-#endif
+	#include <CoreFoundation/CoreFoundation.h>
+	#include "TargetConditionals.h"
+	#if TARGET_OS_IPHONE == 0
+		#include <IOKit/IOKitLib.h>
+		#include <IOKit/serial/IOSerialKeys.h>
+	#endif
 #endif
 
 #ifdef USE_LIBUDEV
 extern "C" {
-#include <libudev.h>
+	#include <libudev.h>
 }
 #endif
 
 #ifdef USE_HAL
-#include <hal/libhal.h>
+	#include <hal/libhal.h>
 #endif
 
 #ifndef USE_POLL_EMU
-#include <poll.h>
+	#include <poll.h>
 #else
-#include "poll_emu.h"
+	#include "poll_emu.h"
 #endif
 
 #include "dashel-private.h"

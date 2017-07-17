@@ -50,13 +50,13 @@
 #include <sstream>
 
 #ifdef _MSC_VER
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "wbemuuid.lib")
-#pragma comment(lib, "comsuppw.lib")
+	#pragma comment(lib, "ws2_32.lib")
+	#pragma comment(lib, "wbemuuid.lib")
+	#pragma comment(lib, "comsuppw.lib")
 #endif // _MSC_VER
 
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
+	#define _WIN32_WINNT 0x0501
 #endif // _WIN32_WINNT
 #include <winsock2.h>
 #include <ws2tcpip.h>
