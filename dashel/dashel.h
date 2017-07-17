@@ -289,10 +289,10 @@ namespace Dashel
 		friend class Hub;
 		
 		//! Constructor.
-		Stream(const std::string& protocolName) : failedFlag(false), protocolName(protocolName) {}
+		explicit Stream(const std::string& protocolName) : failedFlag(false), protocolName(protocolName) {}
 	
 		//! Virtual destructor, to ensure calls to destructors of sub-classes.
-		virtual ~Stream() {}
+		virtual ~Stream() { /* intentionally blank */ }
 	
 	public:	
 		//! Set stream to failed state
@@ -396,7 +396,7 @@ namespace Dashel
 	{
 	public:
 		//! Constructor
-		PacketStream(const std::string& protocolName) : Stream(protocolName) { }
+		explicit PacketStream(const std::string& protocolName) : Stream(protocolName) { }
 	
 		//! Send all written data to an IP address in a single packet.
 		/*!
@@ -439,7 +439,7 @@ namespace Dashel
 		/** Constructor.
 			\param resolveIncomingNames if true, try to resolve the peer's hostname of incoming TCP connections
 		*/
-		Hub(const bool resolveIncomingNames = true);
+		explicit Hub(const bool resolveIncomingNames = true);
 	
 		//! Destructor, closes all connections.
 		virtual ~Hub();
@@ -503,7 +503,7 @@ namespace Dashel
 			
 			\param stream stream to the target
 		*/
-		virtual void connectionCreated(Stream * stream) { }
+		virtual void connectionCreated(Stream * stream) { /* hook for use by derived classes */ }
 		
 		/**
 			Called when data is available for reading on the stream.
@@ -515,7 +515,7 @@ namespace Dashel
 			
 			\param stream stream to the target
 		*/
-		virtual void incomingData(Stream * stream) { }
+		virtual void incomingData(Stream * stream) { /* hook for use by derived classes */ }
 		
 		/**
 			Called when target closes connection.
@@ -528,7 +528,7 @@ namespace Dashel
 			\param stream stream to the target.
 			\param abnormal whether the connection was closed during step (abnormal == false) or when an operation was performed (abnormal == true)
 		*/
-		virtual void connectionClosed(Stream * stream, bool abnormal) { }
+		virtual void connectionClosed(Stream * stream, bool abnormal) { /* hook for use by derived classes */ }
 	};
 	
 	//! Registry of constructors to a stream, to add new stream types dynamically

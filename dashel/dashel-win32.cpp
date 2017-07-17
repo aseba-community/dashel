@@ -56,7 +56,7 @@
 #endif // _MSC_VER
 
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
+	#define _WIN32_WINNT 0x0501
 #endif // _WIN32_WINNT
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -259,13 +259,13 @@ namespace Dashel
 		/*! \param srv Hub instance that has generated the notification.
 			\param t Type of event.
 		*/
-		virtual void notifyEvent(Hub *srv, EvType& t) { }
+		virtual void notifyEvent(Hub *srv, EvType& t) { /* hook for use by derived classes */ }
 
 		//! Callback when incomingData is called, allowing the stream to rearm it.
 		//! Used by poll streams to rearm their edge triggers.
 		//! \param srv Hub instance that has generated the notification.
 		//! \param t Type of event.
-		virtual void notifyIncomingData(Hub *srv, EvType& t) { }
+		virtual void notifyIncomingData(Hub *srv, EvType& t) { /* hook for use by derived classes */ }
 
 	};
 
@@ -374,9 +374,9 @@ namespace Dashel
 			}
 		}
 
-		virtual void write(const void *data, const size_t size) { }
-		virtual void flush() { }
-		virtual void read(void *data, size_t size) { }
+		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
+		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
 	};
 
 	//! Standard input stream.
@@ -1150,7 +1150,7 @@ namespace Dashel
 			}
 		}
 		
-		virtual void flush() { }
+		virtual void flush() { /* hook for use by derived classes */ }
 		
 		virtual void read(void *data, size_t size)
 		{
@@ -1268,9 +1268,9 @@ namespace Dashel
 			readDone = true; // lie to Hub::step so that it doesn't raise DashelException::PreviousIncomingDataNotRead
 		}
 
-		virtual void write(const void *data, const size_t size) { }
-		virtual void flush() { }
-		virtual void read(void *data, size_t size) { }
+		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
+		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
 	private:
 		bool dtorCloseSocket;
 	};

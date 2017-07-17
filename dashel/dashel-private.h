@@ -60,7 +60,7 @@ namespace Dashel
 	
 	public:
 		//! Construct an expandable buffer of specific size
-		ExpandableBuffer(size_t size = 0);
+		explicit ExpandableBuffer(size_t size = 0);
 		//! Destroy the buffer and frees the allocated memory
 		~ExpandableBuffer();
 		//! Remove all data from the buffer, the allocated memory is not freed to speed-up further reduce
@@ -87,11 +87,11 @@ namespace Dashel
 	
 	public:
 		//! Constructor
-		MemoryPacketStream(const std::string& protocolName) : Stream(protocolName), PacketStream(protocolName) { }
+		explicit MemoryPacketStream(const std::string& protocolName) : Stream(protocolName), PacketStream(protocolName) { }
 	
 		virtual void write(const void *data, const size_t size);
 		
-		virtual void flush() { }
+		virtual void flush() { /* hook for use by derived classes */ }
 		
 		virtual void read(void *data, size_t size);
 	};

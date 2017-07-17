@@ -41,7 +41,8 @@ void shutdownStream(Stream* stream)
 vector<string> split(const string& str, const string& delim)
 {
 	vector<string> parts;
-	size_t start, end = 0;
+	size_t start;
+	size_t end = 0;
 	while (end < str.size())
 	{
 		start = end;
@@ -61,7 +62,7 @@ vector<string> split(const string& str, const string& delim)
 class WebServer: public Hub
 {
 public:
-	WebServer(const string& port)
+	explicit WebServer(const string& port)
 	{
 		listenStream = connect("tcpin:port=" + port);
 	}
@@ -141,7 +142,7 @@ int main(int argc, char* argv[])
 		WebServer webServer(argc > 1 ? argv[1] : "8080");
 		webServer.run();
 	}
-	catch(DashelException &e)
+	catch(const DashelException &e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
