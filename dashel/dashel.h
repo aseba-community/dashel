@@ -63,10 +63,11 @@
 	It provides a unified access to TCP/UDP sockets, serial ports, console, and files streams.
 	It also allows a server application to wait for any activity on any combination of these streams.
 	
+	Dashel was originally designed by [Stéphane Magnenat](http://stephane.magnenat.net) and Sebastian Gerlach.
+	A full list of contributors is available in the [README file](https://github.com/aseba-community/dashel/blob/master/readme.md).
 	Dashel is licensed under a [modified BSD open-source license](http://en.wikipedia.org/wiki/BSD_licenses).
 	Source code, compilation instructions, authors and license information are available on [github](https://github.com/aseba-community/dashel).
 	Feel free to [report bugs](https://github.com/aseba-community/dashel/issues/new), fork Dashel and submit [pull requests](https://github.com/aseba-community/dashel/pulls).
-	If you want to reach us, you can join the [development mailing list](https://mail.gna.org/listinfo/dashel-dev/).
 	
 	\section Usage
 	
