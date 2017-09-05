@@ -61,6 +61,7 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <setupapi.h>
+#include <initguid.h>
 #include <devguid.h>
 #include <regstr.h>
 #include <winnls.h>
