@@ -1,7 +1,7 @@
 /*
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007 -- 2015:
+	Copyright (C) 2007 -- 2017:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -56,7 +56,7 @@ namespace Dashel
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		SelectableStream(const std::string& protocolName);
+		explicit SelectableStream(const std::string& protocolName);
 		
 		virtual ~SelectableStream();
 		

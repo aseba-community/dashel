@@ -53,8 +53,8 @@ target_link_libraries(dashel ${EXTRA_LIBS})
 # dynamic library version
 set(LIB_INSTALL_DIR lib CACHE FILEPATH "Where to install libraries")
 set(LIB_VERSION_MAJOR 1) # Must be bumped for incompatible ABI changes
-set(LIB_VERSION_MINOR 2)
-set(LIB_VERSION_PATCH 0)
+set(LIB_VERSION_MINOR 3)
+set(LIB_VERSION_PATCH 1)
 set(LIB_VERSION_STRING ${LIB_VERSION_MAJOR}.${LIB_VERSION_MINOR}.${LIB_VERSION_PATCH})
 set_target_properties(dashel PROPERTIES VERSION ${LIB_VERSION_STRING} 
                                         SOVERSION ${LIB_VERSION_MAJOR})
@@ -84,11 +84,7 @@ install(FILES "${PROJECT_BINARY_DIR}/dashelConfig.cmake"
 
 
 # examples
-include_directories(${dashel_SOURCE_DIR})
-foreach (example microterm chat portlist udp dws)
-	add_executable(${example} examples/${example}.cpp)
-	target_link_libraries(${example} dashel ${EXTRA_LIBS})
-endforeach (example)
+add_subdirectory(examples)
 
 # test cases
 #foreach (test none-for-now)

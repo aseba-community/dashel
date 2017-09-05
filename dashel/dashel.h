@@ -1,7 +1,7 @@
 /*
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007 -- 2015:
+	Copyright (C) 2007 -- 2017:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -55,13 +55,7 @@
 /**
 	\mainpage Dashel
 	
-	Stéphane Magnenat (http://stephane.magnenat.net),
-	Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne (http://mobots.epfl.ch) \n
-	Sebastion Gerlach,
-	Kenzan Technologies (http://www.kenzantech.com)\n
-	Antoine Beyeler (http://www.ab-ware.com),
-	Laboratory of Intelligent Systems, EPFL, Lausanne (http://lis.epfl.ch)
-	
+	[github.com/aseba-community/dashel](https://github.com/aseba-community/dashel)
 	
 	\section IntroSec Introduction
 	
@@ -69,19 +63,22 @@
 	It provides a unified access to TCP/UDP sockets, serial ports, console, and files streams.
 	It also allows a server application to wait for any activity on any combination of these streams.
 	
-	Dashel is licensed under a modified BSD license, which is a permissive open source license.
-	Yet, if you find bugs or do some improvements, please let us know.
+	Dashel was originally designed by [Stéphane Magnenat](http://stephane.magnenat.net) and Sebastian Gerlach.
+	A full list of contributors is available in the [README file](https://github.com/aseba-community/dashel/blob/master/readme.md).
+	Dashel is licensed under a [modified BSD open-source license](http://en.wikipedia.org/wiki/BSD_licenses).
+	Source code, compilation instructions, authors and license information are available on [github](https://github.com/aseba-community/dashel).
+	Feel free to [report bugs](https://github.com/aseba-community/dashel/issues/new), fork Dashel and submit [pull requests](https://github.com/aseba-community/dashel/pulls).
 	
 	\section Usage
 	
-	To use Dashel, you have to instanciate a Dashel::Hub.
+	To use Dashel, you have to instantiate a Dashel::Hub.
 	The Hub is your connection with the data streams.
 	It is the place where you create, destroy, and synchronize them.
 	
-	The \c example directory in Dashel distribution provides several working examples that
+	The [`example` directory](https://github.com/aseba-community/dashel/tree/master/examples) in Dashel distribution provides several working examples that
 	you can read to learn to use Dashel.
 	
-	\section TargetNamingSec Targets Naming
+	\section TargetNamingSec Targets naming
 	
 	In Dashel, streams connect to targets.
 	A target is a string that describes a file, a TCP/UDP address/port, or a serial port.
@@ -93,6 +90,7 @@
 	\li \c file : local files
 	\li \c tcp : TCP/IP client
 	\li \c tcpin : TCP/IP server
+	\li \c tcppoll : TCP/IP polling
 	\li \c udp : UDP/IP
 	\li \c ser : serial port
 	\li \c stdin : standard input
@@ -103,13 +101,19 @@
 	\li \c mode : mode (read, write)
 	
 	The tcp protocol accepts the following parameters, in this implicit order:
-	\li \c host : host
-	\li \c port : port
+	\li \c host : remote host
+	\li \c port : remote port
+	\li \c socket : local socket; if a nonegative value is given, host and port are ignored
 	
 	The tcpin protocol accepts the following parameters, in this implicit order:
 	\li \c port : port
 	\li \c address : if the computer possesses multiple network addresses, the one to listen on, default 0.0.0.0 (any)
 	
+	The tcppoll protocol accepts the following parameters, in this implicit order:
+	\li \c host : remote host
+	\li \c port : remote port
+	\li \c socket : local socket; if a nonegative value is given, host and port are ignored
+
 	The udp protocol accepts the following parameters, in this implicit order:
 	\li \c port : port
 	\li \c address : if the computer possesses multiple network addresses, the one to connect to, default 0.0.0.0 (any)
@@ -117,13 +121,15 @@
 	The ser protocol accepts the following parameters, in this implicit order:
 	\li \c device : serial port device name, system specific; either port or device must be given, device has priority if both are given.
 	\li \c name : select the port by matching part of the serial port "user-friendly" description. The match is case-sensitive. Works on Linux and Windows (note: on Linux, this feature requires libudev).
-	\li \c port : serial port number, starting from 1, default 1; either port or device must be given, device has priority if both are given (note: on Linux, this feature requires libhal).
+	\li \c port : serial port number, starting from 1, default 1
 	\li \c baud : baud rate, default 115200
 	\li \c stop : stop bits count (1 or 2), default 1
 	\li \c parity : parity type (none, even, odd), default none
 	\li \c fc : flow control type, (none, hard), default none
 	\li \c bits : number of bits per character, default 8
 	\li \c dtr : whether DTR line is enabled, default true
+	Note that either device, name (on supported platforms), or port must be given.
+	If more than one is given, device has priority, then name, and port has the lowest priority.
 	
 	Protocols \c stdin and \c stdout do not take any parameter.
 */
@@ -134,9 +140,9 @@ namespace Dashel
 	class Stream;
 	
 	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.2.0"
+	#define DASHEL_VERSION "1.3.1"
 	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10200
+	#define DASHEL_VERSION_INT 10301
 	
 	//! The one size fits all exception for streams.
 	/*!
@@ -173,6 +179,10 @@ namespace Dashel
 			\param stream Stream to which exception applies.
 		*/
 		DashelException(Source s, int se, const char *reason, Stream* stream = NULL);
+		
+	protected:
+		//! Return a string description of the source error
+		static std::string sourceToString(Source s);
 	};
 	
 	//! Serial port enumerator class.
@@ -247,7 +257,7 @@ namespace Dashel
 		bool isSet(const char *key) const;
 
 		//! Get a parameter value.
-		//! Explicitely instanciated for int, unsigned, float and double in the library
+		//! Explicitely instantiated for int, unsigned, float and double in the library
 		template<typename T> T get(const char *key) const;
 
 		//! Get a parameter value
@@ -280,10 +290,10 @@ namespace Dashel
 		friend class Hub;
 		
 		//! Constructor.
-		Stream(const std::string& protocolName) : failedFlag(false), protocolName(protocolName) {}
+		explicit Stream(const std::string& protocolName) : failedFlag(false), protocolName(protocolName) {}
 	
 		//! Virtual destructor, to ensure calls to destructors of sub-classes.
-		virtual ~Stream() {}
+		virtual ~Stream() { /* intentionally blank */ }
 	
 	public:	
 		//! Set stream to failed state
@@ -387,7 +397,7 @@ namespace Dashel
 	{
 	public:
 		//! Constructor
-		PacketStream(const std::string& protocolName) : Stream(protocolName) { }
+		explicit PacketStream(const std::string& protocolName) : Stream(protocolName) { }
 	
 		//! Send all written data to an IP address in a single packet.
 		/*!
@@ -407,7 +417,7 @@ namespace Dashel
 	/**
 		The central place where to create, destroy, and synchronize streams.
 		To create a client connection, users of the library have to subclass Hub
-		and implement incomingConnection(), incomingData(), and connectionClosed().
+		and implement connectionCreated(), incomingData(), and connectionClosed().
 	*/
 	class Hub
 	{
@@ -430,7 +440,7 @@ namespace Dashel
 		/** Constructor.
 			\param resolveIncomingNames if true, try to resolve the peer's hostname of incoming TCP connections
 		*/
-		Hub(const bool resolveIncomingNames = true);
+		explicit Hub(const bool resolveIncomingNames = true);
 	
 		//! Destructor, closes all connections.
 		virtual ~Hub();
@@ -494,7 +504,7 @@ namespace Dashel
 			
 			\param stream stream to the target
 		*/
-		virtual void connectionCreated(Stream * /* stream */) { }
+		virtual void connectionCreated(Stream * stream) { /* hook for use by derived classes */ }
 		
 		/**
 			Called when data is available for reading on the stream.
@@ -506,7 +516,7 @@ namespace Dashel
 			
 			\param stream stream to the target
 		*/
-		virtual void incomingData(Stream * /* stream */) { }
+		virtual void incomingData(Stream * stream) { /* hook for use by derived classes */ }
 		
 		/**
 			Called when target closes connection.
@@ -519,7 +529,7 @@ namespace Dashel
 			\param stream stream to the target.
 			\param abnormal whether the connection was closed during step (abnormal == false) or when an operation was performed (abnormal == true)
 		*/
-		virtual void connectionClosed(Stream * /* stream */, bool /* abnormal */) { }
+		virtual void connectionClosed(Stream * stream, bool abnormal) { /* hook for use by derived classes */ }
 	};
 	
 	//! Registry of constructors to a stream, to add new stream types dynamically

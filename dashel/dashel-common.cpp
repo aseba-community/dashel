@@ -1,7 +1,7 @@
 /*
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007 -- 2015:
+	Copyright (C) 2007 -- 2017:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -89,9 +89,17 @@ namespace Dashel
 		_pos += size;
 	}
 	
+	// to be removed when we switch to C++11
+	string _to_string(int se)
+	{
+		ostringstream ostr;
+		ostr << se;
+		return ostr.str();
+	}
+	
 	// frome dashel.h
 	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
-		std::runtime_error(reason),
+		std::runtime_error(sourceToString(s) + " (" + _to_string(se) + "): " + reason),
 		source(s),
 		sysError(se),
 		stream(stream)
@@ -99,11 +107,29 @@ namespace Dashel
 	
 	}
 	
-	IPV4Address::IPV4Address(unsigned addr, unsigned short prt)
+	string DashelException::sourceToString(Source s)
 	{
-		address = addr;
-		port = prt;
+		const char* const sourceNames[] =
+		{
+			"Unknown cause",
+			"Synchronisation error",
+			"Invalid target",
+			"Invalid operation",
+			"Connection lost",
+			"I/O error",
+			"Connection failed",
+			"Enumeration error",
+			"Previous incoming data not read"
+		};
+		const size_t arrayLength(sizeof(sourceNames)/sizeof(const char*));
+		if (s >= arrayLength)
+			return sourceNames[0];
+		else
+			return sourceNames[s];
 	}
+	
+	IPV4Address::IPV4Address(unsigned addr, unsigned short prt) :
+		address(addr), port(prt) { }
 	
 	IPV4Address::IPV4Address(const std::string& name, unsigned short port) :
 		port(port)
@@ -112,7 +138,7 @@ namespace Dashel
 		
 		if (he == NULL)
 		{
-			#ifndef WIN32
+#ifndef WIN32
 			struct in_addr addr;
 			if (inet_aton(name.c_str(), &addr))
 			{
@@ -122,21 +148,21 @@ namespace Dashel
 			{
 				address = INADDR_ANY;
 			}
-			#else // WIN32
+#else // WIN32
 			unsigned long addr = inet_addr(name.c_str());
 			if(addr != INADDR_NONE)
 				address = addr;
 			else
 				address = INADDR_ANY;
-			#endif // WIN32
+#endif // WIN32
 		}
 		else
 		{
-			#ifndef WIN32
+#ifndef WIN32
 			address = ntohl(*((unsigned *)he->h_addr));
-			#else
+#else
 			address = ntohl(*((unsigned *)he->h_addr));
-			#endif
+#endif
 		}
 	}
 	

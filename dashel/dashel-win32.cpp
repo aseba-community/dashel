@@ -1,7 +1,7 @@
 /*
 	Dashel
-	A cross-platform DAta Stream Helper Encatargetulation Library
-	Copyright (C) 2007 -- 2015:
+	A cross-platform DAta Stream Helper Encapsulation Library
+	Copyright (C) 2007 -- 2017:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -56,15 +56,17 @@
 #endif // _MSC_VER
 
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
+	#define _WIN32_WINNT 0x0501
 #endif // _WIN32_WINNT
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <setupapi.h>
 #include <initguid.h>
 #include <devguid.h>
 #include <regstr.h>
 #include <winnls.h>
+#include <Cfgmgr32.h>
 
 #pragma warning(disable:4996)
 
@@ -258,7 +260,14 @@ namespace Dashel
 		/*! \param srv Hub instance that has generated the notification.
 			\param t Type of event.
 		*/
-		virtual void notifyEvent(Hub *srv, EvType& t) { }
+		virtual void notifyEvent(Hub *srv, EvType& t) { /* hook for use by derived classes */ }
+
+		//! Callback when incomingData is called, allowing the stream to rearm it.
+		//! Used by poll streams to rearm their edge triggers.
+		//! \param srv Hub instance that has generated the notification.
+		//! \param t Type of event.
+		virtual void notifyIncomingData(Hub *srv, EvType& t) { /* hook for use by derived classes */ }
+
 	};
 
 	//! Socket server stream.
@@ -308,19 +317,20 @@ namespace Dashel
 			if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
 			
-			// if dynamically-allocated port, set actual port in target name
+			// retrieve port number, if a dynamic one was requested
 			if (bindAddress.port == 0)
 			{
-				int addrSize(sizeof(addr));
-				if (getsockname(sock, (struct sockaddr *)&addr, &addrSize) != 0)
-					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot resolve current address of server socket.");
-				bindAddress.port = ntohs(addr.sin_port);
-				bindAddress.address = ntohl(addr.sin_addr.s_addr);
-				target.add(bindAddress.format().c_str());
+				int sizeof_addr(sizeof(addr));
+				if (getsockname(sock, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot retrieve socket port assignment.");
+				target.erase("port");
+				std::ostringstream portnum;
+				portnum << ntohs(addr.sin_port);
+				target.addParam("port", portnum.str().c_str(), true);
 			}
-			
+
 			// Listen on socket, backlog is sort of arbitrary.
-			if(listen(sock, 16) == SOCKET_ERROR)
+			if (listen(sock, 16) == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot listen on socket.");
 
 			// Create and register event.
@@ -365,9 +375,9 @@ namespace Dashel
 			}
 		}
 
-		virtual void write(const void *data, const size_t size) { }
-		virtual void flush() { }
-		virtual void read(void *data, size_t size) { }
+		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
+		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
 	};
 
 	//! Standard input stream.
@@ -797,6 +807,10 @@ namespace Dashel
 	//! Serial port stream
 	class SerialStream : public FileStream
 	{
+	protected:
+		//! Device name.
+		std::string devName;
+
 	private:
 		//! Set up a DCB for the given port parameters.
 		/*! \param sp File handle to the serial port.
@@ -876,6 +890,18 @@ namespace Dashel
 			return true;
 		}
 
+		/*! Convert device name to port name (for example \\.\COM6 or COM6 are both converted to COM6)
+			\param devName device name
+			\return port name
+		*/
+		static std::string devNameToPortName(std::string const &devName)
+		{
+			size_t pos = devName.find("\\COM");
+			if (pos == std::string::npos)
+				return devName;	// likely "COMnn"
+			return devName.substr(pos + 1);
+		}
+		
 	public:
 		//! Create the stream and associates a file descriptor
 		/*! \param params Parameter string.
@@ -885,7 +911,6 @@ namespace Dashel
 			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8;dtr=true");
 			target.add(params.c_str());
 
-			std::string devName;
 			if (target.isSet("device"))
 			{
 				target.addParam("device", NULL, true);
@@ -925,16 +950,105 @@ namespace Dashel
 			}
 
 			hf = CreateFileA(devName.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-			if(hf == INVALID_HANDLE_VALUE)
-				throw DashelException(DashelException::ConnectionFailed, GetLastError(), "Cannot open serial port.");
+			if (hf == INVALID_HANDLE_VALUE)
+				throw DashelException(DashelException::ConnectionFailed, GetLastError(),
+					(std::string("Cannot open serial port ") + devName + ".").c_str());
 
 			buildDCB(hf, target.get<int>("baud"), target.get<int>("bits"), target.get<bool>("dtr"), target.get("parity"), target.get("stop"), target.get("fc"));
 
 			startStream(EvPotentialData);
 		}
+
+		/*!	Check if as far as the OS is aware, the device is still connected
+			\return true if the device is still connected, else false
+		*/
+		bool checkConnection() const
+		{
+			// convert devName to portName as wstring
+#ifdef _UNICODE
+			std::string portName8 = devNameToPortName(devName);
+			std::wstring portName = std::wstring(portName8.begin(), portName8.end());
+#else
+			std::string portName = devNameToPortName(devName);
+#endif
+
+			SP_DEVINFO_DATA deviceInfoData;
+			deviceInfoData.cbSize = sizeof(deviceInfoData);
+			HDEVINFO hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_PORTS, 0, 0, DIGCF_PRESENT);
+			for (int i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &deviceInfoData); i++)
+			{
+				DWORD dataType;
+				DWORD bufSize;
+				SetupDiGetDeviceRegistryProperty(hDevInfo, &deviceInfoData, SPDRP_FRIENDLYNAME, &dataType, NULL, 0, &bufSize);
+				std::vector<TCHAR> buffer(bufSize);
+				
+				if (SetupDiGetDeviceRegistryProperty(hDevInfo, &deviceInfoData, SPDRP_FRIENDLYNAME, &dataType, (PBYTE)&buffer[0], bufSize, NULL))
+				{
+					// find "(COM"
+#ifdef _UNICODE
+					wchar_t const *p = wcsstr(&buffer[0], L"(COM");
+#else
+					char const *p = strstr(&buffer[0], "(COM");
+#endif
+					if (p)
+					{
+						// set port to "COMn" or "COMnn"
+#ifdef _UNICODE
+						std::wstring port = std::wstring(p + 1, isdigit(p[5]) ? 5 : 4);
+#else
+						std::string port = std::string(p + 1, isdigit(p[5]) ? 5 : 4);
+#endif
+						if (port == portName)
+						{
+							// match portName: check if still disconnected
+							ULONG pulStatus, pulProblemNumber;
+							bool connected = !CM_Get_DevNode_Status(&pulStatus, &pulProblemNumber, deviceInfoData.DevInst, 0)
+								|| !(pulStatus & DN_WILL_BE_REMOVED);
+							return connected;
+						}
+					}
+				}
+			}
+
+			// device not found by SetupDiEnumDeviceInfo, assume it is disconnected
+			return false;
+		}
 	};
 
-	//! Serial port stream
+	//! Assign a socket file descriptor to a target. Factored out from SocketStream::SocketStream.
+	//! If the target specifies a socket with a nonnegative "sock=N" parameter, assume it is valid
+	//! and use it. Otherwise, the host and port parameters are used to look up a TCP/IP host, and
+	//! a new socket is created.
+	//! Raises an exception if the socket cannot be created, or if the TCP/IP host cannot be reached.
+	static int getOrCreateSocket(ParameterSet & target)
+	{
+		int sock = target.get<SOCKET>("sock");
+		if(!sock)
+		{
+			startWinSock();
+
+			// create socket
+			sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (sock == SOCKET_ERROR)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
+
+			IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
+			// connect
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(remoteAddress.port);
+			addr.sin_addr.s_addr = htonl(remoteAddress.address);
+			if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot connect to remote host.");
+
+			// overwrite target name with a canonical one
+			target.add(remoteAddress.format().c_str());
+			target.erase("connectionPort");
+		}
+		return sock;
+	}
+
+	//! Socket stream
 	class SocketStream : public WaitableStream
 	{
 		//! Socket handle.
@@ -968,30 +1082,8 @@ namespace Dashel
 			target.add("tcp:host;port;connectionPort=-1;sock=0");
 			target.add(params.c_str());
 
-			sock = target.get<SOCKET>("sock");
-			if(!sock)
-			{
-				startWinSock();
-
-				// create socket
-				sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-				if (sock == SOCKET_ERROR)
-					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
-			
-				IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
-				// connect
-				sockaddr_in addr;
-				addr.sin_family = AF_INET;
-				addr.sin_port = htons(remoteAddress.port);
-				addr.sin_addr.s_addr = htonl(remoteAddress.address);
-				if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot connect to remote host.");
-				
-				// overwrite target name with a canonical one
-				target.add(remoteAddress.format().c_str());
-				target.erase("connectionPort");
-			}
-			else
+			sock = getOrCreateSocket(target);
+			if (target.get<SOCKET>("sock") >= 0)
 			{
 				// remove file descriptor information from target name
 				target.erase("sock");
@@ -1059,7 +1151,7 @@ namespace Dashel
 			}
 		}
 		
-		virtual void flush() { }
+		virtual void flush() { /* hook for use by derived classes */ }
 		
 		virtual void read(void *data, size_t size)
 		{
@@ -1122,6 +1214,68 @@ namespace Dashel
 		}
 	};
 
+	//! Poll a socket file descriptor for either a local socket (tcppoll:sock=N) or a
+	//! remote TCP/IP socket (tcppoll:host=HOST;port=PORT). Delegates fd choice to getOrCreateSocket.
+	//! Poll streams are used to include sockets that will be read or written by client code in the
+	//! Dashel polling loop. Dashel itself neither reads from nor writes to the socket. PollStream will
+	//! call Hub::incomingData(stream) exactly once when its socket is polled with POLLIN in Hub::step.
+	class PollStream: public WaitableStream
+	{
+		SOCKET sock; //!< Socket handle.
+		HANDLE hev; //!< Event for potential data.
+		HANDLE hev2; //!< Event for real data.
+
+	public:
+		PollStream(const std::string& targetName) :
+		Stream(targetName),
+		WaitableStream(targetName)
+		{
+			target.add("tcppoll:host;port;connectionPort=-1;sock=-1");
+			target.add(targetName.c_str());
+			sock = getOrCreateSocket(target);
+			dtorCloseSocket = target.get<int>("sock") < 0 && sock >= 0; // if getOrCreateSocket created the socket we will have to close it
+
+			hev = createEvent(EvPotentialData);
+			hev2 = createEvent(EvData);
+
+			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			if (rv == SOCKET_ERROR)
+				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
+		}
+
+		~PollStream()
+		{	// if socket belongs to this stream, shut it down
+			if (dtorCloseSocket)
+			{
+				shutdown(sock, SD_BOTH);
+				closesocket(sock);
+			}
+		}
+
+		//! Callback when an event is notified, allowing the stream to rearm it.
+		//! \param srv Hub instance that has generated the notification.
+		//! \param t Type of event.
+		virtual void notifyEvent(Hub *srv, EvType& t)
+		{
+			if(t == EvPotentialData)
+				t = EvData; // trick Hub::step into calling Hub::incomingData, once
+		}
+
+		//! Callback when incomingData is called, allowing the stream to rearm its edge trigger.
+		//! \param srv Hub instance that has generated the notification.
+		//! \param t Type of event.
+		 virtual void notifyIncomingData(Hub *srv, EvType& t)
+		{
+			readDone = true; // lie to Hub::step so that it doesn't raise DashelException::PreviousIncomingDataNotRead
+		}
+
+		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
+		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
+	private:
+		bool dtorCloseSocket;
+	};
+
 	//! UDP Socket, uses sendto/recvfrom for read/write
 	class UDPSocketStream: public MemoryPacketStream, public WaitableStream
 	{
@@ -1161,6 +1315,18 @@ namespace Dashel
 				addr.sin_addr.s_addr = htonl(bindAddress.address);
 				if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
+
+				// retrieve port number, if a dynamic one was requested
+				if (bindAddress.port == 0)
+				{
+					socklen_t sizeof_addr(sizeof(addr));
+					if (getsockname(sock, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+						throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
+					target.erase("port");
+					std::ostringstream portnum;
+					portnum << ntohs(addr.sin_port);
+					target.addParam("port", portnum.str().c_str(), true);
+				}
 			}
 			else
 			{
@@ -1312,16 +1478,39 @@ namespace Dashel
 			
 			// Unlock for the wait
 			unlock();
-			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms);
-			
+
+			// force finite timeout to check for serial disconnections
+			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms == INFINITE ? 1000 : ms);
+
 			// Check for error or timeout.
 			if (r == WAIT_FAILED)
 				throw DashelException(DashelException::SyncError, 0, "Wait failed.");
-			if (r == WAIT_TIMEOUT)
-				return true;
-			
+
 			// Relock for manipulating streams and calling callbacks
 			lock();
+
+			if (r == WAIT_TIMEOUT)
+			{
+				for (std::set<Stream*>::iterator it = streams.begin(); it != streams.end(); ++it)
+				{
+					SerialStream *serialStream = dynamic_cast<SerialStream*>(*it);
+					if (serialStream && !serialStream->checkConnection())
+					{
+						try
+						{
+							connectionClosed(serialStream, false);
+						}
+						catch (DashelException e)
+						{ }
+						closeStream(serialStream);
+						break;
+					}
+				}
+				if (ms == INFINITE)
+					continue;	// hide internal timeout to caller
+				unlock();
+				return true;
+			}
 
 			// Look for what we got.
 			r -= WAIT_OBJECT_0;
@@ -1356,6 +1545,7 @@ namespace Dashel
 					try
 					{
 						strs[r]->readDone = false;
+						strs[r]->notifyIncomingData(this, ets[r]); // Poll streams need to reset their edge triggers
 						incomingData(strs[r]);
 					}
 					catch (DashelException e)
@@ -1411,6 +1601,7 @@ namespace Dashel
 		reg("ser", &createInstance<SerialStream>);
 		reg("tcpin", &createInstanceWithHub<SocketServerStream>);
 		reg("tcp", &createInstance<SocketStream>);
+		reg("tcppoll", &createInstance<PollStream>);
 		reg("udp", &createInstance<UDPSocketStream>);
 	}
 	

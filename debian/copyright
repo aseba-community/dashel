@@ -1,14 +1,14 @@
 DaSHEL
 A cross-platform DAta Stream Helper Encapsulation Library
-Copyright (C) 2007-2008:
+Copyright (C) 2007-2017:
 	
 	Stephane Magnenat <stephane at magnenat dot net>
 		(http://stephane.magnenat.net)
-	Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne
+	Mobots group - Laboratory of Robotics Systems, EPFL, Switzerland
 		(http://mobots.epfl.ch)
 	
 	Sebastian Gerlach
-	Kenzan Technologies
+	Kenzan Technologies, Geneva, Switzerland
 		(http://www.kenzantech.com)
 
 All rights reserved.
@@ -35,3 +35,18 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Additional contributions by:
+
+	Antoine Beyeler <abeyeler at ab-ware dot com>
+		(http://www.ab-ware.com)
+	Laboratory of Intelligent Systems, EPFL, Switzerland
+		(http://lis.epfl.ch)
+	
+	David James Sherman <david dot sherman at inria dot fr>
+	Inria, Bordeaux, France
+		(http://inria.fr)
+
+	Yves Piguet <yves dot piguet at epfl dot ch>
+	Mobots group - Laboratory of Robotics Systems, EPFL, Switzerland
+		(http://mobots.epfl.ch)

@@ -34,25 +34,25 @@ protected:
 		stream->read(&c, 1);
 		if (stream == s0)
 		{
-			#ifdef LOCAL_ECHO
+#ifdef LOCAL_ECHO
 			if(c == 4)
 				stop();
-			#ifdef WIN32
+#ifdef WIN32
 			if(c == '\r')
 				cout << std::endl;
 			else
-			#endif
+#endif
 				cout << c;
-			#endif
+#endif
 			s1->write(&c, 1);
 		}
 		else
 		{
-			#ifdef WIN32
+#ifdef WIN32
 			if(c == '\r')
 				cout << std::endl;
 			else
-			#endif
+#endif
 				cout << c;
 			cout.flush();
 		}
@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 		
 		microTerm.run();
 	}
-	catch (DashelException e)
+	catch (const DashelException &e)
 	{
 		std::cerr << e.what() << std::endl;
 	}

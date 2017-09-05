@@ -1,7 +1,7 @@
 /*
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007 -- 2015:
+	Copyright (C) 2007 -- 2017:
 		
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -64,7 +64,7 @@
 #include <netinet/in.h>
 
 #ifdef __APPLE__
-#define MACOSX
+	#define MACOSX
 #endif
 
 #ifdef MACOSX
@@ -99,6 +99,7 @@ extern "C" {
 #include "dashel-private.h"
 #include "dashel-posix.h"
 
+#define RECV_BUFFER_SIZE	4096
 
 
 /*!	\file streams.cpp
@@ -311,8 +312,6 @@ namespace Dashel
 	
 	// Streams
 	
-	#define RECV_BUFFER_SIZE	4096
-
 	SelectableStream::SelectableStream(const string& protocolName) : 
 		Stream(protocolName),
 		fd(-1),
@@ -340,7 +339,7 @@ namespace Dashel
 	
 	public:
 		//! Create the stream and associates a file descriptor
-		DisconnectableStream(const string& protocolName) :
+		explicit DisconnectableStream(const string& protocolName) :
 			Stream(protocolName),
 			SelectableStream(protocolName),
 			recvBufferPos(0),
@@ -352,12 +351,44 @@ namespace Dashel
 		//! Return true while there is some unread data in the reception buffer
 		virtual bool isDataInRecvBuffer() const { return recvBufferPos != recvBufferSize; }
 	};
-	
+
+	//! Assign a socket file descriptor to a target. Factored out from SocketStream::SocketStream.
+	//! If the target specifies a socket with a nonnegative "sock=N" parameter, assume it is valid
+	//! and use it. Otherwise, the host and port parameters are used to look up a TCP/IP host, and
+	//! a new socket is created.
+	//! Raises an exception if the socket cannot be created, or if the TCP/IP host cannot be reached.
+	static int getOrCreateSocket(ParameterSet & target)
+	{
+		int fd = target.get<int>("sock");
+		if (fd < 0)
+		{
+			// create socket
+			fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (fd < 0)
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
+
+			IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
+
+			// connect
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(remoteAddress.port);
+			addr.sin_addr.s_addr = htonl(remoteAddress.address);
+			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot connect to remote host.");
+
+			// overwrite target name with a canonical one
+			target.add(remoteAddress.format().c_str());
+			target.erase("connectionPort");
+		}
+		return fd;
+	}
+
 	//! Socket, uses send/recv for read/write
 	class SocketStream: public DisconnectableStream
 	{
 	protected:
-		#ifndef TCP_CORK
+#ifndef TCP_CORK
 		//! Socket constants
 		enum Consts
 		{
@@ -366,53 +397,32 @@ namespace Dashel
 		};
 		
 		ExpandableBuffer sendBuffer;
-		#endif
+#endif
 		
 	public:
 		//! Create a socket stream to the following destination
-		SocketStream(const string& targetName) :
+		explicit SocketStream(const string& targetName) :
 			Stream("tcp"),
 			DisconnectableStream("tcp")
-			#ifndef TCP_CORK
+#ifndef TCP_CORK
 			,sendBuffer(SEND_BUFFER_SIZE_INITIAL)
-			#endif
+#endif
 		{
 			target.add("tcp:host;port;connectionPort=-1;sock=-1");
 			target.add(targetName.c_str());
 
-			fd = target.get<int>("sock");
-			if (fd < 0)
-			{
-				// create socket
-				fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-				if (fd < 0)
-					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
-				
-				IPV4Address remoteAddress(target.get("host"), target.get<int>("port"));
-				
-				// connect
-				sockaddr_in addr;
-				addr.sin_family = AF_INET;
-				addr.sin_port = htons(remoteAddress.port);
-				addr.sin_addr.s_addr = htonl(remoteAddress.address);
-				if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot connect to remote host.");
-				
-				// overwrite target name with a canonical one
-				target.add(remoteAddress.format().c_str());
-				target.erase("connectionPort");
-			}
-			else
+			fd = getOrCreateSocket(target);
+			if (target.get<int>("sock") >= 0)
 			{
 				// remove file descriptor information from target name
 				target.erase("sock");
 			}
-			
+
 			// setup TCP Cork for delayed sending
-			#ifdef TCP_CORK
+#ifdef TCP_CORK
 			int flag = 1;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
-			#endif
+#endif
 		}
 		
 		virtual ~SocketStream()
@@ -431,9 +441,9 @@ namespace Dashel
 			if (size == 0)
 				return;
 			
-			#ifdef TCP_CORK
+#ifdef TCP_CORK
 			send(data, size);
-			#else
+#else
 			if (size >= SEND_BUFFER_SIZE_LIMIT)
 			{
 				flush();
@@ -445,7 +455,7 @@ namespace Dashel
 				if (sendBuffer.size() >= SEND_BUFFER_SIZE_LIMIT)
 					flush();
 			}
-			#endif
+#endif
 		}
 		
 		//! Send all data over the socket
@@ -484,15 +494,15 @@ namespace Dashel
 		{
 			assert(fd >= 0);
 			
-			#ifdef TCP_CORK
+#ifdef TCP_CORK
 			int flag = 0;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
 			flag = 1;
 			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
-			#else
+#else
 			send(sendBuffer.get(), sendBuffer.size());
 			sendBuffer.clear();
-			#endif
+#endif
 		}
 		
 		virtual void read(void *data, size_t size)
@@ -554,6 +564,39 @@ namespace Dashel
 		}
 	};
 	
+	//! Poll a socket file descriptor for either a local Unix domain socket (tcppoll:sock=N) or a
+	//! remote TCP/IP socket (tcppoll:host=HOST;port=PORT). Delegates fd choice to getOrCreateSocket.
+	//! Poll streams are used to include sockets that will be read or written by client code in the
+	//! Dashel polling loop. Dashel itself neither reads from nor writes to the socket. PollStream will
+	//! call Hub::incomingData(stream) exactly once when its socket is polled with POLLIN in Hub::step.
+	class PollStream: public SelectableStream
+	{
+	public:
+		explicit PollStream(const std::string& targetName) :
+		Stream(targetName),
+		SelectableStream(targetName)
+		{
+			target.add("tcppoll:host;port;connectionPort=-1;sock=-1");
+			target.add(targetName.c_str());
+			fd = getOrCreateSocket(target);
+			dtorCloseSocket = target.get<int>("sock") < 0 && fd >= 0; // if getOrCreateSocket created the socket we will have to close it
+		}
+		~PollStream()
+		{	// if file descriptor doesn't belong to this stream, don't let the base class close it
+			// note that SelectableStream::~SelectableStream only closes if fd >= 3
+			if (!dtorCloseSocket)
+				fd = 0;
+		}
+		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
+		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
+		virtual bool receiveDataAndCheckDisconnection() { edgeTrigger = true; return false; }
+		virtual bool isDataInRecvBuffer() const { bool ret = edgeTrigger; edgeTrigger = false; return ret; }
+	private:
+		mutable bool edgeTrigger;
+		bool dtorCloseSocket;
+	};
+
 	//! Socket server stream.
 	/*! This stream is used for listening for incoming connections. It cannot be used for transfering
 		data.
@@ -562,7 +605,7 @@ namespace Dashel
 	{
 	public:
 		//! Create the stream and associates a file descriptor
-		SocketServerStream(const std::string& targetName) :
+		explicit SocketServerStream(const std::string& targetName) :
 			Stream("tcpin"),
 			SelectableStream("tcpin")
 		{
@@ -588,26 +631,27 @@ namespace Dashel
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
-			
-			// if dynamically-allocated port, set actual port in target name
+
+			// retrieve port number, if a dynamic one was requested
 			if (bindAddress.port == 0)
 			{
-				socklen_t addrSize(sizeof(addr));
-				if (::getsockname(fd, (struct sockaddr *)&addr, &addrSize) != 0)
-					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot resolve current address of server socket.");
-				bindAddress.port = ntohs(addr.sin_port);
-				bindAddress.address = ntohl(addr.sin_addr.s_addr);
-				target.add(bindAddress.format().c_str());
+				socklen_t sizeof_addr(sizeof(addr));
+				if (::getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
+				target.erase("port");
+				ostringstream portnum;
+				portnum << ntohs(addr.sin_port);
+				target.addParam("port", portnum.str().c_str(), true);
 			}
 			
 			// Listen on socket, backlog is sort of arbitrary.
-			if(listen(fd, 16) < 0)
+			if (listen(fd, 16) < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot listen on socket.");
 		}
 		
-		virtual void write(const void *data, const size_t size) { }
-		virtual void flush() { }
-		virtual void read(void *data, size_t size) { }
+		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
+		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
 		virtual bool receiveDataAndCheckDisconnection() { return false; }
 		virtual bool isDataInRecvBuffer() const { return false; }
 	};
@@ -620,7 +664,7 @@ namespace Dashel
 		
 	public:
 		//! Create as UDP socket stream on a specific port
-		UDPSocketStream(const string& targetName) :
+		explicit UDPSocketStream(const string& targetName) :
 			Stream("udp"),
 			MemoryPacketStream("udp"),
 			SelectableStream("udp"),
@@ -646,6 +690,18 @@ namespace Dashel
 				addr.sin_addr.s_addr = htonl(bindAddress.address);
 				if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
+
+				// retrieve port number, if a dynamic one was requested
+				if (bindAddress.port == 0)
+				{
+					socklen_t sizeof_addr(sizeof(addr));
+					if (::getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+						throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
+					target.erase("port");
+					ostringstream portnum;
+					portnum << ntohs(addr.sin_port);
+					target.addParam("port", portnum.str().c_str(), true);
+				}
 			}
 			else
 			{
@@ -662,7 +718,7 @@ namespace Dashel
 		{
 			sockaddr_in addr;
 			addr.sin_family = AF_INET;
-			addr.sin_port = htons(dest.port);;
+			addr.sin_port = htons(dest.port);
 			addr.sin_addr.s_addr = htonl(dest.address);
 			
 			ssize_t sent = sendto(fd, sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr *)&addr, sizeof(addr));
@@ -697,7 +753,7 @@ namespace Dashel
 	{
 	public:
 		//! Create the stream and associates a file descriptor
-		FileDescriptorStream(const string& protocolName) :
+		explicit FileDescriptorStream(const string& protocolName) :
 			Stream(protocolName),
 			DisconnectableStream(protocolName)
 		{ }
@@ -810,7 +866,7 @@ namespace Dashel
 	{
 	public:
 		//! Parse the target name and create the corresponding file stream
-		FileStream(const string& targetName) :
+		explicit FileStream(const string& targetName) :
 			Stream("file"),
 			FileDescriptorStream("file")
 		{
@@ -848,7 +904,7 @@ namespace Dashel
 	//! Standard input stream, simply a FileStream with a specific target
 	struct StdinStream: public FileStream
 	{
-		StdinStream(const string& targetName):
+		explicit StdinStream(const string& targetName):
 			Stream("file"),
 			FileStream("file:name=/dev/stdin;mode=read;fd=0") {}
 	};
@@ -856,7 +912,7 @@ namespace Dashel
 	//! Standard output stream, simply a FileStream with a specific target
 	struct StdoutStream: public FileStream
 	{
-		StdoutStream(const string& targetName):
+		explicit StdoutStream(const string& targetName):
 			Stream("file"),
 			FileStream("file:name=/dev/stdout;mode=write;fd=1") {}
 	};
@@ -869,7 +925,7 @@ namespace Dashel
 		
 	public:
 		//! Parse the target name and create the corresponding serial stream
-		SerialStream(const string& targetName) :
+		explicit SerialStream(const string& targetName) :
 			Stream("ser"),
 			FileDescriptorStream("ser")
 		{
@@ -1030,52 +1086,9 @@ namespace Dashel
 			 tcsetattr(fd, TCSANOW, &oldtio);
 		}
 		
-		virtual void flush()
-		{
-		}
+		virtual void flush() { /* hook for use by derived classes */ }
 	};
 	
-	
-	/*
-	We have decided to let the application choose what to do with signals.
-	Hub::stop() being thread safe, it is ok to let the user decide.
-	
-	// Signal handler for SIGTERM
-	
-	typedef std::set<Hub*> HubsSet;
-	typedef HubsSet::iterator HubsSetIterator;
-	
-	//! All instanciated Hubs, required for correctly terminating them on signal
-	static HubsSet allHubs;
-	
-	//! Called when SIGTERM or SIGINT arrives, halts all running clients or servers in all threads
-	void termHandler(int t)
-	{
-		for (HubsSetIterator it = allHubs.begin(); it != allHubs.end(); ++it)
-		{
-			(*it)->stop();
-		}
-	}
-	
-	
-	//! Class to setup SIGTERM or SIGINT handler
-	static class SigTermHandlerSetuper
-	{
-	public:
-		//! Private constructor that redirects SIGTERM
-		SigTermHandlerSetuper()
-		{
-			struct sigaction new_act, old_act;
-			new_act.sa_handler = termHandler;
-			sigemptyset(&new_act.sa_mask);
-
-			new_act.sa_flags = 0;
-
-			sigaction(SIGTERM, &new_act, &old_act);
-			sigaction(SIGINT, &new_act, &old_act);
-		}
-	} staticSigTermHandlerSetuper;
-	*/
 	
 	// Hub
 	
@@ -1090,16 +1103,10 @@ namespace Dashel
 		streamsLock = new pthread_mutex_t;
 		
 		pthread_mutex_init((pthread_mutex_t*)streamsLock, NULL);
-
-		// commented because we let the users manage the signal themselves
-		//allHubs.insert(this);
 	}
 	
 	Hub::~Hub()
 	{
-		// commented because we let the users manage the signal themselves
-		//allHubs.erase(this);
-		
 		int *terminationPipes = (int*)hTerminate;
 		close(terminationPipes[0]);
 		close(terminationPipes[1]);
@@ -1115,12 +1122,12 @@ namespace Dashel
 	
 	Stream* Hub::connect(const std::string &target)
 	{
-		std::string proto, params;
+		std::string proto;
 		size_t c = target.find_first_of(':');
 		if (c == std::string::npos)
 			throw DashelException(DashelException::InvalidTarget, 0, "No protocol specified in target.");
 		proto = target.substr(0, c);
-		params = target.substr(c+1);
+		// N.B. params = target.substr(c+1)
 		
 		SelectableStream *s(dynamic_cast<SelectableStream*>(streamTypeRegistry.create(proto, target, *this)));
 		if(!s)
@@ -1189,11 +1196,11 @@ namespace Dashel
 			
 			pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
 			
-			#ifndef USE_POLL_EMU
+#ifndef USE_POLL_EMU
 			int ret = poll(&pollFdsArray[0], pollFdsArray.size(), thisPollTimeout);
-			#else
+#else
 			int ret = poll_emu(&pollFdsArray[0], pollFdsArray.size(), thisPollTimeout);
-			#endif
+#endif
 			if (ret < 0)
 				throw DashelException(DashelException::SyncError, errno, "Error during poll.");
 			
@@ -1212,14 +1219,13 @@ namespace Dashel
 				
 				if (pollFdsArray[i].revents & POLLERR)
 				{
-					//std::cerr << "POLLERR" << std::endl;
 					wasActivity = true;
 					
 					try
 					{
 						stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
 					}
-					catch (DashelException e)
+					catch (const DashelException &e)
 					{
 						assert(e.stream);
 					}
@@ -1228,7 +1234,7 @@ namespace Dashel
 					{
 						connectionClosed(stream, true);
 					}
-					catch (DashelException e)
+					catch (const DashelException &e)
 					{
 						assert(e.stream);
 					}
@@ -1237,14 +1243,13 @@ namespace Dashel
 				}
 				else if (pollFdsArray[i].revents & POLLHUP)
 				{
-					//std::cerr << "POLLHUP" << std::endl;
 					wasActivity = true;
 					
 					try
 					{
 						connectionClosed(stream, false);
 					}
-					catch (DashelException e)
+					catch (const DashelException &e)
 					{
 						assert(e.stream);
 					}
@@ -1253,7 +1258,6 @@ namespace Dashel
 				}
 				else if (pollFdsArray[i].revents & stream->pollEvent)
 				{
-					//std::cerr << "POLLIN" << std::endl;
 					wasActivity = true;
 					
 					// test if listen stream
@@ -1287,7 +1291,6 @@ namespace Dashel
 						{
 							if (stream->receiveDataAndCheckDisconnection())
 							{
-								//std::cerr << "connection closed" << std::endl;
 								connectionClosed(stream, false);
 								streamClosed = true;
 							}
@@ -1296,12 +1299,10 @@ namespace Dashel
 								// read all data available on this socket
 								while (stream->isDataInRecvBuffer())
 									incomingData(stream);
-								//std::cerr << "incoming data" << std::endl;
 							}
 						}
-						catch (DashelException e)
+						catch (const DashelException &e)
 						{
-							//std::cerr << "exception on POLLIN" << std::endl;
 							assert(e.stream);
 						}
 						
@@ -1337,7 +1338,7 @@ namespace Dashel
 					{
 						connectionClosed(stream, true);
 					}
-					catch (DashelException e)
+					catch (const DashelException &e)
 					{
 						assert(e.stream);
 					}
@@ -1379,6 +1380,7 @@ namespace Dashel
 		reg("ser", &createInstance<SerialStream>);
 		reg("tcpin", &createInstance<SocketServerStream>);
 		reg("tcp", &createInstance<SocketStream>);
+		reg("tcppoll", &createInstance<PollStream>);
 		reg("udp", &createInstance<UDPSocketStream>);
 	}
 	

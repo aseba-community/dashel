@@ -1,0 +1,5 @@
+include_directories(${dashel_SOURCE_DIR})
+foreach (example microterm chat portlist udp dws)
+	add_executable(${example} ${example}.cpp)
+	target_link_libraries(${example} dashel ${EXTRA_LIBS})
+endforeach ()

@@ -74,7 +74,7 @@ class ChatClient: public Hub
 {
 public:
 	ChatClient(string remoteTarget, const string& nick) :
-		nick(nick), inputStream(0)
+		inputStream(0), nick(nick)
 	{
 		remoteTarget += ";port=8765";
 		inputStream = connect("stdin:");
@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 			server.run();
 		}
 	}
-	catch(DashelException e)
+	catch(const DashelException &e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
