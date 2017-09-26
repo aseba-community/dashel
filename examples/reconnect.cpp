@@ -37,7 +37,6 @@ protected:
 		try
 		{
 			connect(target);
-			connected = true;
 		}
 		catch (const DashelException& e)
 		{
@@ -48,6 +47,7 @@ protected:
 protected:
 	virtual void connectionCreated(Stream * stream)
 	{
+		connected = true;
 		cout << endl << "Connected to " << stream->getTargetName() << endl;
 	}
 
@@ -82,6 +82,7 @@ int main(int argc, char* argv[])
 		else
 		{
 			cerr << "Usage " << argv[0] << " target" << endl;
+			return 1;
 		}
 	}
 	catch(const DashelException &e)
