@@ -8,9 +8,9 @@ using namespace Dashel;
 class ReconnectingHub: public Hub
 {
 public:
-	ReconnectingHub(string target):
+	ReconnectingHub(const string& target):
 		connected(false),
-		target(move(target))
+		target(target)
 	{
 		connectToTarget();
 	}
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 	}
 	catch(const DashelException &e)
 	{
-		std::cerr << e.what() << std::endl;
+		cerr << e.what() << endl;
 	}
 
 	return 0;
