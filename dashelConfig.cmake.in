@@ -42,7 +42,7 @@ else (WIN32)
 endif (WIN32)
 
 # Standard search
-find_path(DASHEL_INCLUDE_DIR dashel/dashel.h @PROJECT_SOURCE_DIR@ CMAKE_FIND_ROOT_PATH_BOTH)
-SET(dashel_INCLUDE_DIRS ${DASHEL_INCLUDE_DIR})
-find_library(DASHEL_LIBRARY dashel @PROJECT_BINARY_DIR@ CMAKE_FIND_ROOT_PATH_BOTH)
-SET(dashel_LIBRARIES ${DASHEL_LIBRARY} ${EXTRA_LIBS})
+find_path(dashel_INCLUDE_DIRS dashel/dashel.h @PROJECT_SOURCE_DIR@ CMAKE_FIND_ROOT_PATH_BOTH)
+find_library(dashel_LIBRARY dashel @PROJECT_BINARY_DIR@ CMAKE_FIND_ROOT_PATH_BOTH)
+set(dashel_LIBRARIES ${DASHEL_LIBRARY} ${EXTRA_LIBS})
+find_package_handle_standard_args(dashel DEFAULT_MSG dashel_LIBRARIES dashel_INCLUDE_DIRS)

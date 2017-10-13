@@ -64,6 +64,7 @@ set_target_properties(dashel PROPERTIES VERSION ${LIB_VERSION_STRING}
 
 # generate configure file
 configure_file(dashelConfig.cmake.in "${PROJECT_BINARY_DIR}/dashelConfig.cmake" @ONLY)
+configure_file(dashelConfigVersion.cmake.in "${PROJECT_BINARY_DIR}/dashelConfigVersion.cmake" @ONLY)
   
 # install target
 install(FILES ${DASHEL_INSTALL_HEADER}
@@ -82,6 +83,8 @@ else()
 	endif()
 endif()
 install(FILES "${PROJECT_BINARY_DIR}/dashelConfig.cmake"
+	DESTINATION "${INSTALL_CMAKE_DIR}" COMPONENT dev)
+install(FILES "${PROJECT_BINARY_DIR}/dashelConfigVersion.cmake"
 	DESTINATION "${INSTALL_CMAKE_DIR}" COMPONENT dev)
 
 
