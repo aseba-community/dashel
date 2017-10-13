@@ -44,5 +44,5 @@ endif (WIN32)
 # Standard search
 find_path(dashel_INCLUDE_DIRS dashel/dashel.h @PROJECT_SOURCE_DIR@ CMAKE_FIND_ROOT_PATH_BOTH)
 find_library(dashel_LIBRARY dashel @PROJECT_BINARY_DIR@ CMAKE_FIND_ROOT_PATH_BOTH)
-set(dashel_LIBRARIES ${DASHEL_LIBRARY} ${EXTRA_LIBS})
+set(dashel_LIBRARIES ${dashel_LIBRARY} ${EXTRA_LIBS})
 find_package_handle_standard_args(dashel DEFAULT_MSG dashel_LIBRARIES dashel_INCLUDE_DIRS)
