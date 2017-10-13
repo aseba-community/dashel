@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.6)
 
 project(dashel)
 
+export(PACKAGE dashel)
+
 option(BUILD_SHARED_LIBS "Build shared instead of static libs" ON)
 
 # libudev
