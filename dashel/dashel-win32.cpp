@@ -1446,15 +1446,17 @@ namespace Dashel
 	
 	bool Hub::step(const int timeout)
 	{
-		HANDLE hEvs[64] = { hTerminate };
-		WaitableStream *strs[64] = { NULL };
-		EvType ets[64] = { EvClosed };
-		
+		lock();
+		const std::size_t default_hc = std::max(streams.size(), std::size_t(1));
+
+		std::vector<HANDLE> hEvs(default_hc, hTerminate);
+		std::vector<EvType> ets(default_hc, EvClosed);
+		std::vector<WaitableStream*> strs(default_hc, nullptr);
+
 		// Wait on all our events.
 		DWORD ms = timeout >= 0 ? timeout : INFINITE;
 		
 		// Loop in order to consume all events, mostly within lock, excepted for wait
-		lock();
 		do
 		{
 			// the first object to be waited on is always the hTerminate
@@ -1466,11 +1468,11 @@ namespace Dashel
 				WaitableStream* stream = polymorphic_downcast<WaitableStream*>(*it);
 				for(std::map<EvType,HANDLE>::iterator ei = stream->hEvents.begin(); ei != stream->hEvents.end(); ++ei)
 				{
-					// check array bounds, abort cleanly instead of creating memory trash
-					if (hc == 64)
+					if (hEvs.size() <= hc)
 					{
-						std::cerr << "Trying to wait on more than 64 events" << std::endl;
-						abort();
+						ets.resize( hc + 32 , EvClosed);
+						strs.resize(hc + 32 , nullptr);
+						hEvs.resize(hc + 32 , hTerminate);
 					}
 					strs[hc] = stream;
 					ets[hc] = ei->first;
@@ -1483,7 +1485,7 @@ namespace Dashel
 			unlock();
 
 			// force finite timeout to check for serial disconnections
-			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms == INFINITE ? DEFAULT_WAIT_TIMEOUT : ms);
+			DWORD r = WaitForMultipleObjects(hc, &hEvs.at(0), FALSE, ms == INFINITE ? DEFAULT_WAIT_TIMEOUT : ms);
 
 			// Check for error or timeout.
 			if (r == WAIT_FAILED)
