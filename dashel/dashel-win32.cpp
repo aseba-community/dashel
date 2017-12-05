@@ -75,6 +75,9 @@
 /*!	\file dashel-win32.cpp
 	\brief Win32 implementation of Dashel, A cross-platform DAta Stream Helper Encapsulation Library
 */
+
+static const int DEFAULT_WAIT_TIMEOUT = 1000; //ms
+
 namespace Dashel
 {
 	//! Event types that can be waited on.
@@ -1203,14 +1206,14 @@ namespace Dashel
 				if(left)
 				{
 					// Wait for more data.
-					WaitForSingleObject(hev, INFINITE);
+					WaitForSingleObject(hev, DEFAULT_WAIT_TIMEOUT);
 				}
 			}
 
-/*			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
 			if (rv == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
-*/
+
 		}
 	};
 
@@ -1480,7 +1483,7 @@ namespace Dashel
 			unlock();
 
 			// force finite timeout to check for serial disconnections
-			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms == INFINITE ? 1000 : ms);
+			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms == INFINITE ? DEFAULT_WAIT_TIMEOUT : ms);
 
 			// Check for error or timeout.
 			if (r == WAIT_FAILED)
@@ -1521,21 +1524,8 @@ namespace Dashel
 				unlock();
 				return false;
 			}
-			else 
+			else
 			{
-				// Notify user that something happended.
-				if(ets[r] == EvClosed)
-				{
-					try
-					{
-						connectionClosed(strs[r], false);
-					}
-					catch (DashelException e)
-					{ }
-					closeStream(strs[r]);
-					continue;
-				}
-
 				// Notify the stream that its event arrived.
 				strs[r]->notifyEvent(this, ets[r]);
 
@@ -1560,6 +1550,17 @@ namespace Dashel
 						connectionClosed(strs[r], true);
 						closeStream(strs[r]);
 					}
+				}
+
+				if(ets[r] == EvClosed)
+				{
+					try
+					{
+						connectionClosed(strs[r], false);
+					}
+					catch (DashelException e)
+					{ }
+					closeStream(strs[r]);
 				}
 			}
 
