@@ -66,7 +66,7 @@
 #include <devguid.h>
 #include <regstr.h>
 #include <winnls.h>
-#include <Cfgmgr32.h>
+#include <cfgmgr32.h>
 
 #pragma warning(disable:4996)
 
@@ -1083,7 +1083,7 @@ namespace Dashel
 			target.add(params.c_str());
 
 			sock = getOrCreateSocket(target);
-			if (target.get<SOCKET>("sock") >= 0)
+			if (target.get<SOCKET>("sock") != INVALID_SOCKET)
 			{
 				// remove file descriptor information from target name
 				target.erase("sock");
