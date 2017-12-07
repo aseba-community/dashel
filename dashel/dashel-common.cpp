@@ -44,7 +44,7 @@
 
 #include <ostream>
 #include <sstream>
-#ifndef WIN32
+#ifndef _WIN32
 	#include <netdb.h>
 	#include <sys/socket.h>
 	#include <arpa/inet.h>

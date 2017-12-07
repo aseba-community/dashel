@@ -66,7 +66,7 @@
 #include <devguid.h>
 #include <regstr.h>
 #include <winnls.h>
-#include <Cfgmgr32.h>
+#include <cfgmgr32.h>
 
 #pragma warning(disable:4996)
 
@@ -75,6 +75,9 @@
 /*!	\file dashel-win32.cpp
 	\brief Win32 implementation of Dashel, A cross-platform DAta Stream Helper Encapsulation Library
 */
+
+static const int DEFAULT_WAIT_TIMEOUT = 1000; //ms
+
 namespace Dashel
 {
 	//! Event types that can be waited on.
@@ -1083,7 +1086,7 @@ namespace Dashel
 			target.add(params.c_str());
 
 			sock = getOrCreateSocket(target);
-			if (target.get<SOCKET>("sock") >= 0)
+			if (target.get<SOCKET>("sock") != INVALID_SOCKET)
 			{
 				// remove file descriptor information from target name
 				target.erase("sock");
@@ -1203,14 +1206,14 @@ namespace Dashel
 				if(left)
 				{
 					// Wait for more data.
-					WaitForSingleObject(hev, INFINITE);
+					WaitForSingleObject(hev, DEFAULT_WAIT_TIMEOUT);
 				}
 			}
 
-/*			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
+			int rv = WSAEventSelect(sock, hev, FD_READ | FD_CLOSE);
 			if (rv == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
-*/
+
 		}
 	};
 
@@ -1443,15 +1446,17 @@ namespace Dashel
 	
 	bool Hub::step(const int timeout)
 	{
-		HANDLE hEvs[64] = { hTerminate };
-		WaitableStream *strs[64] = { NULL };
-		EvType ets[64] = { EvClosed };
-		
+		lock();
+		const std::size_t default_hc = std::max(streams.size(), std::size_t(1));
+
+		std::vector<HANDLE> hEvs(default_hc, hTerminate);
+		std::vector<EvType> ets(default_hc, EvClosed);
+		std::vector<WaitableStream*> strs(default_hc, nullptr);
+
 		// Wait on all our events.
 		DWORD ms = timeout >= 0 ? timeout : INFINITE;
 		
 		// Loop in order to consume all events, mostly within lock, excepted for wait
-		lock();
 		do
 		{
 			// the first object to be waited on is always the hTerminate
@@ -1463,11 +1468,11 @@ namespace Dashel
 				WaitableStream* stream = polymorphic_downcast<WaitableStream*>(*it);
 				for(std::map<EvType,HANDLE>::iterator ei = stream->hEvents.begin(); ei != stream->hEvents.end(); ++ei)
 				{
-					// check array bounds, abort cleanly instead of creating memory trash
-					if (hc == 64)
+					if (hEvs.size() <= hc)
 					{
-						std::cerr << "Trying to wait on more than 64 events" << std::endl;
-						abort();
+						ets.resize( hc + 32 , EvClosed);
+						strs.resize(hc + 32 , nullptr);
+						hEvs.resize(hc + 32 , hTerminate);
 					}
 					strs[hc] = stream;
 					ets[hc] = ei->first;
@@ -1480,7 +1485,7 @@ namespace Dashel
 			unlock();
 
 			// force finite timeout to check for serial disconnections
-			DWORD r = WaitForMultipleObjects(hc, hEvs, FALSE, ms == INFINITE ? 1000 : ms);
+			DWORD r = WaitForMultipleObjects(hc, &hEvs.at(0), FALSE, ms == INFINITE ? DEFAULT_WAIT_TIMEOUT : ms);
 
 			// Check for error or timeout.
 			if (r == WAIT_FAILED)
@@ -1521,21 +1526,8 @@ namespace Dashel
 				unlock();
 				return false;
 			}
-			else 
+			else
 			{
-				// Notify user that something happended.
-				if(ets[r] == EvClosed)
-				{
-					try
-					{
-						connectionClosed(strs[r], false);
-					}
-					catch (DashelException e)
-					{ }
-					closeStream(strs[r]);
-					continue;
-				}
-
 				// Notify the stream that its event arrived.
 				strs[r]->notifyEvent(this, ets[r]);
 
@@ -1560,6 +1552,17 @@ namespace Dashel
 						connectionClosed(strs[r], true);
 						closeStream(strs[r]);
 					}
+				}
+
+				if(ets[r] == EvClosed)
+				{
+					try
+					{
+						connectionClosed(strs[r], false);
+					}
+					catch (DashelException e)
+					{ }
+					closeStream(strs[r]);
 				}
 			}
 
