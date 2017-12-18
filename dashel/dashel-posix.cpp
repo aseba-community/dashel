@@ -1078,6 +1078,14 @@ namespace Dashel
 				ioctl(fd, TIOCMBIS, &iFlags);
 			else
 				ioctl(fd, TIOCMBIC, &iFlags);
+
+			//Ignore SIGHUP from this point ownward, as it may be emitted and lead to a crash on some POSIX
+			//implementations, despite CLOCAL being set
+			//TODO: we should probably reset the signal to its initial state when all devices are disconnected.
+			struct sigaction act;
+			memset(&act, 0, sizeof (act));
+			act.sa_handler = SIG_IGN;
+			sigaction(SIGHUP, &act, NULL);
 		}
 		
 		//! Destructor, restore old serial port state
