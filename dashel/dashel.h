@@ -140,9 +140,9 @@ namespace Dashel
 	class Stream;
 	
 	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.3.2"
+	#define DASHEL_VERSION "1.3.3"
 	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10302
+	#define DASHEL_VERSION_INT 10303
 	
 	//! The one size fits all exception for streams.
 	/*!

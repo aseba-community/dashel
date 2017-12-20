@@ -1,6 +1,9 @@
+2017-12-20, version 1.3.3
+	* Disable SIGHUP on Posix when using serial ports.
+
 2017-12-06, version 1.3.2
-    * Correctly detect and handle socket disconnection on Windows
-    * Handle an arbitrary number of concurrent streams on Windows
+	* Correctly detect and handle socket disconnection on Windows
+	* Handle an arbitrary number of concurrent streams on Windows
 
 2017-07-06, version 1.3.1
 
