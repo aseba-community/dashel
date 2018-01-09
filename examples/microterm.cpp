@@ -15,21 +15,21 @@ public:
 		s0 = connect(t0);
 		s1 = connect(t1);
 	}
-	
+
 protected:
 	Stream* s0;
 	Stream* s1;
-	
+
 	void connectionCreated(Stream *stream)
 	{
 		cout << "Incoming connection " << stream->getTargetName() << " (" << stream << ")" << endl;
 	}
-	
+
 	void incomingData(Stream *stream)
 	{
 		assert(s0);
 		assert(s1);
-		
+
 		char c;
 		stream->read(&c, 1);
 		if (stream == s0)
@@ -57,7 +57,7 @@ protected:
 			cout.flush();
 		}
 	}
-	
+
 	void connectionClosed(Stream *stream, bool abnormal)
 	{
 		cout << "Closed connection " << stream->getTargetName() << " (" << stream << ")";
@@ -75,17 +75,17 @@ int main(int argc, char* argv[])
 		cerr << "Usage: " << argv[0] << " inputTarget destTarget" << endl;
 		return 1;
 	}
-	
+
 	try
 	{
 		MicroTerm microTerm(argv[1], argv[2]);
-		
+
 		microTerm.run();
 	}
 	catch (const DashelException &e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
-	
+
 	return 0;
 }

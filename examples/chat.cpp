@@ -36,7 +36,7 @@ public:
 protected:
 	Stream* listenStream;
 	map<Stream*, string> nicks;
-	
+
 protected:
 	void connectionCreated(Stream *stream)
 	{
@@ -46,18 +46,18 @@ protected:
 		nicks[stream] = nick;
 		cout << "+ User " << nick << " is connected." << endl;
 	}
-	
+
 	void incomingData(Stream *stream)
 	{
 		string line = readLine(stream);
 		const string& nick = nicks[stream];
 		line = nick + " : " + line;
 		cout << "* Message from " << line;
-		
+
 		for (StreamsSet::iterator it = dataStreams.begin(); it != dataStreams.end(); ++it)
 			sendString((*it), line);
 	}
-	
+
 	void connectionClosed(Stream *stream, bool abnormal)
 	{
 		cout << "- Connection closed to " << stream->getTargetName() << " (" << stream << ")";
@@ -82,22 +82,22 @@ public:
 		this->nick += '\n';
 		sendString(remoteStream, this->nick);
 	}
-	
+
 protected:
 	Stream* inputStream;
 	Stream* remoteStream;
 	string nick;
-	
+
 	void connectionCreated(Stream *stream)
 	{
 		cout << "Incoming connection " << stream->getTargetName() << " (" << stream << ")" << endl;
 	}
-	
+
 	void incomingData(Stream *stream)
 	{
 		assert(inputStream);
 		assert(remoteStream);
-		
+
 		if (stream == inputStream)
 		{
 			string line = readLine(inputStream);
@@ -110,7 +110,7 @@ protected:
 			cout.flush();
 		}
 	}
-	
+
 	void connectionClosed(Stream *stream, bool abnormal)
 	{
 		cout << "Connection closed to " << stream->getTargetName() << " (" << stream << ")";
@@ -140,6 +140,6 @@ int main(int argc, char* argv[])
 	{
 		std::cerr << e.what() << std::endl;
 	}
-	
+
 	return 0;
 }
