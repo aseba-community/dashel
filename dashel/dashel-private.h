@@ -2,18 +2,18 @@
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
 	Copyright (C) 2007 -- 2017:
-		
+
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
 		Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne
 			(http://mobots.epfl.ch)
-		
+
 		Sebastian Gerlach
 		Kenzan Technologies
 			(http://www.kenzantech.com)
-	
+
 	All rights reserved.
-	
+
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
 		* Redistributions of source code must retain the above copyright
@@ -25,7 +25,7 @@
 		  "Kenzan Technologies" nor the names of the contributors may be used to
 		  endorse or promote products derived from this software without specific
 		  prior written permission.
-	
+
 	THIS SOFTWARE IS PROVIDED BY COPYRIGHT HOLDERS ``AS IS'' AND ANY
 	EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -57,7 +57,7 @@ namespace Dashel
 		unsigned char* _data; //!< data buffer. Its size is increased when required.
 		size_t _size; //!< allocated size of data
 		size_t _pos; //!< size of used part of data
-	
+
 	public:
 		//! Construct an expandable buffer of specific size
 		explicit ExpandableBuffer(size_t size = 0);
@@ -67,7 +67,7 @@ namespace Dashel
 		void clear();
 		//! Append data to the buffer
 		void add(const void* data, const size_t size);
-		
+
 		//! Return a pointer to the underlying data
 		unsigned char* get() { return _data; }
 		//! Return the actual amount of data stored
@@ -75,33 +75,38 @@ namespace Dashel
 		//! Return the amount of allocated memory, always >= size(), to reduce the amount of reallocation required
 		size_t reservedSize() const { return _size; }
 	};
-	
+
 	//! The system-neutral part of packet stream that implement the actual memory buffers
-	class MemoryPacketStream: public PacketStream
+	class MemoryPacketStream : public PacketStream
 	{
 	protected:
 		//! The buffer collecting data to send
 		ExpandableBuffer sendBuffer;
 		//! The buffer holding data from last receive
 		std::deque<unsigned char> receptionBuffer;
-	
+
 	public:
 		//! Constructor
-		explicit MemoryPacketStream(const std::string& protocolName) : Stream(protocolName), PacketStream(protocolName) { }
-	
-		virtual void write(const void *data, const size_t size);
-		
-		virtual void flush() { /* hook for use by derived classes */ }
-		
-		virtual void read(void *data, size_t size);
+		explicit MemoryPacketStream(const std::string& protocolName) :
+			Stream(protocolName),
+			PacketStream(protocolName) {}
+
+		virtual void write(const void* data, const size_t size);
+
+		virtual void flush()
+		{ /* hook for use by derived classes */
+		}
+
+		virtual void read(void* data, size_t size);
 	};
-	
-	
-	template<typename T> T ParameterSet::get(const char *key) const
+
+
+	template<typename T>
+	T ParameterSet::get(const char* key) const
 	{
 		T t;
 		std::map<std::string, std::string>::const_iterator it = values.find(key);
-		if(it == values.end())
+		if (it == values.end())
 		{
 			std::string r = std::string("Parameter missing: ").append(key);
 			throw Dashel::DashelException(DashelException::InvalidTarget, 0, r.c_str());

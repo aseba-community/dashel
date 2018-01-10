@@ -18,8 +18,7 @@ string readLine(Stream* stream)
 	{
 		stream->read(&c, 1);
 		line += c;
-	}
-	while (c != '\n');
+	} while (c != '\n');
 	return line;
 }
 
@@ -47,37 +46,37 @@ vector<string> split(const string& str, const string& delim)
 	{
 		start = end;
 		while (start < str.size() && (delim.find(str[start]) != string::npos))
-			start++;  // skip initial whitespace
+			start++; // skip initial whitespace
 		end = start;
 		while (end < str.size() && (delim.find(str[end]) == string::npos))
 			end++; // skip to end of word
-		if (end-start != 0)  // just ignore zero-length strings.
-			parts.push_back(string(str, start, end-start));
+		if (end - start != 0) // just ignore zero-length strings.
+			parts.push_back(string(str, start, end - start));
 	}
 	return parts;
 }
 
 // Web server itself
 
-class WebServer: public Hub
+class WebServer : public Hub
 {
 public:
 	explicit WebServer(const string& port)
 	{
 		listenStream = connect("tcpin:port=" + port);
 	}
-	
-	void connectionCreated(Stream *stream)
+
+	void connectionCreated(Stream* stream)
 	{
 		cerr << stream << " Connection created to " << stream->getTargetName() << endl;
 	}
-	
-	void incomingData(Stream *stream)
+
+	void incomingData(Stream* stream)
 	{
 		// received request
 		const string request(readLine(stream));
 		cerr << stream << " Request: " << request;
-		
+
 		// read all options
 		readLine(stream);
 		string optionLine;
@@ -85,10 +84,10 @@ public:
 		{
 			cerr << stream << " Option: " << optionLine;
 		}
-		
+
 		// parse request
 		vector<string> requestParts(split(request, "\n\r\t "));
-		
+
 		// only support GET
 		if ((requestParts.size() < 2) || requestParts[0] != "GET")
 		{
@@ -97,7 +96,7 @@ public:
 			shutdownStream(stream);
 			return;
 		}
-		
+
 		// try to open file
 		const string fileName(requestParts[1]);
 		ifstream ifs(fileName.c_str());
@@ -109,7 +108,7 @@ public:
 			shutdownStream(stream);
 			return;
 		}
-		
+
 		// read and send the file
 		// note: this could be made much more efficient by checking the
 		// file size and reading it all at once
@@ -121,15 +120,15 @@ public:
 			c = ifs.get();
 		}
 		stream->flush();
-		
+
 		shutdownStream(stream);
 	}
-	
-	void connectionClosed(Stream *stream, bool abnormal)
+
+	void connectionClosed(Stream* stream, bool abnormal)
 	{
 		cerr << stream << " Connection closed to " << stream->getTargetName() << endl;
 	}
-	
+
 protected:
 	Stream* listenStream;
 };
@@ -142,10 +141,10 @@ int main(int argc, char* argv[])
 		WebServer webServer(argc > 1 ? argv[1] : "8080");
 		webServer.run();
 	}
-	catch(const DashelException &e)
+	catch (const DashelException& e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
-	
+
 	return 0;
 }

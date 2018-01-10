@@ -2,18 +2,18 @@
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
 	Copyright (C) 2007 -- 2017:
-		
+
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
 		Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne
 			(http://mobots.epfl.ch)
-		
+
 		Sebastian Gerlach
 		Kenzan Technologies
 			(http://www.kenzantech.com)
-	
+
 	All rights reserved.
-	
+
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
 		* Redistributions of source code must retain the above copyright
@@ -25,7 +25,7 @@
 		  "Kenzan Technologies" nor the names of the contributors may be used to
 		  endorse or promote products derived from this software without specific
 		  prior written permission.
-	
+
 	THIS SOFTWARE IS PROVIDED BY COPYRIGHT HOLDERS ``AS IS'' AND ANY
 	EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -64,42 +64,43 @@
 #include <netinet/in.h>
 
 #ifdef __APPLE__
-	#define MACOSX
+#	define MACOSX
 #endif
 
 #ifdef MACOSX
-	#define USE_POLL_EMU
+#	define USE_POLL_EMU
 #endif
 
 #ifdef MACOSX
-	#include <CoreFoundation/CoreFoundation.h>
-	#include "TargetConditionals.h"
-	#if TARGET_OS_IPHONE == 0
-		#include <IOKit/IOKitLib.h>
-		#include <IOKit/serial/IOSerialKeys.h>
-	#endif
+#	include <CoreFoundation/CoreFoundation.h>
+#	include "TargetConditionals.h"
+#	if TARGET_OS_IPHONE == 0
+#		include <IOKit/IOKitLib.h>
+#		include <IOKit/serial/IOSerialKeys.h>
+#	endif
 #endif
 
 #ifdef USE_LIBUDEV
-extern "C" {
-	#include <libudev.h>
+extern "C"
+{
+#	include <libudev.h>
 }
 #endif
 
 #ifdef USE_HAL
-	#include <hal/libhal.h>
+#	include <hal/libhal.h>
 #endif
 
 #ifndef USE_POLL_EMU
-	#include <poll.h>
+#	include <poll.h>
 #else
-	#include "poll_emu.h"
+#	include "poll_emu.h"
 #endif
 
 #include "dashel-private.h"
 #include "dashel-posix.h"
 
-#define RECV_BUFFER_SIZE	4096
+#define RECV_BUFFER_SIZE 4096
 
 
 /*!	\file streams.cpp
@@ -109,53 +110,52 @@ extern "C" {
 namespace Dashel
 {
 	using namespace std;
-	
+
 	// Exception
-	
+
 	void Stream::fail(DashelException::Source s, int se, const char* reason)
 	{
 		string sysMessage;
 		failedFlag = true;
-		
+
 		if (se)
 			sysMessage = strerror(errno);
-			
+
 		failReason = reason;
 		failReason += " ";
 		failReason += sysMessage;
-		
+
 		throw DashelException(s, se, failReason.c_str(), this);
 	}
-	
+
 	// Serial port enumerator
-	
+
 	std::map<int, std::pair<std::string, std::string> > SerialPortEnumerator::getPorts()
 	{
 		std::map<int, std::pair<std::string, std::string> > ports;
-		
 
 
 #if defined MACOSX && TARGET_OS_IPHONE == 0
 		// use IOKit to enumerates devices
-		
+
 		// get a matching dictionary to specify which IOService class we're interested in
 		CFMutableDictionaryRef classesToMatch = IOServiceMatching(kIOSerialBSDServiceValue);
 		if (classesToMatch == NULL)
 			throw DashelException(DashelException::EnumerationError, 0, "IOServiceMatching returned a NULL dictionary");
-		
+
 		// specify all types of serial devices
 		CFDictionarySetValue(classesToMatch, CFSTR(kIOSerialBSDTypeKey), CFSTR(kIOSerialBSDAllTypes));
-		
+
 		// get an iterator to serial port services
 		io_iterator_t matchingServices;
-		kern_return_t kernResult = IOServiceGetMatchingServices(kIOMasterPortDefault, classesToMatch, &matchingServices);    
+		kern_return_t kernResult = IOServiceGetMatchingServices(kIOMasterPortDefault, classesToMatch, &matchingServices);
 		if (KERN_SUCCESS != kernResult)
 			throw DashelException(DashelException::EnumerationError, kernResult, "IOServiceGetMatchingServices failed");
-			
+
 		// iterate over services
 		io_object_t modemService;
 		int index = 0;
-		while((modemService = IOIteratorNext(matchingServices)))
+		while ((modemService = IOIteratorNext(matchingServices)))
 		{
 			// get path for device
 			CFTypeRef bsdPathAsCFString = IORegistryEntryCreateCFProperty(modemService, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, 0);
@@ -164,50 +164,55 @@ namespace Dashel
 				std::string path;
 				char cStr[255];
 				std::string name;
-				
-				bool res = CFStringGetCString((CFStringRef) bsdPathAsCFString, cStr, 255, kCFStringEncodingUTF8);
-				if(res)
+
+				bool res = CFStringGetCString((CFStringRef)bsdPathAsCFString, cStr, 255, kCFStringEncodingUTF8);
+				if (res)
 					path = cStr;
 				else
 					throw DashelException(DashelException::EnumerationError, 0, "CFStringGetCString failed");
-				
+
 				CFRelease(bsdPathAsCFString);
-				
-				CFTypeRef fn = IORegistryEntrySearchCFProperty(modemService, kIOServicePlane, CFSTR("USB Product Name"), kCFAllocatorDefault,
-										kIORegistryIterateRecursively | kIORegistryIterateParents);
-				if(fn) {
-					res = CFStringGetCString((CFStringRef) fn, cStr, 255, kCFStringEncodingUTF8);
-					if(res) 
+
+				CFTypeRef fn = IORegistryEntrySearchCFProperty(modemService,
+					kIOServicePlane,
+					CFSTR("USB Product Name"),
+					kCFAllocatorDefault,
+					kIORegistryIterateRecursively | kIORegistryIterateParents);
+				if (fn)
+				{
+					res = CFStringGetCString((CFStringRef)fn, cStr, 255, kCFStringEncodingUTF8);
+					if (res)
 						name = cStr;
 					else
 						throw DashelException(DashelException::EnumerationError, 0, "CFStringGetString failed");
 
 					CFRelease(fn);
-				} else 
+				}
+				else
 					name = "Serial Port";
 				name = name + " (" + path + ")";
 				ports[index++] = std::make_pair(path, name);
 			}
 			else
 				throw DashelException(DashelException::EnumerationError, 0, "IORegistryEntryCreateCFProperty returned a NULL path");
-			
+
 			// release service
 			IOObjectRelease(modemService);
 		}
 
 		IOObjectRelease(matchingServices);
 
-			
+
 #elif defined(USE_LIBUDEV)
 
-		struct udev *udev;
-		struct udev_enumerate *enumerate;
+		struct udev* udev;
+		struct udev_enumerate* enumerate;
 		struct udev_list_entry *devices, *dev_list_entry;
-		struct udev_device *dev;
+		struct udev_device* dev;
 		int index = 0;
 
 		udev = udev_new();
-		if(!udev)
+		if (!udev)
 			throw DashelException(DashelException::EnumerationError, 0, "Cannot create udev context");
 
 		enumerate = udev_enumerate_new(udev);
@@ -215,12 +220,13 @@ namespace Dashel
 		udev_enumerate_scan_devices(enumerate);
 		devices = udev_enumerate_get_list_entry(enumerate);
 
-		udev_list_entry_foreach(dev_list_entry, devices) {
-			const char *sysfs_path;
-			struct udev_device *usb_dev;
-			const char * path;
+		udev_list_entry_foreach(dev_list_entry, devices)
+		{
+			const char* sysfs_path;
+			struct udev_device* usb_dev;
+			const char* path;
 			struct stat st;
-			unsigned int maj,min;
+			unsigned int maj, min;
 
 			/* Get sysfs path and create the udev device */
 			sysfs_path = udev_list_entry_get_name(dev_list_entry);
@@ -228,10 +234,10 @@ namespace Dashel
 
 			// Some sanity check
 			path = udev_device_get_devnode(dev);
-			if(stat(path, &st)) 
+			if (stat(path, &st))
 				throw DashelException(DashelException::EnumerationError, 0, "Cannot stat serial port");
-			
-			if(!S_ISCHR(st.st_mode))
+
+			if (!S_ISCHR(st.st_mode))
 				throw DashelException(DashelException::EnumerationError, 0, "Serial port is not character device");
 
 			// Get the major/minor number
@@ -239,23 +245,24 @@ namespace Dashel
 			min = minor(st.st_rdev);
 
 			// Ignore all the non physical ports
-			if(!(maj == 2 || (maj == 4 && min < 64) || maj == 3 || maj == 5)) {
+			if (!(maj == 2 || (maj == 4 && min < 64) || maj == 3 || maj == 5))
+			{
 				ostringstream oss;
 
 				// Check if usb, if yes get the device name
-				usb_dev = udev_device_get_parent_with_subsystem_devtype(dev,"usb","usb_device");
-				if(usb_dev)
-					oss << udev_device_get_sysattr_value(usb_dev,"product");
+				usb_dev = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_device");
+				if (usb_dev)
+					oss << udev_device_get_sysattr_value(usb_dev, "product");
 				else
 					oss << "Serial Port";
 
 				oss << " (" << path << ")";
 
-				ports[index++] = std::make_pair<std::string, std::string>(path,oss.str());
+				ports[index++] = std::make_pair<std::string, std::string>(path, oss.str());
 			}
 			udev_device_unref(dev);
 		}
-		
+
 		udev_enumerate_unref(enumerate);
 
 		udev_unref(udev);
@@ -266,7 +273,7 @@ namespace Dashel
 		DBusConnection* dbusConnection = dbus_bus_get(DBUS_BUS_SYSTEM, 0);
 		if (!dbusConnection)
 			throw DashelException(DashelException::EnumerationError, 0, "cannot connect to D-BUS.");
-		
+
 		LibHalContext* halContext = libhal_ctx_new();
 		if (!halContext)
 			throw DashelException(DashelException::EnumerationError, 0, "cannot create HAL context: cannot create context");
@@ -274,7 +281,7 @@ namespace Dashel
 			throw DashelException(DashelException::EnumerationError, 0, "cannot create HAL context: cannot connect to D-BUS");
 		if (!libhal_ctx_init(halContext, 0))
 			throw DashelException(DashelException::EnumerationError, 0, "cannot create HAL context: cannot init context");
-		
+
 		int devicesCount;
 		char** devices = libhal_find_device_by_capability(halContext, "serial", &devicesCount, 0);
 		for (int i = 0; i < devicesCount; i++)
@@ -282,25 +289,25 @@ namespace Dashel
 			char* devFileName = libhal_device_get_property_string(halContext, devices[i], "serial.device", 0);
 			char* info = libhal_device_get_property_string(halContext, devices[i], "info.product", 0);
 			int port = libhal_device_get_property_int(halContext, devices[i], "serial.port", 0);
-			
+
 			ostringstream oss;
 			oss << info << " " << port;
 			ports[devicesCount - i] = std::make_pair<std::string, std::string>(devFileName, oss.str());
-			
+
 			libhal_free_string(info);
 			libhal_free_string(devFileName);
 		}
-		
+
 		libhal_free_string_array(devices);
 		libhal_ctx_shutdown(halContext, 0);
 		libhal_ctx_free(halContext);
 #endif
-		
+
 		return ports;
 	};
-	
+
 	// Asserted dynamic cast
-	
+
 	//! Asserts a dynamic cast.	Similar to the one in boost/cast.hpp
 	template<typename Derived, typename Base>
 	inline Derived polymorphic_downcast(Base base)
@@ -309,34 +316,33 @@ namespace Dashel
 		assert(derived);
 		return derived;
 	}
-	
+
 	// Streams
-	
-	SelectableStream::SelectableStream(const string& protocolName) : 
+
+	SelectableStream::SelectableStream(const string& protocolName) :
 		Stream(protocolName),
 		fd(-1),
 		writeOnly(false),
 		pollEvent(POLLIN)
 	{
-		
 	}
-	
+
 	SelectableStream::~SelectableStream()
 	{
 		// on POSIX, do not close stdin, stdout, nor stderr
 		if (fd >= 3)
 			close(fd);
 	}
-	
+
 	//! In addition its parent, this stream can also make select return because of the target has disconnected
-	class DisconnectableStream: public SelectableStream
+	class DisconnectableStream : public SelectableStream
 	{
 	protected:
 		friend class Hub;
-		unsigned char recvBuffer[RECV_BUFFER_SIZE];	//!< reception buffer
+		unsigned char recvBuffer[RECV_BUFFER_SIZE]; //!< reception buffer
 		size_t recvBufferPos; //!< position of read in reception buffer
 		size_t recvBufferSize; //!< amount of data in reception buffer
-	
+
 	public:
 		//! Create the stream and associates a file descriptor
 		explicit DisconnectableStream(const string& protocolName) :
@@ -345,9 +351,8 @@ namespace Dashel
 			recvBufferPos(0),
 			recvBufferSize(0)
 		{
-			
 		}
-		
+
 		//! Return true while there is some unread data in the reception buffer
 		virtual bool isDataInRecvBuffer() const { return recvBufferPos != recvBufferSize; }
 	};
@@ -357,7 +362,7 @@ namespace Dashel
 	//! and use it. Otherwise, the host and port parameters are used to look up a TCP/IP host, and
 	//! a new socket is created.
 	//! Raises an exception if the socket cannot be created, or if the TCP/IP host cannot be reached.
-	static int getOrCreateSocket(ParameterSet & target)
+	static int getOrCreateSocket(ParameterSet& target)
 	{
 		int fd = target.get<int>("sock");
 		if (fd < 0)
@@ -374,7 +379,7 @@ namespace Dashel
 			addr.sin_family = AF_INET;
 			addr.sin_port = htons(remoteAddress.port);
 			addr.sin_addr.s_addr = htonl(remoteAddress.address);
-			if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+			if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot connect to remote host.");
 
 			// overwrite target name with a canonical one
@@ -385,27 +390,29 @@ namespace Dashel
 	}
 
 	//! Socket, uses send/recv for read/write
-	class SocketStream: public DisconnectableStream
+	class SocketStream : public DisconnectableStream
 	{
 	protected:
 #ifndef TCP_CORK
 		//! Socket constants
-		enum Consts
-		{
+		//clang-format off
+		enum Consts{
 			SEND_BUFFER_SIZE_INITIAL = 256, //!< initial size of the socket send sendBuffer
 			SEND_BUFFER_SIZE_LIMIT = 65536 //!< when the socket send sendBuffer reaches this size, a flush is forced
 		};
-		
+		//clang-format on
+
 		ExpandableBuffer sendBuffer;
 #endif
-		
+
 	public:
 		//! Create a socket stream to the following destination
 		explicit SocketStream(const string& targetName) :
 			Stream("tcp"),
 			DisconnectableStream("tcp")
 #ifndef TCP_CORK
-			,sendBuffer(SEND_BUFFER_SIZE_INITIAL)
+			,
+			sendBuffer(SEND_BUFFER_SIZE_INITIAL)
 #endif
 		{
 			target.add("tcp:host;port;connectionPort=-1;sock=-1");
@@ -421,26 +428,26 @@ namespace Dashel
 			// setup TCP Cork for delayed sending
 #ifdef TCP_CORK
 			int flag = 1;
-			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
+			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag, sizeof(flag));
 #endif
 		}
-		
+
 		virtual ~SocketStream()
 		{
 			if (!failed())
 				flush();
-			
+
 			if (fd >= 0)
 				shutdown(fd, SHUT_RDWR);
 		}
-		
-		virtual void write(const void *data, const size_t size)
+
+		virtual void write(const void* data, const size_t size)
 		{
 			assert(fd >= 0);
-			
+
 			if (size == 0)
 				return;
-			
+
 #ifdef TCP_CORK
 			send(data, size);
 #else
@@ -457,15 +464,15 @@ namespace Dashel
 			}
 #endif
 		}
-		
+
 		//! Send all data over the socket
-		void send(const void *data, size_t size)
+		void send(const void* data, size_t size)
 		{
 			assert(fd >= 0);
-			
-			unsigned char *ptr = (unsigned char *)data;
+
+			unsigned char* ptr = (unsigned char*)data;
 			size_t left = size;
-			
+
 			while (left)
 			{
 #ifdef MACOSX
@@ -473,7 +480,7 @@ namespace Dashel
 #else
 				ssize_t len = ::send(fd, ptr, left, MSG_NOSIGNAL);
 #endif
-				
+
 				if (len < 0)
 				{
 					fail(DashelException::IOError, errno, "Socket write I/O error.");
@@ -489,32 +496,32 @@ namespace Dashel
 				}
 			}
 		}
-		
+
 		virtual void flush()
 		{
 			assert(fd >= 0);
-			
+
 #ifdef TCP_CORK
 			int flag = 0;
-			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
+			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag, sizeof(flag));
 			flag = 1;
-			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag , sizeof(flag));
+			setsockopt(fd, IPPROTO_TCP, TCP_CORK, &flag, sizeof(flag));
 #else
 			send(sendBuffer.get(), sendBuffer.size());
 			sendBuffer.clear();
 #endif
 		}
-		
-		virtual void read(void *data, size_t size)
+
+		virtual void read(void* data, size_t size)
 		{
 			assert(fd >= 0);
-			
+
 			if (size == 0)
 				return;
-			
-			unsigned char *ptr = (unsigned char *)data;
+
+			unsigned char* ptr = (unsigned char*)data;
 			size_t left = size;
-			
+
 			if (isDataInRecvBuffer())
 			{
 				size_t toCopy = std::min(recvBufferSize - recvBufferPos, size);
@@ -523,11 +530,11 @@ namespace Dashel
 				ptr += toCopy;
 				left -= toCopy;
 			}
-			
+
 			while (left)
 			{
 				ssize_t len = recv(fd, ptr, left, 0);
-				
+
 				if (len < 0)
 				{
 					fail(DashelException::IOError, errno, "Socket read I/O error.");
@@ -543,11 +550,11 @@ namespace Dashel
 				}
 			}
 		}
-		
+
 		virtual bool receiveDataAndCheckDisconnection()
 		{
 			assert(recvBufferPos == recvBufferSize);
-			
+
 			ssize_t len = recv(fd, &recvBuffer, RECV_BUFFER_SIZE, 0);
 			if (len > 0)
 			{
@@ -563,18 +570,18 @@ namespace Dashel
 			}
 		}
 	};
-	
+
 	//! Poll a socket file descriptor for either a local Unix domain socket (tcppoll:sock=N) or a
 	//! remote TCP/IP socket (tcppoll:host=HOST;port=PORT). Delegates fd choice to getOrCreateSocket.
 	//! Poll streams are used to include sockets that will be read or written by client code in the
 	//! Dashel polling loop. Dashel itself neither reads from nor writes to the socket. PollStream will
 	//! call Hub::incomingData(stream) exactly once when its socket is polled with POLLIN in Hub::step.
-	class PollStream: public SelectableStream
+	class PollStream : public SelectableStream
 	{
 	public:
 		explicit PollStream(const std::string& targetName) :
-		Stream(targetName),
-		SelectableStream(targetName)
+			Stream(targetName),
+			SelectableStream(targetName)
 		{
 			target.add("tcppoll:host;port;connectionPort=-1;sock=-1");
 			target.add(targetName.c_str());
@@ -582,16 +589,32 @@ namespace Dashel
 			dtorCloseSocket = target.get<int>("sock") < 0 && fd >= 0; // if getOrCreateSocket created the socket we will have to close it
 		}
 		~PollStream()
-		{	// if file descriptor doesn't belong to this stream, don't let the base class close it
+		{ // if file descriptor doesn't belong to this stream, don't let the base class close it
 			// note that SelectableStream::~SelectableStream only closes if fd >= 3
 			if (!dtorCloseSocket)
 				fd = 0;
 		}
-		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
-		virtual void flush() { /* hook for use by derived classes */ }
-		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
-		virtual bool receiveDataAndCheckDisconnection() { edgeTrigger = true; return false; }
-		virtual bool isDataInRecvBuffer() const { bool ret = edgeTrigger; edgeTrigger = false; return ret; }
+		virtual void write(const void* data, const size_t size)
+		{ /* hook for use by derived classes */
+		}
+		virtual void flush()
+		{ /* hook for use by derived classes */
+		}
+		virtual void read(void* data, size_t size)
+		{ /* hook for use by derived classes */
+		}
+		virtual bool receiveDataAndCheckDisconnection()
+		{
+			edgeTrigger = true;
+			return false;
+		}
+		virtual bool isDataInRecvBuffer() const
+		{
+			bool ret = edgeTrigger;
+			edgeTrigger = false;
+			return ret;
+		}
+
 	private:
 		mutable bool edgeTrigger;
 		bool dtorCloseSocket;
@@ -611,57 +634,63 @@ namespace Dashel
 		{
 			target.add("tcpin:port=5000;address=0.0.0.0");
 			target.add(targetName.c_str());
-			
+
 			IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
-			
+
 			// create socket
 			fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (fd < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
-			
+
 			// reuse address
 			int flag = 1;
-			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof (flag)) < 0)
+			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot set address reuse flag on socket, probably the port is already in use.");
-			
+
 			// bind
 			sockaddr_in addr;
 			addr.sin_family = AF_INET;
 			addr.sin_port = htons(bindAddress.port);
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
-			if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+			if (::bind(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
 
 			// retrieve port number, if a dynamic one was requested
 			if (bindAddress.port == 0)
 			{
 				socklen_t sizeof_addr(sizeof(addr));
-				if (::getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+				if (::getsockname(fd, (struct sockaddr*)&addr, &sizeof_addr) != 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
 				target.erase("port");
 				ostringstream portnum;
 				portnum << ntohs(addr.sin_port);
 				target.addParam("port", portnum.str().c_str(), true);
 			}
-			
+
 			// Listen on socket, backlog is sort of arbitrary.
 			if (listen(fd, 16) < 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot listen on socket.");
 		}
-		
-		virtual void write(const void *data, const size_t size) { /* hook for use by derived classes */ }
-		virtual void flush() { /* hook for use by derived classes */ }
-		virtual void read(void *data, size_t size) { /* hook for use by derived classes */ }
+
+		virtual void write(const void* data, const size_t size)
+		{ /* hook for use by derived classes */
+		}
+		virtual void flush()
+		{ /* hook for use by derived classes */
+		}
+		virtual void read(void* data, size_t size)
+		{ /* hook for use by derived classes */
+		}
 		virtual bool receiveDataAndCheckDisconnection() { return false; }
 		virtual bool isDataInRecvBuffer() const { return false; }
 	};
-	
+
 	//! UDP Socket, uses sendto/recvfrom for read/write
-	class UDPSocketStream: public MemoryPacketStream, public SelectableStream
+	class UDPSocketStream : public MemoryPacketStream, public SelectableStream
 	{
 	private:
 		mutable bool selectWasCalled;
-		
+
 	public:
 		//! Create as UDP socket stream on a specific port
 		explicit UDPSocketStream(const string& targetName) :
@@ -672,7 +701,7 @@ namespace Dashel
 		{
 			target.add("udp:port=5000;address=0.0.0.0;sock=-1");
 			target.add(targetName.c_str());
-			
+
 			fd = target.get<int>("sock");
 			if (fd < 0)
 			{
@@ -680,22 +709,22 @@ namespace Dashel
 				fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				if (fd < 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot create socket.");
-				
+
 				IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
-				
+
 				// bind
 				sockaddr_in addr;
 				addr.sin_family = AF_INET;
 				addr.sin_port = htons(bindAddress.port);
 				addr.sin_addr.s_addr = htonl(bindAddress.address);
-				if (::bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+				if (::bind(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0)
 					throw DashelException(DashelException::ConnectionFailed, errno, "Cannot bind socket to port, probably the port is already in use.");
 
 				// retrieve port number, if a dynamic one was requested
 				if (bindAddress.port == 0)
 				{
 					socklen_t sizeof_addr(sizeof(addr));
-					if (::getsockname(fd, (struct sockaddr *)&addr, &sizeof_addr) != 0)
+					if (::getsockname(fd, (struct sockaddr*)&addr, &sizeof_addr) != 0)
 						throw DashelException(DashelException::ConnectionFailed, errno, "Cannot retrieve socket port assignment.");
 					target.erase("port");
 					ostringstream portnum;
@@ -708,70 +737,79 @@ namespace Dashel
 				// remove file descriptor information from target name
 				target.erase("sock");
 			}
-			
+
 			// enable broadcast
 			int broadcastPermission = 1;
 			setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcastPermission, sizeof(broadcastPermission));
 		}
-		
+
 		virtual void send(const IPV4Address& dest)
 		{
 			sockaddr_in addr;
 			addr.sin_family = AF_INET;
 			addr.sin_port = htons(dest.port);
 			addr.sin_addr.s_addr = htonl(dest.address);
-			
-			ssize_t sent = sendto(fd, sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr *)&addr, sizeof(addr));
+
+			ssize_t sent = sendto(fd, sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr*)&addr, sizeof(addr));
 			if (sent < 0 || static_cast<size_t>(sent) != sendBuffer.size())
 				fail(DashelException::IOError, errno, "UDP Socket write I/O error.");
-			
+
 			sendBuffer.clear();
 		}
-		
+
 		virtual void receive(IPV4Address& source)
 		{
 			unsigned char buf[4096];
 			sockaddr_in addr;
 			socklen_t addrLen = sizeof(addr);
-			ssize_t recvCount = recvfrom(fd, buf, 4096, 0, (struct sockaddr *)&addr, &addrLen);
+			ssize_t recvCount = recvfrom(fd, buf, 4096, 0, (struct sockaddr*)&addr, &addrLen);
 			if (recvCount <= 0)
 				fail(DashelException::ConnectionLost, errno, "UDP Socket read I/O error.");
-			
+
 			receptionBuffer.resize(recvCount);
-			std::copy(buf, buf+recvCount, receptionBuffer.begin());
-			
+			std::copy(buf, buf + recvCount, receptionBuffer.begin());
+
 			source = IPV4Address(ntohl(addr.sin_addr.s_addr), ntohs(addr.sin_port));
 		}
-		
-		virtual bool receiveDataAndCheckDisconnection() { selectWasCalled = true; return false; }
-		virtual bool isDataInRecvBuffer() const { bool ret = selectWasCalled; selectWasCalled = false; return ret; }
+
+		virtual bool receiveDataAndCheckDisconnection()
+		{
+			selectWasCalled = true;
+			return false;
+		}
+		virtual bool isDataInRecvBuffer() const
+		{
+			bool ret = selectWasCalled;
+			selectWasCalled = false;
+			return ret;
+		}
 	};
-	
-	
+
+
 	//! File descriptor, uses send/recv for read/write
-	class FileDescriptorStream: public DisconnectableStream
+	class FileDescriptorStream : public DisconnectableStream
 	{
 	public:
 		//! Create the stream and associates a file descriptor
 		explicit FileDescriptorStream(const string& protocolName) :
 			Stream(protocolName),
 			DisconnectableStream(protocolName)
-		{ }
-		
-		virtual void write(const void *data, const size_t size)
+		{}
+
+		virtual void write(const void* data, const size_t size)
 		{
 			assert(fd >= 0);
-			
+
 			if (size == 0)
 				return;
-			
-			const char *ptr = (const char *)data;
+
+			const char* ptr = (const char*)data;
 			size_t left = size;
-			
+
 			while (left)
 			{
 				ssize_t len = ::write(fd, ptr, left);
-				
+
 				if (len < 0)
 				{
 					fail(DashelException::IOError, errno, "File write I/O error.");
@@ -787,11 +825,11 @@ namespace Dashel
 				}
 			}
 		}
-		
+
 		virtual void flush()
 		{
 			assert(fd >= 0);
-			
+
 #ifdef MACOSX
 			if (fsync(fd) < 0)
 #else
@@ -801,17 +839,17 @@ namespace Dashel
 				fail(DashelException::IOError, errno, "File flush error.");
 			}
 		}
-		
-		virtual void read(void *data, size_t size)
+
+		virtual void read(void* data, size_t size)
 		{
 			assert(fd >= 0);
-			
+
 			if (size == 0)
 				return;
-			
-			char *ptr = (char *)data;
+
+			char* ptr = (char*)data;
 			size_t left = size;
-			
+
 			if (isDataInRecvBuffer())
 			{
 				size_t toCopy = std::min(recvBufferSize - recvBufferPos, size);
@@ -820,11 +858,11 @@ namespace Dashel
 				ptr += toCopy;
 				left -= toCopy;
 			}
-			
+
 			while (left)
 			{
 				ssize_t len = ::read(fd, ptr, left);
-				
+
 				if (len < 0)
 				{
 					fail(DashelException::IOError, errno, "File read I/O error.");
@@ -840,11 +878,11 @@ namespace Dashel
 				}
 			}
 		}
-		
+
 		virtual bool receiveDataAndCheckDisconnection()
 		{
 			assert(recvBufferPos == recvBufferSize);
-			
+
 			ssize_t len = ::read(fd, &recvBuffer, RECV_BUFFER_SIZE);
 			if (len > 0)
 			{
@@ -860,9 +898,9 @@ namespace Dashel
 			}
 		}
 	};
-	
+
 	//! Stream for file
-	class FileStream: public FileDescriptorStream
+	class FileStream : public FileDescriptorStream
 	{
 	public:
 		//! Parse the target name and create the corresponding file stream
@@ -877,12 +915,12 @@ namespace Dashel
 			{
 				const std::string name = target.get("name");
 				const std::string mode = target.get("mode");
-				
+
 				// open file
 				if (mode == "read")
 					fd = open(name.c_str(), O_RDONLY);
 				else if (mode == "write")
-					fd = creat(name.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP), writeOnly = true;
+					fd = creat(name.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), writeOnly = true;
 				else if (mode == "readwrite")
 					fd = open(name.c_str(), O_RDWR);
 				else
@@ -900,29 +938,29 @@ namespace Dashel
 			}
 		}
 	};
-	
+
 	//! Standard input stream, simply a FileStream with a specific target
-	struct StdinStream: public FileStream
+	struct StdinStream : public FileStream
 	{
-		explicit StdinStream(const string& targetName):
+		explicit StdinStream(const string& targetName) :
 			Stream("file"),
 			FileStream("file:name=/dev/stdin;mode=read;fd=0") {}
 	};
-	
+
 	//! Standard output stream, simply a FileStream with a specific target
-	struct StdoutStream: public FileStream
+	struct StdoutStream : public FileStream
 	{
-		explicit StdoutStream(const string& targetName):
+		explicit StdoutStream(const string& targetName) :
 			Stream("file"),
 			FileStream("file:name=/dev/stdout;mode=write;fd=1") {}
 	};
-	
+
 	//! Stream for serial port, in addition to FileDescriptorStream, save old state of serial port
-	class SerialStream: public FileDescriptorStream
+	class SerialStream : public FileDescriptorStream
 	{
 	protected:
-		struct termios oldtio;	//!< old serial port state
-		
+		struct termios oldtio; //!< old serial port state
+
 	public:
 		//! Parse the target name and create the corresponding serial stream
 		explicit SerialStream(const string& targetName) :
@@ -932,13 +970,13 @@ namespace Dashel
 			target.add("ser:port=1;baud=115200;stop=1;parity=none;fc=none;bits=8;dtr=true");
 			target.add(targetName.c_str());
 			string devFileName;
-			
+
 			if (target.isSet("device"))
 			{
 				target.addParam("device", NULL, true);
 				target.erase("port");
 				target.erase("name");
-				
+
 				devFileName = target.get("device");
 			}
 			else if (target.isSet("name"))
@@ -949,10 +987,10 @@ namespace Dashel
 
 				// Enumerates the ports
 				std::string name = target.get("name");
-				std::map<int, std::pair<std::string, std:: string> > ports = SerialPortEnumerator::getPorts();
+				std::map<int, std::pair<std::string, std::string> > ports = SerialPortEnumerator::getPorts();
 
 				// Iterate on all ports to found one with "name" in its description
-				std::map<int, std::pair<std::string, std:: string> >::iterator it;
+				std::map<int, std::pair<std::string, std::string> >::iterator it;
 				for (it = ports.begin(); it != ports.end(); it++)
 				{
 					if (it->second.second.find(name) != std::string::npos)
@@ -969,7 +1007,7 @@ namespace Dashel
 			{
 				target.erase("device");
 				target.erase("name");
-				
+
 				std::map<int, std::pair<std::string, std::string> > ports = SerialPortEnumerator::getPorts();
 				std::map<int, std::pair<std::string, std::string> >::const_iterator it = ports.find(target.get<int>("port"));
 				if (it != ports.end())
@@ -979,27 +1017,27 @@ namespace Dashel
 				else
 					throw DashelException(DashelException::ConnectionFailed, 0, "The specified serial port does not exists.");
 			}
-		
+
 			fd = open(devFileName.c_str(), O_RDWR);
 			if (fd == -1)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot open serial port.");
-			
-			int lockRes = flock(fd, LOCK_EX|LOCK_NB);
+
+			int lockRes = flock(fd, LOCK_EX | LOCK_NB);
 			if (lockRes != 0)
 			{
 				close(fd);
 				throw DashelException(DashelException::ConnectionFailed, errno, "Cannot lock serial port.");
 			}
-			
+
 			struct termios newtio;
-			
+
 			// save old serial port state and clear new one
 			tcgetattr(fd, &oldtio);
 			memset(&newtio, 0, sizeof(newtio));
-			
-			newtio.c_cflag |= CLOCAL;			// ignore modem control lines.
-			newtio.c_cflag |= CREAD;			// enable receiver.
-			switch (target.get<int>("bits"))		// Set amount of bits per character
+
+			newtio.c_cflag |= CLOCAL; // ignore modem control lines.
+			newtio.c_cflag |= CREAD; // enable receiver.
+			switch (target.get<int>("bits")) // Set amount of bits per character
 			{
 				case 5: newtio.c_cflag |= CS5; break;
 				case 6: newtio.c_cflag |= CS6; break;
@@ -1008,18 +1046,18 @@ namespace Dashel
 				default: throw DashelException(DashelException::InvalidTarget, 0, "Invalid number of bits per character, must be 5, 6, 7, or 8.");
 			}
 			if (target.get("stop") == "2")
-				newtio.c_cflag |= CSTOPB;		// Set two stop bits, rather than one.
+				newtio.c_cflag |= CSTOPB; // Set two stop bits, rather than one.
 			if (target.get("fc") == "hard")
-				newtio.c_cflag |= CRTSCTS;		// enable hardware flow control
+				newtio.c_cflag |= CRTSCTS; // enable hardware flow control
 			if (target.get("parity") != "none")
 			{
-				newtio.c_cflag |= PARENB;		// enable parity generation on output and parity checking for input.
+				newtio.c_cflag |= PARENB; // enable parity generation on output and parity checking for input.
 				if (target.get("parity") == "odd")
-					newtio.c_cflag |= PARODD;	// parity for input and output is odd.
+					newtio.c_cflag |= PARODD; // parity for input and output is odd.
 			}
-			
+
 #ifdef MACOSX
-			if (cfsetspeed(&newtio,target.get<int>("baud")) != 0)
+			if (cfsetspeed(&newtio, target.get<int>("baud")) != 0)
 				throw DashelException(DashelException::ConnectionFailed, errno, "Invalid baud rate.");
 #else
 			switch (target.get<int>("baud"))
@@ -1058,20 +1096,20 @@ namespace Dashel
 				default: throw DashelException(DashelException::ConnectionFailed, 0, "Invalid baud rate.");
 			}
 #endif
-			
-			newtio.c_iflag = IGNPAR;			// ignore parity on input
-			
+
+			newtio.c_iflag = IGNPAR; // ignore parity on input
+
 			newtio.c_oflag = 0;
-			
+
 			newtio.c_lflag = 0;
-			
-			newtio.c_cc[VTIME] = 0;				// block forever if no byte
-			newtio.c_cc[VMIN] = 1;				// one byte is sufficient to return
-			
+
+			newtio.c_cc[VTIME] = 0; // block forever if no byte
+			newtio.c_cc[VMIN] = 1; // one byte is sufficient to return
+
 			// set attributes
 			if ((tcflush(fd, TCIOFLUSH) < 0) || (tcsetattr(fd, TCSANOW, &newtio) < 0))
 				throw DashelException(DashelException::ConnectionFailed, 0, "Cannot setup serial port. The requested baud rate might not be supported.");
-			
+
 			// Enable or disable DTR
 			int iFlags = TIOCM_DTR;
 			if (target.get<bool>("dtr"))
@@ -1083,52 +1121,54 @@ namespace Dashel
 			//implementations, despite CLOCAL being set
 			//TODO: we should probably reset the signal to its initial state when all devices are disconnected.
 			struct sigaction act;
-			memset(&act, 0, sizeof (act));
+			memset(&act, 0, sizeof(act));
 			act.sa_handler = SIG_IGN;
 			sigaction(SIGHUP, &act, NULL);
 		}
-		
+
 		//! Destructor, restore old serial port state
 		virtual ~SerialStream()
 		{
-			 tcsetattr(fd, TCSANOW, &oldtio);
+			tcsetattr(fd, TCSANOW, &oldtio);
 		}
-		
-		virtual void flush() { /* hook for use by derived classes */ }
+
+		virtual void flush()
+		{ /* hook for use by derived classes */
+		}
 	};
-	
-	
+
+
 	// Hub
-	
-	Hub::Hub(const bool resolveIncomingNames):
+
+	Hub::Hub(const bool resolveIncomingNames) :
 		resolveIncomingNames(resolveIncomingNames)
 	{
-		int *terminationPipes = new int[2];
+		int* terminationPipes = new int[2];
 		if (pipe(terminationPipes) != 0)
 			abort();
 		hTerminate = terminationPipes;
-		
+
 		streamsLock = new pthread_mutex_t;
-		
+
 		pthread_mutex_init((pthread_mutex_t*)streamsLock, NULL);
 	}
-	
+
 	Hub::~Hub()
 	{
-		int *terminationPipes = (int*)hTerminate;
+		int* terminationPipes = (int*)hTerminate;
 		close(terminationPipes[0]);
 		close(terminationPipes[1]);
 		delete[] terminationPipes;
-		
+
 		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 			delete *it;
-		
+
 		pthread_mutex_destroy((pthread_mutex_t*)streamsLock);
-		
-		delete (pthread_mutex_t*) streamsLock;
+
+		delete (pthread_mutex_t*)streamsLock;
 	}
-	
-	Stream* Hub::connect(const std::string &target)
+
+	Stream* Hub::connect(const std::string& target)
 	{
 		std::string proto;
 		size_t c = target.find_first_of(':');
@@ -1136,9 +1176,9 @@ namespace Dashel
 			throw DashelException(DashelException::InvalidTarget, 0, "No protocol specified in target.");
 		proto = target.substr(0, c);
 		// N.B. params = target.substr(c+1)
-		
-		SelectableStream *s(dynamic_cast<SelectableStream*>(streamTypeRegistry.create(proto, target, *this)));
-		if(!s)
+
+		SelectableStream* s(dynamic_cast<SelectableStream*>(streamTypeRegistry.create(proto, target, *this)));
+		if (!s)
 		{
 			std::string r = "Invalid protocol in target: ";
 			r += proto;
@@ -1146,64 +1186,65 @@ namespace Dashel
 			r += streamTypeRegistry.list();
 			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
-		
+
 		/* The caller must have the stream lock held */
-		
+
 		streams.insert(s);
 		if (proto != "tcpin")
 		{
 			dataStreams.insert(s);
 			connectionCreated(s);
 		}
-		
+
 		return s;
 	}
-	
+
 	void Hub::run()
 	{
-		while (step(-1));
+		while (step(-1))
+			;
 	}
-	
+
 	bool Hub::step(const int timeout)
 	{
 		bool firstPoll = true;
 		bool wasActivity = false;
 		bool runInterrupted = false;
-		
+
 		pthread_mutex_lock((pthread_mutex_t*)streamsLock);
-		
+
 		do
 		{
 			wasActivity = false;
 			size_t streamsCount = streams.size();
-			valarray<struct pollfd> pollFdsArray(streamsCount+1);
+			valarray<struct pollfd> pollFdsArray(streamsCount + 1);
 			valarray<SelectableStream*> streamsArray(streamsCount);
-			
+
 			// add streams
 			size_t i = 0;
 			for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 			{
 				SelectableStream* stream = polymorphic_downcast<SelectableStream*>(*it);
-				
+
 				streamsArray[i] = stream;
 				pollFdsArray[i].fd = stream->fd;
 				pollFdsArray[i].events = 0;
 				if ((!stream->failed()) && (!stream->writeOnly))
 					pollFdsArray[i].events |= stream->pollEvent;
-				
+
 				i++;
 			}
 			// add pipe
-			int *terminationPipes = (int*)hTerminate;
+			int* terminationPipes = (int*)hTerminate;
 			pollFdsArray[i].fd = terminationPipes[0];
 			pollFdsArray[i].events = POLLIN;
-			
+
 			// do poll and check for error
 			int thisPollTimeout = firstPoll ? timeout : 0;
 			firstPoll = false;
-			
+
 			pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
-			
+
 #ifndef USE_POLL_EMU
 			int ret = poll(&pollFdsArray[0], pollFdsArray.size(), thisPollTimeout);
 #else
@@ -1211,78 +1252,78 @@ namespace Dashel
 #endif
 			if (ret < 0)
 				throw DashelException(DashelException::SyncError, errno, "Error during poll.");
-			
+
 			pthread_mutex_lock((pthread_mutex_t*)streamsLock);
-			
+
 			// check streams for errors
 			for (i = 0; i < streamsCount; i++)
 			{
 				SelectableStream* stream = streamsArray[i];
-				
+
 				// make sure we do not try to handle removed streams
 				if (streams.find(stream) == streams.end())
 					continue;
-				
+
 				assert((pollFdsArray[i].revents & POLLNVAL) == 0);
-				
+
 				if (pollFdsArray[i].revents & POLLERR)
 				{
 					wasActivity = true;
-					
+
 					try
 					{
 						stream->fail(DashelException::SyncError, 0, "Error on stream during poll.");
 					}
-					catch (const DashelException &e)
+					catch (const DashelException& e)
 					{
 						assert(e.stream);
 					}
-					
+
 					try
 					{
 						connectionClosed(stream, true);
 					}
-					catch (const DashelException &e)
+					catch (const DashelException& e)
 					{
 						assert(e.stream);
 					}
-					
+
 					closeStream(stream);
 				}
 				else if (pollFdsArray[i].revents & POLLHUP)
 				{
 					wasActivity = true;
-					
+
 					try
 					{
 						connectionClosed(stream, false);
 					}
-					catch (const DashelException &e)
+					catch (const DashelException& e)
 					{
 						assert(e.stream);
 					}
-					
+
 					closeStream(stream);
 				}
 				else if (pollFdsArray[i].revents & stream->pollEvent)
 				{
 					wasActivity = true;
-					
+
 					// test if listen stream
 					SocketServerStream* serverStream = dynamic_cast<SocketServerStream*>(stream);
-					
+
 					if (serverStream)
-					{	
+					{
 						// accept connection
 						struct sockaddr_in targetAddr;
-						socklen_t l = sizeof (targetAddr);
-						int targetFD = accept (stream->fd, (struct sockaddr *)&targetAddr, &l);
+						socklen_t l = sizeof(targetAddr);
+						int targetFD = accept(stream->fd, (struct sockaddr*)&targetAddr, &l);
 						if (targetFD < 0)
 						{
 							pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
 							throw DashelException(DashelException::SyncError, errno, "Cannot accept new stream.");
 						}
-						
+
 						// create a target stream using the new file descriptor from accept
 						ostringstream targetName;
 						targetName << IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format(resolveIncomingNames);
@@ -1309,11 +1350,11 @@ namespace Dashel
 									incomingData(stream);
 							}
 						}
-						catch (const DashelException &e)
+						catch (const DashelException& e)
 						{
 							assert(e.stream);
 						}
-						
+
 						if (streamClosed)
 							closeStream(stream);
 					}
@@ -1328,13 +1369,13 @@ namespace Dashel
 					abort(); // poll did notify us that there was something to read, but we did not read anything, this is a bug
 				runInterrupted = true;
 			}
-			
+
 			// collect and remove all failed streams
 			vector<Stream*> failedStreams;
-			for (StreamsSet::iterator it = streams.begin(); it != streams.end();++it)
+			for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 				if ((*it)->failed())
 					failedStreams.push_back(*it);
-			
+
 			for (size_t i = 0; i < failedStreams.size(); i++)
 			{
 				Stream* stream = failedStreams[i];
@@ -1346,40 +1387,39 @@ namespace Dashel
 					{
 						connectionClosed(stream, true);
 					}
-					catch (const DashelException &e)
+					catch (const DashelException& e)
 					{
 						assert(e.stream);
 					}
 					closeStream(stream);
 				}
 			}
-		}
-		while (wasActivity && !runInterrupted);
-		
+		} while (wasActivity && !runInterrupted);
+
 		pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
-		
+
 		return !runInterrupted;
 	}
-	
+
 	void Hub::lock()
 	{
 		pthread_mutex_lock((pthread_mutex_t*)streamsLock);
 	}
-	
+
 	void Hub::unlock()
 	{
 		pthread_mutex_unlock((pthread_mutex_t*)streamsLock);
 	}
-	
+
 	void Hub::stop()
 	{
-		int *terminationPipes = (int*)hTerminate;
+		int* terminationPipes = (int*)hTerminate;
 		char c = 0;
 		const ssize_t ret = write(terminationPipes[1], &c, 1);
 		if (ret != 1)
 			throw DashelException(DashelException::IOError, ret, "Cannot write to termination pipe.");
 	}
-	
+
 	StreamTypeRegistry::StreamTypeRegistry()
 	{
 		reg("file", &createInstance<FileStream>);
@@ -1391,6 +1431,6 @@ namespace Dashel
 		reg("tcppoll", &createInstance<PollStream>);
 		reg("udp", &createInstance<UDPSocketStream>);
 	}
-	
+
 	StreamTypeRegistry __attribute__((init_priority(1000))) streamTypeRegistry;
 }

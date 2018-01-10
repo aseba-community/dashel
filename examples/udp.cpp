@@ -5,7 +5,7 @@
 using namespace std;
 using namespace Dashel;
 
-class PingServer: public Hub
+class PingServer : public Hub
 {
 public:
 	PingServer()
@@ -16,20 +16,22 @@ public:
 protected:
 	Stream* listenStream;
 	map<Stream*, string> nicks;
-	
+
 protected:
-	virtual void connectionCreated(Stream *stream) { /* hook for use by derived classes */ }
-	
-	void incomingData(Stream *stream)
+	virtual void connectionCreated(Stream* stream)
+	{ /* hook for use by derived classes */
+	}
+
+	void incomingData(Stream* stream)
 	{
 		cerr << "new data....";
 		PacketStream* packetStream = dynamic_cast<PacketStream*>(stream);
 		assert(packetStream);
 		IPV4Address source;
-		
+
 		packetStream->receive(source);
 		cerr << "Ping from " << source.hostname() << ":" << source.port << ": ";
-		
+
 		char c;
 		while (true)
 		{
@@ -41,32 +43,39 @@ protected:
 		}
 		cerr << endl;
 	}
-	
-	virtual void connectionClosed(Stream *stream, bool abnormal) { /* hook for use by derived classes */ }
+
+	virtual void connectionClosed(Stream* stream, bool abnormal)
+	{ /* hook for use by derived classes */
+	}
 };
 
-class PingClient: public Hub
+class PingClient : public Hub
 {
 public:
 	PingClient(const string& remoteTarget, const string& msg)
 	{
 		PacketStream* packetStream = dynamic_cast<PacketStream*>(connect("udp:port=8766"));
 		assert(packetStream);
-		
+
 		packetStream->write(msg.c_str(), msg.length());
 		char c = 0;
 		packetStream->write(&c, 1);
-		
+
 		packetStream->send(IPV4Address(remoteTarget, 8765));
 	}
-	
+
 protected:
-	
-	virtual void connectionCreated(Stream *stream) { /* hook for use by derived classes */ }
-	
-	virtual void incomingData(Stream *stream) { /* hook for use by derived classes */ }
-	
-	virtual void connectionClosed(Stream *stream, bool abnormal) { /* hook for use by derived classes */ }
+	virtual void connectionCreated(Stream* stream)
+	{ /* hook for use by derived classes */
+	}
+
+	virtual void incomingData(Stream* stream)
+	{ /* hook for use by derived classes */
+	}
+
+	virtual void connectionClosed(Stream* stream, bool abnormal)
+	{ /* hook for use by derived classes */
+	}
 };
 
 int main(int argc, char* argv[])
@@ -86,10 +95,10 @@ int main(int argc, char* argv[])
 			PingServer().run();
 		}
 	}
-	catch(const DashelException &e)
+	catch (const DashelException& e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
-	
+
 	return 0;
 }
