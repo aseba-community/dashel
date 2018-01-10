@@ -139,28 +139,29 @@ namespace Dashel
 {
 	class Stream;
 
-	//! version of the Dashel library as string
-	#define DASHEL_VERSION "1.3.3"
-	//! version of the Dashel library as an int
-	#define DASHEL_VERSION_INT 10303
+//! version of the Dashel library as string
+#define DASHEL_VERSION "1.3.3"
+//! version of the Dashel library as an int
+#define DASHEL_VERSION_INT 10303
 
 	//! The one size fits all exception for streams.
 	/*!
 		The reason of the failure is stored in the runtime error, and is returned by what()
 	*/
-	class DashelException: public std::runtime_error
+	class DashelException : public std::runtime_error
 	{
 	public:
 		//! The different exception causes.
-		typedef enum {
-			Unknown,			//!< Well, hopefully never used.
-			SyncError,			//!< Some synchronisation error.
-			InvalidTarget,		//!< The target string was bad.
-			InvalidOperation,	//!< The operation is not valid on this stream.
-			ConnectionLost,		//!< The connection was lost.
-			IOError,			//!< Some I/O error.
-			ConnectionFailed,	//!< The connection could not be established.
-			EnumerationError,	//!< Some serial enumeration error
+		typedef enum
+		{
+			Unknown, //!< Well, hopefully never used.
+			SyncError, //!< Some synchronisation error.
+			InvalidTarget, //!< The target string was bad.
+			InvalidOperation, //!< The operation is not valid on this stream.
+			ConnectionLost, //!< The connection was lost.
+			IOError, //!< Some I/O error.
+			ConnectionFailed, //!< The connection could not be established.
+			EnumerationError, //!< Some serial enumeration error
 			PreviousIncomingDataNotRead //!< The incoming data was not read by the Hub subclass
 		} Source;
 
@@ -169,7 +170,7 @@ namespace Dashel
 		//! The reason as an OS error code.
 		int sysError;
 		//! The stream that caused the exception to be thrown.
-		Stream *stream;
+		Stream* stream;
 
 	public:
 		//! Construct an stream exception with everything.
@@ -178,7 +179,7 @@ namespace Dashel
 			\param reason The logical reason as a human readable string.
 			\param stream Stream to which exception applies.
 		*/
-		DashelException(Source s, int se, const char *reason, Stream* stream = NULL);
+		DashelException(Source s, int se, const char* reason, Stream* stream = NULL);
 
 	protected:
 		//! Return a string description of the source error
@@ -243,7 +244,7 @@ namespace Dashel
 
 	public:
 		//! Add values to set.
-		void add(const char *line);
+		void add(const char* line);
 
 		//! Add a parameter to a set.
 		/*!
@@ -251,23 +252,24 @@ namespace Dashel
 		* 	@param value value of the parameter or NULL (then parameter will default or pre-existing value)
 		* 	@param atStart if true, insert parameter at start of the list
 		*/
-		void addParam(const char *param, const char *value = NULL, bool atStart = false);
+		void addParam(const char* param, const char* value = NULL, bool atStart = false);
 
 		//! Return whether a key is set or not
-		bool isSet(const char *key) const;
+		bool isSet(const char* key) const;
 
 		//! Get a parameter value.
 		//! Explicitely instantiated for int, unsigned, float and double in the library
-		template<typename T> T get(const char *key) const;
+		template<typename T>
+		T get(const char* key) const;
 
 		//! Get a parameter value
-		const std::string& get(const char *key) const;
+		const std::string& get(const char* key) const;
 
 		//! Get the parameters as string.
 		std::string getString() const;
 
 		//! Erase the parameter from the set
-		void erase(const char *key);
+		void erase(const char* key);
 	};
 
 	//! A data stream, with low-level (not-endian safe) read/write functions
@@ -286,14 +288,17 @@ namespace Dashel
 		std::string protocolName;
 
 	protected:
-
 		friend class Hub;
 
 		//! Constructor.
-		explicit Stream(const std::string& protocolName) : failedFlag(false), protocolName(protocolName) {}
+		explicit Stream(const std::string& protocolName) :
+			failedFlag(false),
+			protocolName(protocolName) {}
 
 		//! Virtual destructor, to ensure calls to destructors of sub-classes.
-		virtual ~Stream() { /* intentionally blank */ }
+		virtual ~Stream()
+		{ /* intentionally blank */
+		}
 
 	public:
 		//! Set stream to failed state
@@ -311,10 +316,10 @@ namespace Dashel
 		//!	Returns the reason the stream has failed.
 		/*!	\return the reason the stream has failed, or an empty string if fail() is false.
 		*/
-		const std::string &getFailReason() const { return failReason; }
+		const std::string& getFailReason() const { return failReason; }
 
 		//! Returns the protocol name of the stream.
-		const std::string &getProtocolName() const { return protocolName; }
+		const std::string& getProtocolName() const { return protocolName; }
 
 		//!	Returns the name of the target.
 		/*!	The name of the target contains all parameters and the protocol name.
@@ -327,7 +332,7 @@ namespace Dashel
 		/*! \param param the name of the parameter
 			\return A string containing the parameter.
 		*/
-		const std::string &getTargetParameter(const char *param) const { return target.get(param); }
+		const std::string& getTargetParameter(const char* param) const { return target.get(param); }
 
 		//! Returns the target description.
 		/*! \return The set of parameters describing this target
@@ -343,13 +348,14 @@ namespace Dashel
 			\param data Pointer to the data to write.
 			\param size Amount of data to write in bytes.
 		*/
-		virtual void write(const void *data, const size_t size) = 0;
+		virtual void write(const void* data, const size_t size) = 0;
 
 		//! Write a variable of basic type to the stream
 		/*! This function does not perform any endian conversion.
 			\param v variable to write.
 		*/
-		template<typename T> void write(T v)
+		template<typename T>
+		void write(T v)
 		{
 			write(&v, sizeof(T));
 		}
@@ -369,14 +375,15 @@ namespace Dashel
 			\param data Pointer to the memory where the read data should be stored.
 			\param size Amount of data to read in bytes.
 		*/
-		virtual void read(void *data, size_t size) = 0;
+		virtual void read(void* data, size_t size) = 0;
 
 		//! Read a variable of basic type from the stream
 		/*! This function does not perform any endian conversion.
 
 			\return variable to read.
 		*/
-		template<typename T> T read()
+		template<typename T>
+		T read()
 		{
 			T v;
 			read(&v, sizeof(T));
@@ -393,11 +400,12 @@ namespace Dashel
 		However, the underlying operating system may pretend that all data has been transmitted while discarding some of it anyway. In any case, send less bytes than ethernet MTU minus UDP header.
 		* you have to call receive() when there are bytes available on the stream to be able to read them; if your read past the received bytes an exception will occur.
 	*/
-	class PacketStream: virtual public Stream
+	class PacketStream : virtual public Stream
 	{
 	public:
 		//! Constructor
-		explicit PacketStream(const std::string& protocolName) : Stream(protocolName) { }
+		explicit PacketStream(const std::string& protocolName) :
+			Stream(protocolName) {}
 
 		//! Send all written data to an IP address in a single packet.
 		/*!
@@ -426,12 +434,12 @@ namespace Dashel
 		typedef std::set<Stream*> StreamsSet;
 
 	private:
-		void *hTerminate;			//!< Set when this thing goes down.
-		void *streamsLock;			//!< Platform-dependant mutex to protect access to streams
-		StreamsSet streams; 		//!< All our streams.
+		void* hTerminate; //!< Set when this thing goes down.
+		void* streamsLock; //!< Platform-dependant mutex to protect access to streams
+		StreamsSet streams; //!< All our streams.
 
 	protected:
-		StreamsSet dataStreams;		//!< All our streams that transfer data (in opposition to streams that just listen for data).
+		StreamsSet dataStreams; //!< All our streams that transfer data (in opposition to streams that just listen for data).
 
 	public:
 		const bool resolveIncomingNames; //!< Whether Dashel should try to resolve the peer's hostname of incoming TCP connections
@@ -455,7 +463,7 @@ namespace Dashel
 			\param target destination to listen connections from (see Section \ref TargetNamingSec)
 			\return the stream we are connected to; if connect was not possible, an exception was throw.
 		*/
-		Stream* connect(const std::string &target);
+		Stream* connect(const std::string& target);
 
 		/**
 			Close a stream, remove it from the Hub, and delete it.
@@ -493,7 +501,6 @@ namespace Dashel
 		void unlock();
 
 	protected:
-
 		/**
 			Called when any data connection is created.
 			It is not called when a listening connection (eg tcpin:) is created.
@@ -504,7 +511,9 @@ namespace Dashel
 
 			\param stream stream to the target
 		*/
-		virtual void connectionCreated(Stream * stream) { /* hook for use by derived classes */ }
+		virtual void connectionCreated(Stream* stream)
+		{ /* hook for use by derived classes */
+		}
 
 		/**
 			Called when data is available for reading on the stream.
@@ -516,7 +525,9 @@ namespace Dashel
 
 			\param stream stream to the target
 		*/
-		virtual void incomingData(Stream * stream) { /* hook for use by derived classes */ }
+		virtual void incomingData(Stream* stream)
+		{ /* hook for use by derived classes */
+		}
 
 		/**
 			Called when target closes connection.
@@ -529,7 +540,9 @@ namespace Dashel
 			\param stream stream to the target.
 			\param abnormal whether the connection was closed during step (abnormal == false) or when an operation was performed (abnormal == true)
 		*/
-		virtual void connectionClosed(Stream * stream, bool abnormal) { /* hook for use by derived classes */ }
+		virtual void connectionClosed(Stream* stream, bool abnormal)
+		{ /* hook for use by derived classes */
+		}
 	};
 
 	//! Registry of constructors to a stream, to add new stream types dynamically

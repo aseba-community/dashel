@@ -77,7 +77,7 @@ namespace Dashel
 	};
 
 	//! The system-neutral part of packet stream that implement the actual memory buffers
-	class MemoryPacketStream: public PacketStream
+	class MemoryPacketStream : public PacketStream
 	{
 	protected:
 		//! The buffer collecting data to send
@@ -87,21 +87,26 @@ namespace Dashel
 
 	public:
 		//! Constructor
-		explicit MemoryPacketStream(const std::string& protocolName) : Stream(protocolName), PacketStream(protocolName) { }
+		explicit MemoryPacketStream(const std::string& protocolName) :
+			Stream(protocolName),
+			PacketStream(protocolName) {}
 
-		virtual void write(const void *data, const size_t size);
+		virtual void write(const void* data, const size_t size);
 
-		virtual void flush() { /* hook for use by derived classes */ }
+		virtual void flush()
+		{ /* hook for use by derived classes */
+		}
 
-		virtual void read(void *data, size_t size);
+		virtual void read(void* data, size_t size);
 	};
 
 
-	template<typename T> T ParameterSet::get(const char *key) const
+	template<typename T>
+	T ParameterSet::get(const char* key) const
 	{
 		T t;
 		std::map<std::string, std::string>::const_iterator it = values.find(key);
-		if(it == values.end())
+		if (it == values.end())
 		{
 			std::string r = std::string("Parameter missing: ").append(key);
 			throw Dashel::DashelException(DashelException::InvalidTarget, 0, r.c_str());

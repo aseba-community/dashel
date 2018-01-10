@@ -7,7 +7,7 @@ using namespace Dashel;
 
 #define LOCAL_ECHO
 
-class MicroTerm: public Hub
+class MicroTerm : public Hub
 {
 public:
 	MicroTerm(const char* t0, const char* t1)
@@ -20,12 +20,12 @@ protected:
 	Stream* s0;
 	Stream* s1;
 
-	void connectionCreated(Stream *stream)
+	void connectionCreated(Stream* stream)
 	{
 		cout << "Incoming connection " << stream->getTargetName() << " (" << stream << ")" << endl;
 	}
 
-	void incomingData(Stream *stream)
+	void incomingData(Stream* stream)
 	{
 		assert(s0);
 		assert(s1);
@@ -35,13 +35,13 @@ protected:
 		if (stream == s0)
 		{
 #ifdef LOCAL_ECHO
-			if(c == 4)
+			if (c == 4)
 				stop();
-#ifdef WIN32
-			if(c == '\r')
+#	ifdef WIN32
+			if (c == '\r')
 				cout << std::endl;
 			else
-#endif
+#	endif
 				cout << c;
 #endif
 			s1->write(&c, 1);
@@ -49,7 +49,7 @@ protected:
 		else
 		{
 #ifdef WIN32
-			if(c == '\r')
+			if (c == '\r')
 				cout << std::endl;
 			else
 #endif
@@ -58,7 +58,7 @@ protected:
 		}
 	}
 
-	void connectionClosed(Stream *stream, bool abnormal)
+	void connectionClosed(Stream* stream, bool abnormal)
 	{
 		cout << "Closed connection " << stream->getTargetName() << " (" << stream << ")";
 		if (abnormal)
@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 
 		microTerm.run();
 	}
-	catch (const DashelException &e)
+	catch (const DashelException& e)
 	{
 		std::cerr << e.what() << std::endl;
 	}

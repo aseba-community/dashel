@@ -45,11 +45,11 @@
 #include <ostream>
 #include <sstream>
 #ifndef _WIN32
-	#include <netdb.h>
-	#include <sys/socket.h>
-	#include <arpa/inet.h>
+#	include <netdb.h>
+#	include <sys/socket.h>
+#	include <arpa/inet.h>
 #else
-	#include <winsock2.h>
+#	include <winsock2.h>
 #endif
 
 /*!	\file dashel-commong.cpp
@@ -85,7 +85,7 @@ namespace Dashel
 			_size = max(_size * 2, _size + size);
 			_data = (unsigned char*)realloc(_data, _size);
 		}
-		memcpy(_data + _pos, (unsigned char *)data, size);
+		memcpy(_data + _pos, (unsigned char*)data, size);
 		_pos += size;
 	}
 
@@ -98,17 +98,17 @@ namespace Dashel
 	}
 
 	// frome dashel.h
-	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
+	DashelException::DashelException(Source s, int se, const char* reason, Stream* stream) :
 		std::runtime_error(sourceToString(s) + " (" + _to_string(se) + "): " + reason),
 		source(s),
 		sysError(se),
 		stream(stream)
 	{
-
 	}
 
 	string DashelException::sourceToString(Source s)
 	{
+		// clang-format off
 		const char* const sourceNames[] =
 		{
 			"Unknown cause",
@@ -121,7 +121,8 @@ namespace Dashel
 			"Enumeration error",
 			"Previous incoming data not read"
 		};
-		const size_t arrayLength(sizeof(sourceNames)/sizeof(const char*));
+		// clang-format on
+		const size_t arrayLength(sizeof(sourceNames) / sizeof(const char*));
 		if (s >= arrayLength)
 			return sourceNames[0];
 		else
@@ -129,12 +130,13 @@ namespace Dashel
 	}
 
 	IPV4Address::IPV4Address(unsigned addr, unsigned short prt) :
-		address(addr), port(prt) { }
+		address(addr),
+		port(prt) {}
 
 	IPV4Address::IPV4Address(const std::string& name, unsigned short port) :
 		port(port)
 	{
-		hostent *he = gethostbyname(name.c_str());
+		hostent* he = gethostbyname(name.c_str());
 
 		if (he == NULL)
 		{
@@ -150,7 +152,7 @@ namespace Dashel
 			}
 #else // WIN32
 			unsigned long addr = inet_addr(name.c_str());
-			if(addr != INADDR_NONE)
+			if (addr != INADDR_NONE)
 				address = addr;
 			else
 				address = INADDR_ANY;
@@ -159,27 +161,27 @@ namespace Dashel
 		else
 		{
 #ifndef WIN32
-			address = ntohl(*((unsigned *)he->h_addr));
+			address = ntohl(*((unsigned*)he->h_addr));
 #else
-			address = ntohl(*((unsigned *)he->h_addr));
+			address = ntohl(*((unsigned*)he->h_addr));
 #endif
 		}
 	}
 
 	bool IPV4Address::operator==(const IPV4Address& o) const
 	{
-		return address==o.address && port==o.port;
+		return address == o.address && port == o.port;
 	}
 
 	bool IPV4Address::operator<(const IPV4Address& o) const
 	{
-		return address<o.address || (address==o.address && port<o.port);
+		return address < o.address || (address == o.address && port < o.port);
 	}
 
 	std::string IPV4Address::hostname() const
 	{
 		unsigned a2 = htonl(address);
-		struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
+		struct hostent* he = gethostbyaddr((const char*)&a2, 4, AF_INET);
 
 		if (he == NULL)
 		{
@@ -200,7 +202,7 @@ namespace Dashel
 
 		if (resolveName)
 		{
-			struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
+			struct hostent* he = gethostbyaddr((const char*)&a2, 4, AF_INET);
 			if (he != NULL)
 			{
 				buf << "tcp:host=" << he->h_name << ";port=" << port;
@@ -214,21 +216,21 @@ namespace Dashel
 		return buf.str();
 	}
 
-	void ParameterSet::add(const char *line)
+	void ParameterSet::add(const char* line)
 	{
-		char *lc = strdup(line);
+		char* lc = strdup(line);
 		int spc = 0;
-		char *param;
+		char* param;
 		bool storeParams = (params.size() == 0);
-		char *protocolName = strtok(lc, ":");
+		char* protocolName = strtok(lc, ":");
 
 		// Do nothing with this.
 		assert(protocolName);
 
-		while((param = strtok(NULL, ";")) != NULL)
+		while ((param = strtok(NULL, ";")) != NULL)
 		{
-			char *sep = strchr(param, '=');
-			if(sep)
+			char* sep = strchr(param, '=');
+			if (sep)
 			{
 				*sep++ = 0;
 				values[param] = sep;
@@ -247,7 +249,7 @@ namespace Dashel
 		free(lc);
 	}
 
-	void ParameterSet::addParam(const char *param, const char *value, bool atStart)
+	void ParameterSet::addParam(const char* param, const char* value, bool atStart)
 	{
 		if (atStart)
 			params.insert(params.begin(), 1, param);
@@ -258,15 +260,15 @@ namespace Dashel
 			values[param] = value;
 	}
 
-	bool ParameterSet::isSet(const char *key) const
+	bool ParameterSet::isSet(const char* key) const
 	{
 		return (values.find(key) != values.end());
 	}
 
-	const std::string& ParameterSet::get(const char *key) const
+	const std::string& ParameterSet::get(const char* key) const
 	{
 		std::map<std::string, std::string>::const_iterator it = values.find(key);
-		if(it == values.end())
+		if (it == values.end())
 		{
 			std::string r = std::string("Parameter missing: ").append(key);
 			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
@@ -275,11 +277,11 @@ namespace Dashel
 	}
 
 	// explicit template instanciation of get() for int, unsigned, float and double
-	template bool ParameterSet::get<bool>(const char *key) const;
-	template int ParameterSet::get<int>(const char *key) const;
-	template unsigned ParameterSet::get<unsigned>(const char *key) const;
-	template float ParameterSet::get<float>(const char *key) const;
-	template double ParameterSet::get<double>(const char *key) const;
+	template bool ParameterSet::get<bool>(const char* key) const;
+	template int ParameterSet::get<int>(const char* key) const;
+	template unsigned ParameterSet::get<unsigned>(const char* key) const;
+	template float ParameterSet::get<float>(const char* key) const;
+	template double ParameterSet::get<double>(const char* key) const;
 
 	std::string ParameterSet::getString() const
 	{
@@ -295,7 +297,7 @@ namespace Dashel
 		return oss.str();
 	}
 
-	void ParameterSet::erase(const char *key)
+	void ParameterSet::erase(const char* key)
 	{
 		std::vector<std::string>::iterator i = std::find(params.begin(), params.end(), key);
 		if (i != params.end())
@@ -307,12 +309,12 @@ namespace Dashel
 	}
 
 
-	void MemoryPacketStream::write(const void *data, const size_t size)
+	void MemoryPacketStream::write(const void* data, const size_t size)
 	{
 		sendBuffer.add(data, size);
 	}
 
-	void MemoryPacketStream::read(void *data, size_t size)
+	void MemoryPacketStream::read(void* data, size_t size)
 	{
 		if (size > receptionBuffer.size())
 			fail(DashelException::IOError, 0, "Attempt to read past available data");
@@ -357,4 +359,3 @@ namespace Dashel
 		return s;
 	}
 }
-

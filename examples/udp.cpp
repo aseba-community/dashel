@@ -5,7 +5,7 @@
 using namespace std;
 using namespace Dashel;
 
-class PingServer: public Hub
+class PingServer : public Hub
 {
 public:
 	PingServer()
@@ -18,9 +18,11 @@ protected:
 	map<Stream*, string> nicks;
 
 protected:
-	virtual void connectionCreated(Stream *stream) { /* hook for use by derived classes */ }
+	virtual void connectionCreated(Stream* stream)
+	{ /* hook for use by derived classes */
+	}
 
-	void incomingData(Stream *stream)
+	void incomingData(Stream* stream)
 	{
 		cerr << "new data....";
 		PacketStream* packetStream = dynamic_cast<PacketStream*>(stream);
@@ -42,10 +44,12 @@ protected:
 		cerr << endl;
 	}
 
-	virtual void connectionClosed(Stream *stream, bool abnormal) { /* hook for use by derived classes */ }
+	virtual void connectionClosed(Stream* stream, bool abnormal)
+	{ /* hook for use by derived classes */
+	}
 };
 
-class PingClient: public Hub
+class PingClient : public Hub
 {
 public:
 	PingClient(const string& remoteTarget, const string& msg)
@@ -61,12 +65,17 @@ public:
 	}
 
 protected:
+	virtual void connectionCreated(Stream* stream)
+	{ /* hook for use by derived classes */
+	}
 
-	virtual void connectionCreated(Stream *stream) { /* hook for use by derived classes */ }
+	virtual void incomingData(Stream* stream)
+	{ /* hook for use by derived classes */
+	}
 
-	virtual void incomingData(Stream *stream) { /* hook for use by derived classes */ }
-
-	virtual void connectionClosed(Stream *stream, bool abnormal) { /* hook for use by derived classes */ }
+	virtual void connectionClosed(Stream* stream, bool abnormal)
+	{ /* hook for use by derived classes */
+	}
 };
 
 int main(int argc, char* argv[])
@@ -86,7 +95,7 @@ int main(int argc, char* argv[])
 			PingServer().run();
 		}
 	}
-	catch(const DashelException &e)
+	catch (const DashelException& e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
