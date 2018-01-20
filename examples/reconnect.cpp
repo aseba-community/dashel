@@ -5,10 +5,10 @@
 using namespace std;
 using namespace Dashel;
 
-class ReconnectingHub: public Hub
+class ReconnectingHub : public Hub
 {
 public:
-	ReconnectingHub(const string& target):
+	ReconnectingHub(const string& target) :
 		connected(false),
 		target(target)
 	{
@@ -40,27 +40,30 @@ protected:
 		}
 		catch (const DashelException& e)
 		{
-			cout << endl << "Failed connecting to " << target << " : " << e.what() << endl;
+			cout << endl
+				 << "Failed connecting to " << target << " : " << e.what() << endl;
 		}
 	}
 
 protected:
-	virtual void connectionCreated(Stream * stream)
+	virtual void connectionCreated(Stream* stream)
 	{
 		connected = true;
-		cout << endl << "Connected to " << stream->getTargetName() << endl;
+		cout << endl
+			 << "Connected to " << stream->getTargetName() << endl;
 	}
 
-	virtual void incomingData(Stream * stream)
+	virtual void incomingData(Stream* stream)
 	{
 		char c = stream->read<char>();
 		cout << ".";
 	}
 
-	virtual void connectionClosed(Stream * stream, bool abnormal)
+	virtual void connectionClosed(Stream* stream, bool abnormal)
 	{
 		connected = false;
-		cout << endl << "Lost connection to " << stream->getTargetName();
+		cout << endl
+			 << "Lost connection to " << stream->getTargetName();
 		if (abnormal)
 			cout << " : " << stream->getFailReason();
 		cout << endl;
@@ -85,7 +88,7 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 	}
-	catch(const DashelException &e)
+	catch (const DashelException& e)
 	{
 		cerr << e.what() << endl;
 	}

@@ -13,8 +13,7 @@ string readLine(Stream* stream)
 	{
 		stream->read(&c, 1);
 		line += c;
-	}
-	while (c != '\n' && c != '\r');
+	} while (c != '\n' && c != '\r');
 	return line;
 }
 
@@ -25,7 +24,7 @@ void sendString(Stream* stream, const string& line)
 }
 
 
-class ChatServer: public Hub
+class ChatServer : public Hub
 {
 public:
 	ChatServer()
@@ -38,7 +37,7 @@ protected:
 	map<Stream*, string> nicks;
 
 protected:
-	void connectionCreated(Stream *stream)
+	void connectionCreated(Stream* stream)
 	{
 		cout << "+ Incoming connection from " << stream->getTargetName() << " (" << stream << ")" << endl;
 		string nick = readLine(stream);
@@ -47,7 +46,7 @@ protected:
 		cout << "+ User " << nick << " is connected." << endl;
 	}
 
-	void incomingData(Stream *stream)
+	void incomingData(Stream* stream)
 	{
 		string line = readLine(stream);
 		const string& nick = nicks[stream];
@@ -58,7 +57,7 @@ protected:
 			sendString((*it), line);
 	}
 
-	void connectionClosed(Stream *stream, bool abnormal)
+	void connectionClosed(Stream* stream, bool abnormal)
 	{
 		cout << "- Connection closed to " << stream->getTargetName() << " (" << stream << ")";
 		if (abnormal)
@@ -70,11 +69,12 @@ protected:
 	}
 };
 
-class ChatClient: public Hub
+class ChatClient : public Hub
 {
 public:
 	ChatClient(string remoteTarget, const string& nick) :
-		inputStream(0), nick(nick)
+		inputStream(0),
+		nick(nick)
 	{
 		remoteTarget += ";port=8765";
 		inputStream = connect("stdin:");
@@ -88,12 +88,12 @@ protected:
 	Stream* remoteStream;
 	string nick;
 
-	void connectionCreated(Stream *stream)
+	void connectionCreated(Stream* stream)
 	{
 		cout << "Incoming connection " << stream->getTargetName() << " (" << stream << ")" << endl;
 	}
 
-	void incomingData(Stream *stream)
+	void incomingData(Stream* stream)
 	{
 		assert(inputStream);
 		assert(remoteStream);
@@ -111,7 +111,7 @@ protected:
 		}
 	}
 
-	void connectionClosed(Stream *stream, bool abnormal)
+	void connectionClosed(Stream* stream, bool abnormal)
 	{
 		cout << "Connection closed to " << stream->getTargetName() << " (" << stream << ")";
 		if (abnormal)
@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 			server.run();
 		}
 	}
-	catch(const DashelException &e)
+	catch (const DashelException& e)
 	{
 		std::cerr << e.what() << std::endl;
 	}

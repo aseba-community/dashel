@@ -46,11 +46,11 @@
 namespace Dashel
 {
 	//! Stream with a file descriptor that is selectable
-	class SelectableStream: virtual public Stream
+	class SelectableStream : virtual public Stream
 	{
 	protected:
 		int fd; //!< associated file descriptor
-		bool writeOnly;	//!< true if we can only write on this stream
+		bool writeOnly; //!< true if we can only write on this stream
 		short pollEvent; //!< the poll event we must react to
 		friend class Hub;
 
