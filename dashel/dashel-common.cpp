@@ -2,18 +2,18 @@
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
 	Copyright (C) 2007 -- 2017:
-		
+
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
 		Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne
 			(http://mobots.epfl.ch)
-		
+
 		Sebastian Gerlach
 		Kenzan Technologies
 			(http://www.kenzantech.com)
-	
+
 	All rights reserved.
-	
+
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
 		* Redistributions of source code must retain the above copyright
@@ -25,7 +25,7 @@
 		  "Kenzan Technologies" nor the names of the contributors may be used to
 		  endorse or promote products derived from this software without specific
 		  prior written permission.
-	
+
 	THIS SOFTWARE IS PROVIDED BY COPYRIGHT HOLDERS ``AS IS'' AND ANY
 	EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -59,7 +59,7 @@
 namespace Dashel
 {
 	using namespace std;
-	
+
 	// frome dashe-private.h
 	ExpandableBuffer::ExpandableBuffer(size_t size) :
 		_data((unsigned char*)malloc(size)),
@@ -67,17 +67,17 @@ namespace Dashel
 		_pos(0)
 	{
 	}
-	
+
 	ExpandableBuffer::~ExpandableBuffer()
 	{
 		free(_data);
 	}
-	
+
 	void ExpandableBuffer::clear()
 	{
 		_pos = 0;
 	}
-	
+
 	void ExpandableBuffer::add(const void* data, const size_t size)
 	{
 		if (_pos + size > _size)
@@ -88,7 +88,7 @@ namespace Dashel
 		memcpy(_data + _pos, (unsigned char *)data, size);
 		_pos += size;
 	}
-	
+
 	// to be removed when we switch to C++11
 	string _to_string(int se)
 	{
@@ -96,7 +96,7 @@ namespace Dashel
 		ostr << se;
 		return ostr.str();
 	}
-	
+
 	// frome dashel.h
 	DashelException::DashelException(Source s, int se, const char *reason, Stream* stream) :
 		std::runtime_error(sourceToString(s) + " (" + _to_string(se) + "): " + reason),
@@ -104,9 +104,9 @@ namespace Dashel
 		sysError(se),
 		stream(stream)
 	{
-	
+
 	}
-	
+
 	string DashelException::sourceToString(Source s)
 	{
 		const char* const sourceNames[] =
@@ -127,15 +127,15 @@ namespace Dashel
 		else
 			return sourceNames[s];
 	}
-	
+
 	IPV4Address::IPV4Address(unsigned addr, unsigned short prt) :
 		address(addr), port(prt) { }
-	
+
 	IPV4Address::IPV4Address(const std::string& name, unsigned short port) :
 		port(port)
 	{
 		hostent *he = gethostbyname(name.c_str());
-		
+
 		if (he == NULL)
 		{
 #ifndef WIN32
@@ -165,22 +165,22 @@ namespace Dashel
 #endif
 		}
 	}
-	
+
 	bool IPV4Address::operator==(const IPV4Address& o) const
 	{
 		return address==o.address && port==o.port;
 	}
-	
+
 	bool IPV4Address::operator<(const IPV4Address& o) const
 	{
 		return address<o.address || (address==o.address && port<o.port);
 	}
-	
+
 	std::string IPV4Address::hostname() const
 	{
 		unsigned a2 = htonl(address);
 		struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
-		
+
 		if (he == NULL)
 		{
 			struct in_addr addr;
@@ -192,12 +192,12 @@ namespace Dashel
 			return std::string(he->h_name);
 		}
 	}
-	
+
 	std::string IPV4Address::format(const bool resolveName) const
 	{
 		std::ostringstream buf;
 		unsigned a2 = htonl(address);
-		
+
 		if (resolveName)
 		{
 			struct hostent *he = gethostbyaddr((const char *)&a2, 4, AF_INET);
@@ -207,13 +207,13 @@ namespace Dashel
 				return buf.str();
 			}
 		}
-		
+
 		struct in_addr addr;
 		addr.s_addr = a2;
 		buf << "tcp:host=" << inet_ntoa(addr) << ";port=" << port;
 		return buf.str();
 	}
-	
+
 	void ParameterSet::add(const char *line)
 	{
 		char *lc = strdup(line);
@@ -221,10 +221,10 @@ namespace Dashel
 		char *param;
 		bool storeParams = (params.size() == 0);
 		char *protocolName = strtok(lc, ":");
-		
+
 		// Do nothing with this.
 		assert(protocolName);
-		
+
 		while((param = strtok(NULL, ";")) != NULL)
 		{
 			char *sep = strchr(param, '=');
@@ -243,21 +243,21 @@ namespace Dashel
 			}
 			++spc;
 		}
-		
+
 		free(lc);
 	}
-	
+
 	void ParameterSet::addParam(const char *param, const char *value, bool atStart)
 	{
 		if (atStart)
 			params.insert(params.begin(), 1, param);
 		else
 			params.push_back(param);
-		
+
 		if (value)
 			values[param] = value;
 	}
-	
+
 	bool ParameterSet::isSet(const char *key) const
 	{
 		return (values.find(key) != values.end());
@@ -273,14 +273,14 @@ namespace Dashel
 		}
 		return it->second;
 	}
-	
+
 	// explicit template instanciation of get() for int, unsigned, float and double
 	template bool ParameterSet::get<bool>(const char *key) const;
 	template int ParameterSet::get<int>(const char *key) const;
 	template unsigned ParameterSet::get<unsigned>(const char *key) const;
 	template float ParameterSet::get<float>(const char *key) const;
 	template double ParameterSet::get<double>(const char *key) const;
-	
+
 	std::string ParameterSet::getString() const
 	{
 		std::ostringstream oss;
@@ -294,46 +294,46 @@ namespace Dashel
 		}
 		return oss.str();
 	}
-	
+
 	void ParameterSet::erase(const char *key)
 	{
 		std::vector<std::string>::iterator i = std::find(params.begin(), params.end(), key);
 		if (i != params.end())
 			params.erase(i);
-		
+
 		std::map<std::string, std::string>::iterator j = values.find(key);
 		if (j != values.end())
 			values.erase(j);
 	}
-	
-	
+
+
 	void MemoryPacketStream::write(const void *data, const size_t size)
 	{
 		sendBuffer.add(data, size);
 	}
-	
+
 	void MemoryPacketStream::read(void *data, size_t size)
 	{
 		if (size > receptionBuffer.size())
 			fail(DashelException::IOError, 0, "Attempt to read past available data");
-		
+
 		unsigned char* ptr = (unsigned char*)data;
 		std::copy(receptionBuffer.begin(), receptionBuffer.begin() + size, ptr);
 		receptionBuffer.erase(receptionBuffer.begin(), receptionBuffer.begin() + size);
 	}
-	
+
 	void Hub::closeStream(Stream* stream)
 	{
 		streams.erase(stream);
 		dataStreams.erase(stream);
 		delete stream;
 	}
-	
+
 	void StreamTypeRegistry::reg(const std::string& proto, const CreatorFunc func)
 	{
 		creators[proto] = func;
 	}
-	
+
 	Stream* StreamTypeRegistry::create(const std::string& proto, const std::string& target, const Hub& hub) const
 	{
 		typedef CreatorMap::const_iterator ConstIt;
@@ -343,7 +343,7 @@ namespace Dashel
 		const CreatorFunc& creatorFunc(it->second);
 		return creatorFunc(target, hub);
 	}
-	
+
 	std::string StreamTypeRegistry::list() const
 	{
 		std::string s;

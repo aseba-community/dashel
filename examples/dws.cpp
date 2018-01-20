@@ -66,18 +66,18 @@ public:
 	{
 		listenStream = connect("tcpin:port=" + port);
 	}
-	
+
 	void connectionCreated(Stream *stream)
 	{
 		cerr << stream << " Connection created to " << stream->getTargetName() << endl;
 	}
-	
+
 	void incomingData(Stream *stream)
 	{
 		// received request
 		const string request(readLine(stream));
 		cerr << stream << " Request: " << request;
-		
+
 		// read all options
 		readLine(stream);
 		string optionLine;
@@ -85,10 +85,10 @@ public:
 		{
 			cerr << stream << " Option: " << optionLine;
 		}
-		
+
 		// parse request
 		vector<string> requestParts(split(request, "\n\r\t "));
-		
+
 		// only support GET
 		if ((requestParts.size() < 2) || requestParts[0] != "GET")
 		{
@@ -97,7 +97,7 @@ public:
 			shutdownStream(stream);
 			return;
 		}
-		
+
 		// try to open file
 		const string fileName(requestParts[1]);
 		ifstream ifs(fileName.c_str());
@@ -109,7 +109,7 @@ public:
 			shutdownStream(stream);
 			return;
 		}
-		
+
 		// read and send the file
 		// note: this could be made much more efficient by checking the
 		// file size and reading it all at once
@@ -121,15 +121,15 @@ public:
 			c = ifs.get();
 		}
 		stream->flush();
-		
+
 		shutdownStream(stream);
 	}
-	
+
 	void connectionClosed(Stream *stream, bool abnormal)
 	{
 		cerr << stream << " Connection closed to " << stream->getTargetName() << endl;
 	}
-	
+
 protected:
 	Stream* listenStream;
 };
@@ -146,6 +146,6 @@ int main(int argc, char* argv[])
 	{
 		std::cerr << e.what() << std::endl;
 	}
-	
+
 	return 0;
 }

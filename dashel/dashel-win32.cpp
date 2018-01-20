@@ -2,18 +2,18 @@
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
 	Copyright (C) 2007 -- 2017:
-		
+
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
 		Mobots group - Laboratory of Robotics Systems, EPFL, Lausanne
 			(http://mobots.epfl.ch)
-		
+
 		Sebastian Gerlach
 		Kenzan Technologies
 			(http://www.kenzantech.com)
-	
+
 	All rights reserved.
-	
+
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
 		* Redistributions of source code must retain the above copyright
@@ -25,7 +25,7 @@
 		  "Kenzan Technologies" nor the names of the contributors may be used to
 		  endorse or promote products derived from this software without specific
 		  prior written permission.
-	
+
 	THIS SOFTWARE IS PROVIDED BY COPYRIGHT HOLDERS ``AS IS'' AND ANY
 	EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -87,7 +87,7 @@ namespace Dashel
 		EvClosed,			//!< Closed by remote.
 		EvConnect,			//!< Incoming connection detected.
 	} EvType;
-	
+
 	//! Asserts a dynamic cast.	Similar to the one in boost/cast.hpp
 	template<typename Derived, typename Base>
 	inline Derived polymorphic_downcast(Base base)
@@ -108,7 +108,7 @@ namespace Dashel
 		failReason = reason;
 		failReason += " ";
 		failReason += sysMessage;
-		
+
 		throw DashelException(s, se, failReason.c_str(), this);
 	}
 
@@ -124,7 +124,7 @@ namespace Dashel
 		DWORD i;
 		char* co;
 		char dn[1024], dcn[1024];
-		
+
 		// Create a HDEVINFO with all present ports.
 		hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_PORTS, 0, 0, DIGCF_PRESENT );
 
@@ -219,7 +219,7 @@ namespace Dashel
 
 		//! Flag indicating whether a read was performed.
 		bool readDone;
-		
+
 	protected:
 		//! Event for notifying end of stream (i.e. disconnect)
 		HANDLE hEOF;
@@ -242,7 +242,7 @@ namespace Dashel
 		{
 			hEvents[t] = he;
 		}
-		
+
 	public:
 		//! Constructor.
 		WaitableStream(const std::string& protocolName) : Stream(protocolName)
@@ -258,7 +258,7 @@ namespace Dashel
 			for(std::map<EvType, HANDLE>::iterator it = hEvents.begin(); it != hEvents.end(); ++it)
 				CloseHandle(it->second);
 		}
-		
+
 		//! Callback when an event is notified, allowing the stream to rearm it.
 		/*! \param srv Hub instance that has generated the notification.
 			\param t Type of event.
@@ -301,17 +301,17 @@ namespace Dashel
 			startWinSock();
 
 			IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
-			
+
 			// Create socket.
 			sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (sock == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
-			
+
 			// Reuse address.
 			int flag = 1;
 			if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&flag, sizeof (flag)) < 0)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot set address reuse flag on socket, probably the port is already in use.");
-			
+
 			// Bind socket.
 			sockaddr_in addr;
 			addr.sin_family = AF_INET;
@@ -319,7 +319,7 @@ namespace Dashel
 			addr.sin_addr.s_addr = htonl(bindAddress.address);
 			if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot bind socket to port, probably the port is already in use.");
-			
+
 			// retrieve port number, if a dynamic one was requested
 			if (bindAddress.port == 0)
 			{
@@ -364,10 +364,10 @@ namespace Dashel
 				{
 					fail(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot accept incoming connection on socket.");
 				}
-				
+
 				// create stream
 				std::string ls = IPV4Address(ntohl(targetAddr.sin_addr.s_addr), ntohs(targetAddr.sin_port)).format(resolveIncomingNames);
-				
+
 				std::ostringstream buf;
 				buf << ";connectionPort=";
 				buf << atoi(getTargetParameter("port").c_str());
@@ -450,13 +450,13 @@ namespace Dashel
 		{ 
 			throw DashelException(DashelException::InvalidOperation, GetLastError(), "Cannot write to standard input.", this);
 		}
-		
+
 		//! Cannot flush stdin.
 		virtual void flush() 
 		{ 
 			throw DashelException(DashelException::InvalidOperation, GetLastError(), "Cannot flush standard input.", this);
 		}
-		
+
 		virtual void read(void *data, size_t size)
 		{
 			char *ptr = (char *)data;
@@ -536,12 +536,12 @@ namespace Dashel
 				}
 			}
 		}
-		
+
 		virtual void flush()
 		{
 			FlushFileBuffers(hf);
 		}
-		
+
 		virtual void read(void *data, size_t size) 
 		{ 
 			fail(DashelException::InvalidOperation, GetLastError(), "Cannot read from standard output.");
@@ -634,7 +634,7 @@ namespace Dashel
 		{
 			CloseHandle(hf);
 		}
-		
+
 		virtual void write(const void *data, const size_t size)
 		{
 			const char *ptr = (const char *)data;
@@ -687,16 +687,16 @@ namespace Dashel
 					ptr += len;
 					left -= len;
 				}
-			
+
 				writeOffset += len;
 			}
 		}
-		
+
 		virtual void flush()
 		{
 			FlushFileBuffers(hf);
 		}
-		
+
 		virtual void read(void *data, size_t size)
 		{
 			char *ptr = (char *)data;
@@ -704,7 +704,7 @@ namespace Dashel
 
 			// Quick check to make sure nobody is giving us funny 64-bit stuff.
 			assert(left == size);
-			
+
 			if (size == 0)
 				return;
 
@@ -904,7 +904,7 @@ namespace Dashel
 				return devName;	// likely "COMnn"
 			return devName.substr(pos + 1);
 		}
-		
+
 	public:
 		//! Create the stream and associates a file descriptor
 		/*! \param params Parameter string.
@@ -918,7 +918,7 @@ namespace Dashel
 			{
 				target.addParam("device", NULL, true);
 				target.erase("port");
-				
+
 				devName = target.get("device");
 			}
 			else if (target.isSet("name"))
@@ -948,7 +948,7 @@ namespace Dashel
 			else
 			{
 				target.erase("device");
-				
+
 				devName = std::string("\\\\.\\COM").append(target.get("port"));
 			}
 
@@ -984,7 +984,7 @@ namespace Dashel
 				DWORD bufSize;
 				SetupDiGetDeviceRegistryProperty(hDevInfo, &deviceInfoData, SPDRP_FRIENDLYNAME, &dataType, NULL, 0, &bufSize);
 				std::vector<TCHAR> buffer(bufSize);
-				
+
 				if (SetupDiGetDeviceRegistryProperty(hDevInfo, &deviceInfoData, SPDRP_FRIENDLYNAME, &dataType, (PBYTE)&buffer[0], bufSize, NULL))
 				{
 					// find "(COM"
@@ -1137,11 +1137,11 @@ namespace Dashel
 		{
 			char *ptr = (char *)data;
 			size_t left = size;
-			
+
 			while (left)
 			{
 				int len = send(sock, ptr, (int)left, 0);
-				
+
 				if (len == SOCKET_ERROR)
 				{
 					fail(DashelException::ConnectionLost, GetLastError(), "Connection lost on write.");
@@ -1153,14 +1153,14 @@ namespace Dashel
 				}
 			}
 		}
-		
+
 		virtual void flush() { /* hook for use by derived classes */ }
-		
+
 		virtual void read(void *data, size_t size)
 		{
 			char *ptr = (char *)data;
 			size_t left = size;
-			
+
 			if (size == 0)
 				return;
 
@@ -1182,13 +1182,13 @@ namespace Dashel
 				if(left)
 					WaitForSingleObject(hev, INFINITE);
 			}
-			
+
 			while (left)
 			{
 				//std::cerr << "ready to recv " << std::endl;
 				int len = recv(sock, ptr, (int)left, 0);
 				//std::cerr << "recv done " << std::endl;
-				
+
 				if (len == SOCKET_ERROR)
 				{
 					//std::cerr << "socket error" << std::endl;
@@ -1298,19 +1298,19 @@ namespace Dashel
 		{
 			target.add("udp:port=5000;address=0.0.0.0;sock=0");
 			target.add(targetName.c_str());
-			
+
 			sock = target.get<SOCKET>("sock");
 			if(!sock)
 			{
 				startWinSock();
-				
+
 				// create socket
 				sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				if (sock == SOCKET_ERROR)
 					throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot create socket.");
-				
+
 				IPV4Address bindAddress(target.get("address"), target.get<int>("port"));
-				
+
 				// bind
 				sockaddr_in addr;
 				addr.sin_family = AF_INET;
@@ -1336,14 +1336,14 @@ namespace Dashel
 				// remove file descriptor information from target name
 				target.erase("sock");
 			}
-			
+
 			// enable broadcast
 			int broadcastPermission = 1;
 			setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (const char*)&broadcastPermission, sizeof(broadcastPermission));
-			
+
 			// Create and register event.
 			hev = createEvent(EvData);
-			
+
 			int rv = WSAEventSelect(sock, hev, FD_READ);
 			if (rv == SOCKET_ERROR)
 				throw DashelException(DashelException::ConnectionFailed, WSAGetLastError(), "Cannot select socket events.");
@@ -1360,13 +1360,13 @@ namespace Dashel
 			addr.sin_family = AF_INET;
 			addr.sin_port = htons(dest.port);;
 			addr.sin_addr.s_addr = htonl(dest.address);
-			
+
 			if (sendto(sock, (const char*)sendBuffer.get(), sendBuffer.size(), 0, (struct sockaddr *)&addr, sizeof(addr)) != sendBuffer.size())
 				fail(DashelException::IOError, WSAGetLastError(), "UDP Socket write I/O error.");
-			
+
 			sendBuffer.clear();
 		}
-		
+
 		virtual void receive(IPV4Address& source)
 		{
 			unsigned char buf[4006];
@@ -1377,10 +1377,10 @@ namespace Dashel
 			int recvCount = recvfrom(sock, (char*)buf, 4096, 0, (struct sockaddr *)&addr, &addrLen);
 			if (recvCount <= 0)
 				fail(DashelException::ConnectionLost, WSAGetLastError(), "UDP Socket read I/O error.");
-			
+
 			receptionBuffer.resize(recvCount);
 			std::copy(buf, buf+recvCount, receptionBuffer.begin());
-			
+
 			source = IPV4Address(ntohl(addr.sin_addr.s_addr), ntohs(addr.sin_port));
 		}
 	};
@@ -1401,14 +1401,14 @@ namespace Dashel
 			abort();
 		}
 	}
-	
+
 	Hub::~Hub()
 	{
 		for (StreamsSet::iterator it = streams.begin(); it != streams.end(); ++it)
 			delete *it;
 		CloseHandle(streamsLock);
 	}
-	
+
 	Stream* Hub::connect(const std::string &target)
 	{
 		std::string proto, params;
@@ -1427,9 +1427,9 @@ namespace Dashel
 			r += streamTypeRegistry.list();
 			throw DashelException(DashelException::InvalidTarget, 0, r.c_str());
 		}
-		
+
 		/* The caller must have the stream lock held */
-		
+
 		streams.insert(s);
 		if (proto != "tcpin")
 		{
@@ -1438,12 +1438,12 @@ namespace Dashel
 		}
 		return s;
 	}
-	
+
 	void Hub::run()
 	{
 		while(step(-1));
 	}
-	
+
 	bool Hub::step(const int timeout)
 	{
 		lock();
@@ -1455,7 +1455,7 @@ namespace Dashel
 
 		// Wait on all our events.
 		DWORD ms = timeout >= 0 ? timeout : INFINITE;
-		
+
 		// Loop in order to consume all events, mostly within lock, excepted for wait
 		do
 		{
@@ -1480,7 +1480,7 @@ namespace Dashel
 					hc++;
 				}
 			}
-			
+
 			// Unlock for the wait
 			unlock();
 
@@ -1571,7 +1571,7 @@ namespace Dashel
 		}
 		while(true);
 	}
-	
+
 	void Hub::lock()
 	{
 		DWORD waitRet = WaitForSingleObject(streamsLock, INFINITE);
@@ -1581,7 +1581,7 @@ namespace Dashel
 			abort();
 		}
 	}
-	
+
 	void Hub::unlock()
 	{
 		if (!ReleaseMutex(streamsLock))
@@ -1607,6 +1607,6 @@ namespace Dashel
 		reg("tcppoll", &createInstance<PollStream>);
 		reg("udp", &createInstance<UDPSocketStream>);
 	}
-	
+
 	StreamTypeRegistry streamTypeRegistry;
 }
