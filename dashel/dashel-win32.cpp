@@ -1528,7 +1528,7 @@ namespace Dashel
 						{
 							connectionClosed(serialStream, false);
 						}
-						catch (DashelException e)
+						catch (const DashelException& e)
 						{
 						}
 						closeStream(serialStream);
@@ -1564,7 +1564,7 @@ namespace Dashel
 						strs[r]->notifyIncomingData(this, ets[r]); // Poll streams need to reset their edge triggers
 						incomingData(strs[r]);
 					}
-					catch (DashelException e)
+					catch (const DashelException& e)
 					{
 					}
 					if (!strs[r]->readDone)
@@ -1585,7 +1585,7 @@ namespace Dashel
 					{
 						connectionClosed(strs[r], false);
 					}
-					catch (DashelException e)
+					catch (const DashelException& e)
 					{
 					}
 					closeStream(strs[r]);
