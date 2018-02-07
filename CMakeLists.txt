@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8)
 
 project(dashel)
 
@@ -51,6 +51,15 @@ endif (WIN32)
 
 add_library(dashel ${DASHEL_SOURCES})
 target_link_libraries(dashel ${EXTRA_LIBS})
+
+
+if("${CMAKE_VERSION}" VERSION_GREATER 3.0)
+	target_include_directories(dashel PUBLIC
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+		$<INSTALL_INTERFACE:>
+
+	)
+endif()
 
 # dynamic library version
 set(LIB_INSTALL_DIR lib CACHE FILEPATH "Where to install libraries")
