@@ -1071,10 +1071,18 @@ namespace Dashel
 				case 1152000: newtio.c_cflag |= B1152000; break;
 				case 1500000: newtio.c_cflag |= B1500000; break;
 				case 2000000: newtio.c_cflag |= B2000000; break;
+#ifdef B2500000
 				case 2500000: newtio.c_cflag |= B2500000; break;
+#endif // B2500000
+#ifdef B3000000
 				case 3000000: newtio.c_cflag |= B3000000; break;
+#endif // B3000000
+#ifdef B3500000
 				case 3500000: newtio.c_cflag |= B3500000; break;
+#endif // B3500000
+#ifdef B4000000
 				case 4000000: newtio.c_cflag |= B4000000; break;
+#endif // B4000000
 				default: throw DashelException(DashelException::ConnectionFailed, 0, "Invalid baud rate.");
 			}
 #endif
