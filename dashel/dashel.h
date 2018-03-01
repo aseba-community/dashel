@@ -1,7 +1,7 @@
 /*
 	Dashel
 	A cross-platform DAta Stream Helper Encapsulation Library
-	Copyright (C) 2007 -- 2017:
+	Copyright (C) 2007 -- 2018:
 
 		Stephane Magnenat <stephane at magnenat dot net>
 			(http://stephane.magnenat.net)
@@ -11,6 +11,8 @@
 		Sebastian Gerlach
 		Kenzan Technologies
 			(http://www.kenzantech.com)
+
+		and other contributors, see readme.md file for details.
 
 	All rights reserved.
 
