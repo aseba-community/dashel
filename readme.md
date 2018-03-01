@@ -19,9 +19,9 @@ If you want to reach us, open an issue discussing your question, or, if specific
 
 ## Authors and license
 
-Copyright (C) 2007–2017:
+Copyright (C) 2007–2018:
 	
-* [Stéphane Magnenat](http://stephane.magnenat.net), [Mobots group](http://mobots.epfl.ch), [EPFL](http://www.epfl.ch/) and [Game Technology Center](http://www.gtc.inf.ethz.ch/), [ETH Zurich](https://www.ethz.ch/en.html)
+* [Stéphane Magnenat](http://stephane.magnenat.net), [Mobots group](http://mobots.epfl.ch), [EPFL](http://www.epfl.ch/) (10.2006–5.2010, 8.2015–7.2016); [Game Technology Center](http://www.gtc.inf.ethz.ch/), [ETH Zurich](https://www.ethz.ch/en.html) (9.2016–12.2017); independant (other time periods)
 * Sebastian Gerlach, [Kenzan Technologies](http://www.kenzantech.com)
 * [Antoine Beyeler](http://www.ab-ware.com), [Laboratory of Intelligent Systems](http://lis.epfl.ch), [EPFL](http://www.epfl.ch/)
 * [David James Sherman](http://www.labri.fr/perso/david/Site/David_James_Sherman.html), [Inria](http://inria.fr)
